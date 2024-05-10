@@ -8,8 +8,9 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IOFT, OFTReceipt, SendParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
-import {MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFTCore.sol";
+import {MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFTCore.sol";
 
+import {IErrors} from "./lib/IErrors.sol";
 import {EventIdCounter} from "./lib/EventIdCounter.sol";
 
 /**
@@ -34,13 +35,7 @@ import {EventIdCounter} from "./lib/EventIdCounter.sol";
  *         Contract is pausible by DEFAULT_ADMIN_ROLE. It allows to pause claiming rewards and updates to the Merkle roots.
  *         The contract is upgradeable to allow for future changes to the rewards distribution mechanism.
  */
-contract LedgerMerkleDistributor is
-    Initializable,
-    AccessControlUpgradeable,
-    ReentrancyGuardUpgradeable, 
-    PausableUpgradeable,
-    EventIdCounter
-{
+contract LedgerMerkleDistributor is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, EventIdCounter {
     /* ========== TYPES ========== */
 
     /// @dev The parameters related to a certain Merkle tree.
@@ -98,19 +93,6 @@ contract LedgerMerkleDistributor is
     /// @notice Emitted when a user (or behalf of user) claims rewards.
     event RewardsClaimed(uint256 eventId, uint32 distributionId, address account, uint256 amount, address token, uint32 dstEid);
 
-    /* ========== ERRORS ========== */
-
-    error DistributionAlreadyExists();
-    error DistributionNotFound();
-    error TokenIsZero();
-    error ProposedMerkleRootIsZero();
-    error StartTimestampIsInThePast();
-    error ThisMerkleRootIsAlreadyProposed();
-    error CannotUpdateRoot();
-    error NoActiveMerkleRoot();
-    error InvalidMerkleProof();
-    error OFTTransferFailed();
-
     /* ========== INITIALIZATION ========== */
 
     function initialize(address owner) external initializer {
@@ -135,19 +117,24 @@ contract LedgerMerkleDistributor is
      * @return  merkleRoot     The Merkle root.
      * @return  startTimestamp Timestamp when this Merkle root become active.
      * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data.
-    */
-    function getDistribution(uint32 _distributionId) external view returns (address token, bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
+     */
+    function getDistribution(
+        uint32 _distributionId
+    ) external view returns (address token, bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
         if (canUpdateRoot(_distributionId)) {
-            return
-                (activeDistributions[_distributionId].token,
-                 proposedRoots[_distributionId].merkleRoot,
-                 proposedRoots[_distributionId].startTimestamp,
-                 proposedRoots[_distributionId].ipfsCid);
+            return (
+                activeDistributions[_distributionId].token,
+                proposedRoots[_distributionId].merkleRoot,
+                proposedRoots[_distributionId].startTimestamp,
+                proposedRoots[_distributionId].ipfsCid
+            );
         }
-        return (activeDistributions[_distributionId].token,
-                activeDistributions[_distributionId].merkleTree.merkleRoot,
-                activeDistributions[_distributionId].merkleTree.startTimestamp,
-                activeDistributions[_distributionId].merkleTree.ipfsCid);
+        return (
+            activeDistributions[_distributionId].token,
+            activeDistributions[_distributionId].merkleTree.merkleRoot,
+            activeDistributions[_distributionId].merkleTree.startTimestamp,
+            activeDistributions[_distributionId].merkleTree.ipfsCid
+        );
     }
 
     /**
@@ -172,11 +159,7 @@ contract LedgerMerkleDistributor is
      * @return  startTimestamp Timestamp when this Merkle root become active.
      * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data.
      */
-    function getProposedRoot(uint32 _distributionId)
-        external
-        view
-        returns (bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid)
-    {
+    function getProposedRoot(uint32 _distributionId) external view returns (bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
         return (proposedRoots[_distributionId].merkleRoot, proposedRoots[_distributionId].startTimestamp, proposedRoots[_distributionId].ipfsCid);
     }
 
@@ -231,16 +214,21 @@ contract LedgerMerkleDistributor is
      *
      *  Reverts if the distribution with the same id is already exists or Merkle root params are invalid.
      */
-    function createDistribution(uint32 _distributionId, address _token, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid)
-        external
-        nonReentrant
-        onlyUpdater
-    {
-        if (activeDistributions[_distributionId].token != address(0)) revert DistributionAlreadyExists();
+    function createDistribution(
+        uint32 _distributionId,
+        address _token,
+        bytes32 _merkleRoot,
+        uint256 _startTimestamp,
+        bytes calldata _ipfsCid
+    ) external nonReentrant onlyUpdater {
+        if (activeDistributions[_distributionId].token != address(0)) revert IErrors.DistributionAlreadyExists();
 
-        if (_token == address(0)) revert TokenIsZero();
+        if (_token == address(0)) revert IErrors.TokenIsZero();
 
-        activeDistributions[_distributionId] = Distribution({token: _token, merkleTree: MerkleTree({merkleRoot: "", startTimestamp: 0, ipfsCid: ""})});
+        activeDistributions[_distributionId] = Distribution({
+            token: _token,
+            merkleTree: MerkleTree({merkleRoot: "", startTimestamp: 0, ipfsCid: ""})
+        });
 
         proposeRoot(_distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
 
@@ -262,29 +250,30 @@ contract LedgerMerkleDistributor is
      *  Reverts if the proposed startTimestamp is in the past.
      *  Reverts if the proposed root is already proposed.
      */
-    function proposeRoot(uint32 _distributionId, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid)
-        public
-        nonReentrant
-        onlyUpdater
-    {
-        if (activeDistributions[_distributionId].token == address(0)) revert DistributionNotFound();
+    function proposeRoot(
+        uint32 _distributionId,
+        bytes32 _merkleRoot,
+        uint256 _startTimestamp,
+        bytes calldata _ipfsCid
+    ) public nonReentrant onlyUpdater {
+        if (activeDistributions[_distributionId].token == address(0)) revert IErrors.DistributionNotFound();
 
-        if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
+        if (_merkleRoot == bytes32(0)) revert IErrors.ProposedMerkleRootIsZero();
 
-        if (_startTimestamp < block.timestamp) revert StartTimestampIsInThePast();
+        if (_startTimestamp < block.timestamp) revert IErrors.StartTimestampIsInThePast();
 
         if (
-            _merkleRoot == proposedRoots[_distributionId].merkleRoot && _startTimestamp == proposedRoots[_distributionId].startTimestamp
-                && keccak256(_ipfsCid) == keccak256(proposedRoots[_distributionId].ipfsCid)
-        ) revert ThisMerkleRootIsAlreadyProposed();
+            _merkleRoot == proposedRoots[_distributionId].merkleRoot &&
+            _startTimestamp == proposedRoots[_distributionId].startTimestamp &&
+            keccak256(_ipfsCid) == keccak256(proposedRoots[_distributionId].ipfsCid)
+        ) revert IErrors.ThisMerkleRootIsAlreadyProposed();
 
         if (canUpdateRoot(_distributionId)) {
             updateRoot(_distributionId);
         }
 
         // Set the proposed root and the start timestamp when proposed root to become active.
-        proposedRoots[_distributionId] =
-            MerkleTree({merkleRoot: _merkleRoot, startTimestamp: _startTimestamp, ipfsCid: _ipfsCid});
+        proposedRoots[_distributionId] = MerkleTree({merkleRoot: _merkleRoot, startTimestamp: _startTimestamp, ipfsCid: _ipfsCid});
 
         emit RootProposed(_getNextEventId(), _distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
     }
@@ -300,7 +289,7 @@ contract LedgerMerkleDistributor is
      *  Reverts if the waiting period for the proposed root has not elapsed.
      */
     function updateRoot(uint32 _distributionId) public whenNotPaused {
-        if (!canUpdateRoot(_distributionId)) revert CannotUpdateRoot();
+        if (!canUpdateRoot(_distributionId)) revert IErrors.CannotUpdateRoot();
 
         activeDistributions[_distributionId].merkleTree = proposedRoots[_distributionId];
         delete proposedRoots[_distributionId];
@@ -319,7 +308,7 @@ contract LedgerMerkleDistributor is
     /**
      * @notice Claim the remaining unclaimed rewards for a user, and send them to that user on the chain, pointed by _dstEid.
      * Works only if distribution is OFT token based.
-     * Send tokens using LZ bridge to the 
+     * Send tokens using LZ bridge to the
      * Claim the remaining unclaimed rewards for a user, and send them to that user.
      *         Will propogate pending Merkle root updates before claiming if startTimestamp has
      *         passed for the token.
@@ -336,12 +325,13 @@ contract LedgerMerkleDistributor is
      *  Reverts if no active Merkle root is set for the _distributionId.
      *  Reverts if the provided Merkle proof is invalid.
      */
-    function claimRewards(uint32 _distributionId, address _user, uint32 _dstEid, uint256 _cumulativeAmount, bytes32[] calldata _merkleProof)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint256 claimableAmount)
-    {
+    function claimRewards(
+        uint32 _distributionId,
+        address _user,
+        uint32 _dstEid,
+        uint256 _cumulativeAmount,
+        bytes32[] calldata _merkleProof
+    ) external whenNotPaused nonReentrant returns (uint256 claimableAmount) {
         if (canUpdateRoot(_distributionId)) {
             updateRoot(_distributionId);
         }
@@ -349,18 +339,18 @@ contract LedgerMerkleDistributor is
         address token = activeDistributions[_distributionId].token;
 
         // Distribution should be created (has not null token address).
-        if (token == address(0)) revert DistributionNotFound();
+        if (token == address(0)) revert IErrors.DistributionNotFound();
 
         // Verify the Merkle proof.
         {
             // Get the active Merkle root.
             MerkleTree storage activeMerkleTree = activeDistributions[_distributionId].merkleTree;
-            if (activeMerkleTree.merkleRoot == bytes32(0)) revert NoActiveMerkleRoot();
+            if (activeMerkleTree.merkleRoot == bytes32(0)) revert IErrors.NoActiveMerkleRoot();
             bytes32 merkleRoot = activeMerkleTree.merkleRoot;
 
             // Verify the Merkle proof.
             bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_user, _cumulativeAmount))));
-            if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidMerkleProof();
+            if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert IErrors.InvalidMerkleProof();
         }
 
         // Get the claimable amount.
@@ -372,11 +362,10 @@ contract LedgerMerkleDistributor is
         if (claimableAmount > 0) {
             // Mark the user as having claimed the full amount.
             claimedAmounts[_distributionId][_user] = _cumulativeAmount;
-            
+
             // If distribution is token based, send the claimable amount to the user on the destination chain.
             // Record based distributions just return the claimable amount.
-            if (token != address(1))
-            {
+            if (token != address(1)) {
                 SendParam memory sendParam = SendParam(
                     _dstEid,
                     addressToBytes32(_user),
@@ -389,16 +378,19 @@ contract LedgerMerkleDistributor is
                 IOFT oftRewardToken = IOFT(token);
                 MessagingFee memory fee = oftRewardToken.quoteSend(sendParam, false);
 
-                (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = oftRewardToken.send{ value: fee.nativeFee }(sendParam, fee, payable(address(this)));
+                (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = oftRewardToken.send{value: fee.nativeFee}(
+                    sendParam,
+                    fee,
+                    payable(address(this))
+                );
                 if (oftReceipt.amountSentLD != claimableAmount || msgReceipt.fee.lzTokenFee != 0) {
-                    revert OFTTransferFailed();
+                    revert IErrors.OFTTransferFailed();
                 }
             }
 
             emit RewardsClaimed(_getNextEventId(), _distributionId, _user, claimableAmount, token, _dstEid);
         }
     }
-
 
     /* ========== ADMIN FUNCTIONS ========== */
 

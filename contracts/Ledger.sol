@@ -6,16 +6,11 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+import {IErrors} from "./lib/IErrors.sol";
 import {EventIdCounter} from "./lib/EventIdCounter.sol";
 import {LedgerMerkleDistributor} from "./LedgerMerkleDistributor.sol";
 
-contract Ledger is
-    Initializable,
-    AccessControlUpgradeable,
-    ReentrancyGuardUpgradeable, 
-    PausableUpgradeable,
-    EventIdCounter
-{
+contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, EventIdCounter, IErrors {
     // Contract for Merkle distribution
     LedgerMerkleDistributor internal distributor;
 
@@ -37,7 +32,9 @@ contract Ledger is
 
     /* ========== DISTRIBUTOR VIEW FUNCTIONS ========== */
 
-    function getDistribution(uint32 _distributionId) external view returns (address token, bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
+    function getDistribution(
+        uint32 _distributionId
+    ) external view returns (address token, bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
         return distributor.getDistribution(_distributionId);
     }
 
@@ -59,7 +56,13 @@ contract Ledger is
 
     /* ========== DISTRIBUTOR ROOT UPDATER FUNCTIONS ========== */
 
-    function createDistribution(uint32 _distributionId, address _token, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid) external {
+    function createDistribution(
+        uint32 _distributionId,
+        address _token,
+        bytes32 _merkleRoot,
+        uint256 _startTimestamp,
+        bytes calldata _ipfsCid
+    ) external {
         distributor.createDistribution(_distributionId, _token, _merkleRoot, _startTimestamp, _ipfsCid);
     }
 
@@ -73,8 +76,13 @@ contract Ledger is
 
     /* ========== DISTRIBUTOR CLAIM FUNCTIONS ========== */
 
-    function claimRewards(uint32 _distributionId, address _user, uint32 _dstEid, uint256 _cumulativeAmount, bytes32[] calldata _merkleProof) external returns (uint256 claimableAmount) {
-
+    function claimRewards(
+        uint32 _distributionId,
+        address _user,
+        uint32 _dstEid,
+        uint256 _cumulativeAmount,
+        bytes32[] calldata _merkleProof
+    ) external returns (uint256 claimableAmount) {
         claimableAmount = distributor.claimRewards(_distributionId, _user, _dstEid, _cumulativeAmount, _merkleProof);
         if (distributor.isDistributionRecordBased(_distributionId)) {
             // If the distribution is record-based, we need to stake the claimable amount
@@ -92,4 +100,3 @@ contract Ledger is
         distributor.revokeRole(distributor.ROOT_UPDATER_ROLE(), account);
     }
 }
-    
