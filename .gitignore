@@ -1,0 +1,16 @@
+abi/
+artifacts/
+cache/
+coverage/
+exports/
+node_modules/
+types/
+.env
+coverage.json
+TODO.md
+.vscode
+deployments/localhost/
+forge-cache/
+forge-out/
+.next
+bin/

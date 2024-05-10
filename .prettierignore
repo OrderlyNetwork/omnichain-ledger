@@ -1,0 +1,18 @@
+# Build
+coverage/
+coverage.json
+artifacts/
+cache/
+node_modules/
+typechain/
+package/
+
+# Files
+package-lock.json
+*.abi.json
+
+# Others
+.vscode/
+.husky/
+deployments/
+lib/
