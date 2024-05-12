@@ -5,7 +5,7 @@ import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY } from "./utilities/index";
+import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY } from "./utilities/index";
 
 describe("MerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -107,7 +107,7 @@ describe("MerkleDistributor", function () {
 
   async function checkProposedRoot(
     distributor: Contract,
-    tokenAddress: any,
+    distributionId: number,
     tree: StandardMerkleTree<string[]>,
     startTimestamp: number,
     ipfsCid: string
@@ -116,7 +116,7 @@ describe("MerkleDistributor", function () {
       merkleRoot: proposedMerkleRoot,
       startTimestamp: proposedStartTimestamp,
       ipfsCid: proposedIpfsCid
-    } = await distributor.getProposedRoot(tokenAddress);
+    } = await distributor.getProposedRoot(distributionId);
     expect(proposedMerkleRoot).to.be.equal(tree.root);
     expect(startTimestamp).to.be.equal(startTimestamp);
     expect(proposedIpfsCid).to.be.equal(ipfsCid);
@@ -131,11 +131,11 @@ describe("MerkleDistributor", function () {
     const distributor = await upgrades.deployProxy(ledgerCF, [owner.address]);
     await distributor.deployed();
 
-    await distributor.connect(owner).grantRootUpdaterRole(updater.address);
+    await distributor.connect(owner).grantRole(distributor.ROOT_UPDATER_ROLE(), updater.address);
 
-    console.log("owner: ", owner.address);
-    console.log("updater: ", updater.address);
-    console.log("distributor: ", distributor.address);
+    // console.log("owner: ", owner.address);
+    // console.log("updater: ", updater.address);
+    // console.log("distributor: ", distributor.address);
 
     return { distributor, owner, user, updater, operator };
   }
@@ -172,17 +172,25 @@ describe("MerkleDistributor", function () {
     );
 
     // Updater should be able to propose a root as he has been granted the ROOT_UPDATER_ROLE
-    await expect(distributor.connect(updater).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid))
-      .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, tree.root, startTimestamp, ipfsCid);
+    await expect(distributor.connect(updater).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+      distributor,
+      "ThisMerkleRootIsAlreadyProposed"
+    );
 
     expect(await distributor.hasPendingRoot(distributionId)).to.be.equal(true);
 
+    const { tree: newTree } = prepareMerkleTree([user.address], [INITIAL_SUPPLY.add(1).toString()]);
+    const newStartTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
+    const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
+    await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, newStartTimestamp, newIpfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, newTree.root, newStartTimestamp, newIpfsCid);
+
     // Check that the proposed root is correct
-    await checkProposedRoot(distributor, fakeTokenAddress, tree, startTimestamp, ipfsCid);
+    await checkProposedRoot(distributor, distributionId, newTree, newStartTimestamp, newIpfsCid);
 
     // Check that the active root is still the default one
-    expect((await distributor.getActualRoot(fakeTokenAddress)).merkleRoot).to.be.equal(emptyRoot);
+    expect((await distributor.getDistribution(distributionId)).merkleRoot).to.be.equal(emptyRoot);
   });
 
   // it("should fail proposing same root twice", async function () {
