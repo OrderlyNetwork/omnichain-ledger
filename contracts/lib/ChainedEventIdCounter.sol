@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
-contract ChainedEventIdCounter {
+abstract contract ChainedEventIdCounter {
     /// @notice Mapping of srcChainId => event id
     mapping(uint256 => uint256) public srcChainIdToEventId;
 

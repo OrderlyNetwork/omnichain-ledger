@@ -59,7 +59,7 @@ abstract contract MerkleDistributor {
     error InvalidMerkleProof();
     error OFTTransferFailed();
 
-        /**
+    /**
      * @notice Get the active Merkle root for distribution id and associated parameters.
      *         If there is a proposed root and the start timestamp has passed, it will be the active root.
      *         Because it will be updated at the beginning of the next claimReward call and become active from that moment.
