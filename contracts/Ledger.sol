@@ -10,18 +10,31 @@ import {IOFT, OFTReceipt, SendParam} from "@layerzerolabs/lz-evm-oapp-v2/contrac
 import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 import {MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFTCore.sol";
 
+import { LedgerToken } from "./lib/Common.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
 import {Distribution, MerkleTree, MerkleDistributor} from "./lib/MerkleDistributor.sol";
 
 contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, ChainedEventIdCounter, MerkleDistributor{
+
+    /* ========== STATE VARIABLES ========== */
+    /// @dev The address of the Order OFT token.
+    IOFT public orderToken;
+
+    /* ========== ERRORS ========== */
+    error OrderTokenIsZero();
+
     /* ========== INITIALIZER ========== */
 
-    function initialize(address owner) external initializer {
+    function initialize(address _owner, IOFT _orderToken) external initializer {
+        if (address(_orderToken) == address(0)) revert OrderTokenIsZero();
+
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();
 
-        _setupRole(DEFAULT_ADMIN_ROLE, owner);
+        _setupRole(DEFAULT_ADMIN_ROLE, _owner);
+
+        orderToken = _orderToken;
     }
 
     /* ========== ADMIN FUNCTIONS ========== */
@@ -68,18 +81,16 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
      */
     function createDistribution(
         uint32 _distributionId,
-        address _token,
+        LedgerToken _token,
         bytes32 _merkleRoot,
         uint256 _startTimestamp,
         bytes calldata _ipfsCid
     ) external nonReentrant onlyUpdater {
-        if (activeDistributions[_distributionId].token != address(0)) revert DistributionAlreadyExists();
-
-        if (_token == address(0)) revert TokenIsZero();
+        if (_distributionExists(_distributionId)) revert DistributionAlreadyExists();
 
         activeDistributions[_distributionId] = Distribution({
             token: _token,
-            merkleTree: MerkleTree({merkleRoot: "", startTimestamp: 0, ipfsCid: ""})
+            merkleTree: MerkleTree({merkleRoot: "", startTimestamp: 1, ipfsCid: ""})
         });
 
         _proposeRoot(_distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
@@ -169,10 +180,8 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             updateRoot(_distributionId);
         }
 
-        address token = activeDistributions[_distributionId].token;
-
         // Distribution should be created (has not null token address).
-        if (token == address(0)) revert DistributionNotFound();
+        if (!_distributionExists(_distributionId)) revert DistributionNotFound();
 
         // Verify the Merkle proof.
         {
@@ -196,9 +205,11 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             // Mark the user as having claimed the full amount.
             claimedAmounts[_distributionId][_user] = _cumulativeAmount;
 
+            LedgerToken token = activeDistributions[_distributionId].token;
+
             // If distribution is token based, send the claimable amount to the user on the destination chain.
             // Record based distributions just return the claimable amount.
-            if (token != address(1)) {
+            if (token == LedgerToken.ORDER) {
                 SendParam memory sendParam = SendParam(
                     _dstEid,
                     _addressToBytes32(_user),
@@ -208,7 +219,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
                     "",
                     ""
                 );
-                IOFT oftRewardToken = IOFT(token);
+                IOFT oftRewardToken = IOFT(orderToken);
                 MessagingFee memory fee = oftRewardToken.quoteSend(sendParam, false);
 
                 (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = oftRewardToken.send{value: fee.nativeFee}(
@@ -219,6 +230,10 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
                 if (oftReceipt.amountSentLD != claimableAmount || msgReceipt.fee.lzTokenFee != 0) {
                     revert OFTTransferFailed();
                 }
+            } else {
+                // TODO: implement staking!
+                // Record based distribution. Stake the claimable amount.
+                return claimableAmount;
             }
 
             emit RewardsClaimed(_getNextEventId(0), _distributionId, _user, claimableAmount, token, _dstEid);
@@ -233,7 +248,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         uint256 _startTimestamp,
         bytes calldata _ipfsCid
     ) internal {
-        if (activeDistributions[_distributionId].token == address(0)) revert DistributionNotFound();
+        if (!_distributionExists(_distributionId)) revert DistributionNotFound();
 
         if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
 
@@ -254,13 +269,11 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
         emit RootProposed(_getNextEventId(0), _distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
     }
+    
+    // ███████ ████████  █████  ██   ██ ███████ 
+    // ██         ██    ██   ██ ██  ██  ██      
+    // ███████    ██    ███████ █████   █████   
+    //      ██    ██    ██   ██ ██  ██  ██      
+    // ███████    ██    ██   ██ ██   ██ ███████ 
 
-    /**
-     * @dev Converts an address to bytes32.
-     * @param _addr The address to convert.
-     * @return The bytes32 representation of the address.
-     */
-    function _addressToBytes32(address _addr) internal pure returns (bytes32) {
-        return bytes32(uint256(uint160(_addr)));
-    }    
 }

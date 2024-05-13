@@ -1,11 +1,11 @@
-import { ethers, upgrades } from "hardhat";
-import { BigNumber, Contract } from "ethers";
+import { deployments, ethers, upgrades } from "hardhat";
+import { BigNumber, Contract, ContractFactory } from "ethers";
 import { expect } from "chai";
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY } from "./utilities/index";
+import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY, LedgerToken } from "./utilities/index";
 
 describe("MerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -31,18 +31,18 @@ describe("MerkleDistributor", function () {
     return `0x${bs58.decode(ipfsHash).slice(2).toString("hex")}`;
   }
 
-  async function proposeRootDistribution(
+  async function createDistribution(
     addresses: string[],
     amounts: string[],
     distributor: Contract,
     updater: SignerWithAddress,
-    orderToken: Contract
+    distributionId: number
   ) {
     if (addresses.length < 1) throw new Error("addresses must have at least one element");
     const { tree, amountsBigNumber } = prepareMerkleTree(addresses, amounts);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
-    await distributor.connect(updater).proposeRoot(orderToken.address, tree.root, startTimestamp, ipfsCid);
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, tree.root, startTimestamp, ipfsCid);
     return { tree, amountsBigNumber, startTimestamp, ipfsCid };
   }
 
@@ -53,7 +53,7 @@ describe("MerkleDistributor", function () {
     updater: SignerWithAddress,
     orderToken: Contract
   ) {
-    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await proposeRootDistribution(addresses, amounts, distributor, updater, orderToken);
+    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(addresses, amounts, distributor, updater, 1);
     await helpers.time.increaseTo(startTimestamp + 1);
     await distributor.connect(updater).updateRoot(orderToken.address);
     return { tree, amountsBigNumber, startTimestamp, ipfsCid };
@@ -123,12 +123,27 @@ describe("MerkleDistributor", function () {
   }
 
   async function distributorFixture() {
-    // TODO: Make OrderToken OFT
     const ledgerCF = await ethers.getContractFactory("Ledger");
+    const orderTokenOftCF = await ethers.getContractFactory("OrderTokenOFT");
 
     const [owner, user, updater, operator] = await ethers.getSigners();
 
-    const distributor = await upgrades.deployProxy(ledgerCF, [owner.address]);
+    // The EndpointV2Mock contract comes from @layerzerolabs/test-devtools-evm-hardhat package
+    // and its artifacts are connected as external artifacts to this project
+    //
+    // Unfortunately, hardhat itself does not yet provide a way of connecting external artifacts
+    // so we rely on hardhat-deploy to create a ContractFactory for EndpointV2Mock
+    //
+    // See https://github.com/NomicFoundation/hardhat/issues/1040
+    const eidA = 1;
+    const EndpointV2MockArtifact = await deployments.getArtifact("EndpointV2Mock");
+    const EndpointV2Mock = new ContractFactory(EndpointV2MockArtifact.abi, EndpointV2MockArtifact.bytecode, owner);
+    const mockEndpointA = await EndpointV2Mock.deploy(eidA);
+
+    // TODO: Make OrderToken OFT
+    const orderTokenOft = await orderTokenOftCF.deploy(owner.address, TOTAL_SUPPLY, mockEndpointA.address);
+    await orderTokenOft.deployed();
+    const distributor = await upgrades.deployProxy(ledgerCF, [owner.address, orderTokenOft.address]);
     await distributor.deployed();
 
     await distributor.connect(owner).grantRole(distributor.ROOT_UPDATER_ROLE(), updater.address);
@@ -137,7 +152,7 @@ describe("MerkleDistributor", function () {
     // console.log("updater: ", updater.address);
     // console.log("distributor: ", distributor.address);
 
-    return { distributor, owner, user, updater, operator };
+    return { distributor, orderTokenOft, owner, user, updater, operator };
   }
 
   it("should have correct setup after deployment", async function () {
@@ -150,7 +165,7 @@ describe("MerkleDistributor", function () {
   });
 
   it("should allow to propose a new root", async function () {
-    const { distributor, owner, user, updater } = await distributorFixture();
+    const { distributor, orderTokenOft, owner, user, updater } = await distributorFixture();
     const { tree } = prepareMerkleTree([user.address], [INITIAL_SUPPLY_STR]);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
@@ -162,9 +177,8 @@ describe("MerkleDistributor", function () {
       "DistributionNotFound"
     );
 
-    const fakeTokenAddress = user.address;
     // Create distribution
-    await distributor.connect(updater).createDistribution(distributionId, fakeTokenAddress, tree.root, startTimestamp, ipfsCid);
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ESORDER, tree.root, startTimestamp, ipfsCid);
 
     // Owner should not be able to propose a root as he has not been granted the ROOT_UPDATER_ROLE
     await expect(distributor.connect(owner).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWith(
@@ -193,53 +207,55 @@ describe("MerkleDistributor", function () {
     expect((await distributor.getDistribution(distributionId)).merkleRoot).to.be.equal(emptyRoot);
   });
 
-  // it("should fail proposing same root twice", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await proposeRootDistribution(
-  //         [user.address],
-  //         [INITIAL_SUPPLY_STR],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
+  it("should fail proposing same root twice", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      [user.address],
+      [INITIAL_SUPPLY_STR],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     await expect(distributor.connect(updater).proposeRoot(orderToken.address, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
-  //         distributor,
-  //         "ThisMerkleRootIsAlreadyProposed"
-  //     );
-  // });
+    await expect(distributor.connect(updater).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+      distributor,
+      "ThisMerkleRootIsAlreadyProposed"
+    );
+  });
 
-  // it("should allow to update a proposed root if it differs from already proposed one", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await proposeRootDistribution(
-  //         [user.address],
-  //         [INITIAL_SUPPLY_STR],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
+  it("should allow to update a proposed root if it differs from already proposed one", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      [user.address],
+      [INITIAL_SUPPLY_STR],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     const { tree: newTree, amountsBigNumber: newAmountsBigNumber } = prepareMerkleTree([user.address], ["2000000000"]);
+    const { tree: newTree, amountsBigNumber: newAmountsBigNumber } = prepareMerkleTree([user.address], ["2000000000"]);
 
-  //     await expect(distributor.connect(updater).proposeRoot(orderToken.address, newTree.root, startTimestamp, ipfsCid))
-  //         .to.emit(distributor, "RootProposed")
-  //         .withArgs(anyValue, orderToken.address, newTree.root, startTimestamp, ipfsCid);
+    await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, startTimestamp, ipfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, newTree.root, startTimestamp, ipfsCid);
 
-  //     await checkProposedRoot(distributor, orderToken, newTree, startTimestamp, ipfsCid);
+    await checkProposedRoot(distributor, distributionId, newTree, startTimestamp, ipfsCid);
 
-  //     await expect(distributor.connect(updater).proposeRoot(orderToken.address, newTree.root, startTimestamp + 1, ipfsCid))
-  //         .to.emit(distributor, "RootProposed")
-  //         .withArgs(anyValue, orderToken.address, newTree.root, startTimestamp + 1, ipfsCid);
+    await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, startTimestamp + 1, ipfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, newTree.root, startTimestamp + 1, ipfsCid);
 
-  //     await checkProposedRoot(distributor, orderToken, newTree, startTimestamp + 1, ipfsCid);
+    await checkProposedRoot(distributor, distributionId, newTree, startTimestamp + 1, ipfsCid);
 
-  //     const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
-  //     await expect(distributor.connect(updater).proposeRoot(orderToken.address, newTree.root, startTimestamp + 1, newIpfsCid))
-  //         .to.emit(distributor, "RootProposed")
-  //         .withArgs(anyValue, orderToken.address, newTree.root, startTimestamp + 1, newIpfsCid);
+    const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
+    await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, startTimestamp + 1, newIpfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, newTree.root, startTimestamp + 1, newIpfsCid);
 
-  //     await checkProposedRoot(distributor, orderToken, newTree, startTimestamp, newIpfsCid);
-  // });
+    await checkProposedRoot(distributor, distributionId, newTree, startTimestamp, newIpfsCid);
+  });
 
   // it("should propogate the proposed root to the active one during proposing new one if startTimestamp has passed", async function () {
   //     const { orderToken, distributor, user, updater } = await distributorFixture();

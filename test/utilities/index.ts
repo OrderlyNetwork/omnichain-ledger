@@ -21,7 +21,7 @@ export function closeTo(value: BigNumberish, target: BigNumberish, precision: Bi
   return BigNumber.from(value).sub(target).abs().lte(precision);
 }
 
-export enum DepositToken {
+export enum LedgerToken {
   ORDER,
   ESORDER
 }

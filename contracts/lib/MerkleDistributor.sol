@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
+import { LedgerToken } from "./Common.sol";
+
 struct MerkleTree {
     /// @dev The Merkle root.
     bytes32 merkleRoot;
@@ -11,8 +13,8 @@ struct MerkleTree {
 }
 
 struct Distribution {
-    /// @dev Token address. If token is address(1), it means that the distribution is record based.
-    address token;
+    /// @dev Token of the distribution.
+    LedgerToken token;
     /// @dev The Merkle root and associated parameters.
     MerkleTree merkleTree;
 }
@@ -36,7 +38,7 @@ abstract contract MerkleDistributor {
     /* ========== EVENTS ========== */
 
     /// @notice Emitted when a new distribution is created.
-    event DistributionCreated(uint256 eventId, uint32 distributionId, address token, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
+    event DistributionCreated(uint256 eventId, uint32 distributionId, LedgerToken token, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
 
     /// @notice Emitted when a new Merkle root is proposed.
     event RootProposed(uint256 eventId, uint32 distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
@@ -45,11 +47,10 @@ abstract contract MerkleDistributor {
     event RootUpdated(uint256 eventId, uint32 distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
 
     /// @notice Emitted when a user (or behalf of user) claims rewards.
-    event RewardsClaimed(uint256 eventId, uint32 distributionId, address account, uint256 amount, address token, uint32 dstEid);    
+    event RewardsClaimed(uint256 eventId, uint32 distributionId, address account, uint256 amount, LedgerToken token, uint32 dstEid);    
 
     error DistributionAlreadyExists();
     error DistributionNotFound();
-    error TokenIsZero();
     error ProposedMerkleRootIsZero();
     error StartTimestampIsInThePast();
     error ThisMerkleRootIsAlreadyProposed();
@@ -73,7 +74,7 @@ abstract contract MerkleDistributor {
      */
     function getDistribution(
         uint32 _distributionId
-    ) external view returns (address token, bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
+    ) external view returns (LedgerToken token, bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
         if (canUpdateRoot(_distributionId)) {
             return (
                 activeDistributions[_distributionId].token,
@@ -98,7 +99,7 @@ abstract contract MerkleDistributor {
      * @return Boolean `true` if the distribution is record based, else `false`.
      */
     function isDistributionRecordBased(uint32 _distributionId) external view returns (bool) {
-        return activeDistributions[_distributionId].token == address(1);
+        return activeDistributions[_distributionId].token == LedgerToken.ESORDER;
     }
 
     /**
@@ -150,5 +151,25 @@ abstract contract MerkleDistributor {
      */
     function canUpdateRoot(uint32 _distributionId) public view returns (bool) {
         return hasPendingRoot(_distributionId) && block.timestamp >= proposedRoots[_distributionId].startTimestamp;
+    }    
+
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    /**
+     * @dev Converts an address to bytes32.
+     * @param _addr The address to convert.
+     * @return The bytes32 representation of the address.
+     */
+    function _addressToBytes32(address _addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(_addr)));
+    }
+
+    /**
+     * @dev Checks if the distribution exists.
+     * @param _distributionId The distribution id.
+     * @return Boolean `true` if the distribution exists, else `false`.
+     */
+    function _distributionExists(uint32 _distributionId) internal view returns (bool) {
+        return activeDistributions[_distributionId].merkleTree.startTimestamp != 0;
     }    
 }
