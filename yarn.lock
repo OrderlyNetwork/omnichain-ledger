@@ -3935,6 +3935,10 @@ optionator@^0.8.1:
     jsdom-global "^3.0.2"
     ts-node "^10.9.2"
 
+"orderly-omnichain-occ@https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git":
+  version "0.0.1"
+  resolved "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#d3c0bc0bd394b5a05c8308a222678fe200f659a1"
+
 ordinal@^1.0.3:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/ordinal/-/ordinal-1.0.3.tgz#1a3c7726a61728112f50944ad7c35c06ae3a0d4d"

@@ -143,7 +143,17 @@ describe("MerkleDistributor", function () {
     // TODO: Make OrderToken OFT
     const orderTokenOft = await orderTokenOftCF.deploy(owner.address, TOTAL_SUPPLY, mockEndpointA.address);
     await orderTokenOft.deployed();
-    const distributor = await upgrades.deployProxy(ledgerCF, [owner.address, orderTokenOft.address]);
+
+    const fakeAdapterAddress = owner.address;
+    const rewardPerSecond = 1;
+    const totalValorAmount = 1000000;
+    const distributor = await upgrades.deployProxy(ledgerCF, [
+      owner.address,
+      fakeAdapterAddress,
+      orderTokenOft.address,
+      rewardPerSecond,
+      totalValorAmount
+    ]);
     await distributor.deployed();
 
     await distributor.connect(owner).grantRole(distributor.ROOT_UPDATER_ROLE(), updater.address);

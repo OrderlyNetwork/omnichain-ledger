@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -10,23 +10,30 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
 import {LedgerToken} from "./lib/Common.sol";
+import {LedgerTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
 import {Distribution, MerkleTree, MerkleDistributor} from "./lib/MerkleDistributor.sol";
+import {OCCVaultMessage, OCCLedgerMessage, IOCCReceiver} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
+import {OCCManager} from "./lib/OCCManager.sol";
 import {Staking} from "./lib/Staking.sol";
 
-contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, ChainedEventIdCounter, MerkleDistributor, Staking {
+contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, ChainedEventIdCounter, OCCManager, MerkleDistributor, Staking {
     using SafeERC20 for IERC20;
+
     /* ========== STATE VARIABLES ========== */
-    /// @dev The address of the Order OFT token.
     address public orderToken;
+    address public occAdaptor;
 
     /* ========== ERRORS ========== */
     error OrderTokenIsZero();
+    error OCCAdaptorIsZero();
 
     /* ========== INITIALIZER ========== */
 
-    function initialize(address _owner, IOFT _orderTokenOft, uint256 _rewardPerSecond) external initializer {
+    function initialize(address _owner, address _occAdaptor, IOFT _orderTokenOft, uint256 _rewardPerSecond, uint256 totalValorAmount) external initializer {
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
+        if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
+
         if (_rewardPerSecond > Staking.MAX_REWARD_PER_SECOND) revert RewardPerSecondExceedsMaxValue();
 
         __AccessControl_init();
@@ -36,10 +43,12 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         _setupRole(DEFAULT_ADMIN_ROLE, _owner);
 
         orderToken = address(_orderTokenOft);
+        occAdaptor = _occAdaptor;
 
         // Staking parameters
-        // rewardPerSecond = _rewardPerSecond;
-        // lastRewardUpdateTimestamp = block.timestamp;
+        rewardPerSecond = _rewardPerSecond;
+        totalValorAmount = totalValorAmount;
+        lastRewardUpdateTimestamp = block.timestamp;
     }
 
     /* ========== ADMIN FUNCTIONS ========== */
@@ -53,6 +62,15 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+
+    function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
+        if(message.payloadType == uint8(PayloadDataType.ClaimReward)) {
+            LedgerTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerTypes.ClaimReward));
+            claimRewards(claimRewardPayload.distributionId, claimRewardPayload.user, message.srcChainId, claimRewardPayload.cumulativeAmount, claimRewardPayload.merkleProof);
+        }
+    }
+
+    function vaultRecvFromLedger(OCCLedgerMessage calldata message) external override {}
 
     /*
        ███    ███ ███████ ██████  ██   ██ ██      ███████     ██████  ██ ███████ ████████ ██████  ██ ██████  ██    ██ ████████  ██████  ██████  
@@ -164,7 +182,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
      *
      * @param  _distributionId  The distribution id.
      * @param  _user            Address of the user.
-     * @param  _dstEid          Destination LZ endpoint ID.
+     * @param  _srcChainId      The source chain id.
      * @param  _cumulativeAmount The total all-time rewards this user has earned.
      * @param  _merkleProof      The Merkle proof for the user and cumulative amount.
      *
@@ -177,10 +195,10 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     function claimRewards(
         uint32 _distributionId,
         address _user,
-        uint32 _dstEid,
+        uint256 _srcChainId,
         uint256 _cumulativeAmount,
-        bytes32[] calldata _merkleProof
-    ) external whenNotPaused nonReentrant returns (uint256 claimableAmount) {
+        bytes32[] memory _merkleProof
+    ) internal whenNotPaused nonReentrant returns (uint256 claimableAmount) {
         if (canUpdateRoot(_distributionId)) {
             updateRoot(_distributionId);
         }
@@ -222,7 +240,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
                 return claimableAmount;
             }
 
-            emit RewardsClaimed(_getNextEventId(0), _distributionId, _user, claimableAmount, token, _dstEid);
+            emit RewardsClaimed(_getNextEventId(0), _distributionId, _user, claimableAmount, token, _srcChainId);
         }
     }
 
@@ -271,10 +289,10 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         _updateRewardVars();
         _claimReward(_user);
 
+        totalStakedAmount += _amount;
         userInfos[_user].balance[uint256(_token)] += _amount;
         userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
 
-        // TODO: tokem!!!
         emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);        
     }
 
