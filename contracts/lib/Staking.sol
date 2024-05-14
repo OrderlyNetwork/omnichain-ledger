@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.22;
 
 import { LedgerToken } from "./Common.sol";
 
@@ -14,7 +14,7 @@ abstract contract Staking {
         uint256 unlockTimestamp; // Timestamp (block.timestamp) when unstaking amount will be unlocked
     }
 
-    uint256[2] public totalStakedAmounts; // Total amount of staken $ORDER and $esORDER
+    uint256 public totalStakedAmount; // Total amount of staken $ORDER and $esORDER
 
     uint256 internal constant MAX_REWARD_PER_SECOND = 1 ether;
     uint256 internal constant DEFAULT_UNSTAKE_LOCK_PERIOD = 7 days;
@@ -30,6 +30,8 @@ abstract contract Staking {
 
     /// @notice The amount of reward token, that will be emitted per second
     uint256 public rewardPerSecond;
+
+    uint256 public totalValorAmount;
 
     /// @notice The accrued reward share, scaled to `ACC_REWARD_PER_SHARE_PRECISION`
     uint256 public accRewardPerShareScaled;
@@ -99,7 +101,7 @@ abstract contract Staking {
     /// @param _user The user to lookup
     /// @return The number of pending reward tokens for `_user`
     function getPendingReward(address _user) external view returns (uint256) {
-        return _getPendingReward(_user);
+        return _getPendingReward(_user) + collectedRewards[_user];
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
@@ -111,12 +113,6 @@ abstract contract Staking {
         return userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)] == 0;
     }
 
-    /// @notice Get the total amount of staked ORDER and esORDER
-    /// @return The total amount of staked ORDER and esORDER
-    function _getTotalStaked() internal view returns (uint256) {
-        return totalStakedAmounts[uint256(LedgerToken.ORDER)] + totalStakedAmounts[uint256(LedgerToken.ESORDER)];
-    }
-
     /// @notice Get current accrued reward share, updated to the current block
     function _getCurrentAccRewardPreShare() internal view returns (uint256) {
         if (block.timestamp <= lastRewardUpdateTimestamp) {
@@ -125,7 +121,7 @@ abstract contract Staking {
 
         uint256 accRewardPerShareCurrentScaled = accRewardPerShareScaled;
         uint256 secondsElapsed = block.timestamp - lastRewardUpdateTimestamp;
-        uint256 totalStaked = _getTotalStaked();
+        uint256 totalStaked = totalStakedAmount;
         if (secondsElapsed > 0 && totalStaked > 0) {
             uint256 rewardEmission = secondsElapsed * rewardPerSecond;
             accRewardPerShareCurrentScaled += ((rewardEmission * ACC_REWARD_PER_SHARE_PRECISION) / totalStaked);

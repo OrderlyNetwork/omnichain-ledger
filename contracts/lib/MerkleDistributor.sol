@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
+pragma solidity 0.8.22;
 
 import { LedgerToken } from "./Common.sol";
 
@@ -47,7 +47,7 @@ abstract contract MerkleDistributor {
     event RootUpdated(uint256 eventId, uint32 distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
 
     /// @notice Emitted when a user (or behalf of user) claims rewards.
-    event RewardsClaimed(uint256 eventId, uint32 distributionId, address account, uint256 amount, LedgerToken token, uint32 dstEid);    
+    event RewardsClaimed(uint256 eventId, uint32 distributionId, address account, uint256 amount, LedgerToken token, uint256 dstEid);    
 
     error DistributionAlreadyExists();
     error DistributionNotFound();
