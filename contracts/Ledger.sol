@@ -27,8 +27,8 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     /* ========== INITIALIZER ========== */
 
-    function initialize(address _owner, IOFT _orderToken, uint256 _rewardPerSecond) external initializer {
-        if (address(_orderToken) == address(0)) revert OrderTokenIsZero();
+    function initialize(address _owner, IOFT _orderTokenOft, uint256 _rewardPerSecond) external initializer {
+        if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_rewardPerSecond > Staking.MAX_REWARD_PER_SECOND) revert RewardPerSecondExceedsMaxValue();
 
         __AccessControl_init();
@@ -37,7 +37,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
         _setupRole(DEFAULT_ADMIN_ROLE, _owner);
 
-        orderToken = address(_orderToken);
+        orderToken = address(_orderTokenOft);
 
         // Staking parameters
         // rewardPerSecond = _rewardPerSecond;
@@ -288,17 +288,17 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     /// @notice Stake tokens from LedgerToken list for a given user
     function stake(LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
-        _stake(userInfos[_msgSender()], _msgSender(), _amount, _token);
+        _stake(userInfos[_msgSender()], _amount, _token);
     }
 
     /// @notice Create unstaking request for `_amount` of tokens
     function createUnstakeRequest(LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
-        _unstake(userInfos[_msgSender()], pendingUnstakes[_msgSender()], _msgSender(), _amount, _token);
+        _unstake(userInfos[_msgSender()], pendingUnstakes[_msgSender()], _amount, _token);
     }
 
     /// @notice Cancel unstaking request
     function cancelUnstakeRequest() external nonReentrant whenNotPaused {
-        _cancelUnstake(userInfos[_msgSender()], pendingUnstakes[_msgSender()], _msgSender());
+        _cancelUnstake(userInfos[_msgSender()], pendingUnstakes[_msgSender()]);
     }
 
     /// @notice Withdraw unstaked tokens
@@ -311,7 +311,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         UserInfo storage userInfo = userInfos[_msgSender()];
         if (_getUserHasZeroBalance(userInfo)) revert UserHasZeroBalance();
         _updateRewardVars();
-        _claimReward(userInfo, _msgSender());
+        _claimReward(userInfo);
     }
 
     /// @notice Update reward variables to be up-to-date.
@@ -328,7 +328,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         accRewardPerShareScaled = _getCurrentAccRewardPreShare();
         lastRewardUpdateTimestamp = block.timestamp;
 
-        emit UpdateRewardVars(_getNextEventId(), lastRewardUpdateTimestamp, accRewardPerShareScaled);
+        emit UpdateRewardVars(_getNextEventId(0), lastRewardUpdateTimestamp, accRewardPerShareScaled);
     }
 
     /* ========== PRIVATE FUNCTIONS ========== */
@@ -339,13 +339,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
         if (pendingReward > 0) {
             _userInfo.rewardDebt += pendingReward;
-
-            // If reward token total supply is reached - no more rewards can be minted
-            // Supposed, that in this case contract will be moved to the next reward model
-            if (rewardToken.canBeMinted(pendingReward)) {
-                rewardToken.mint(rewardReceiver, pendingReward);
-            }
-        }
+            collectedRewards[_user] += pendingReward;
     }
 
 
@@ -357,7 +351,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         if (_amount == 0) revert AmountIsZero();
 
         _updateRewardVars();
-        _claimReward(_userInfo, rewardReceiver);
+        _claimReward(_userInfo);
 
         IERC20 tokenContract = _tokenContract(_token);
         tokenContract.safeTransferFrom(_msgSender(), address(this), _amount);
@@ -365,7 +359,8 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         _userInfo.balance[uint256(_token)] += _amount;
         _userInfo.rewardDebt = _getUserTotalRewardDebt(_userInfo);
 
-        emit Staked(_getNextEventId(), _msgSender(), rewardReceiver, _amount, tokenContract);
+        // TODO: tokem!!!
+        emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);
     }
 
     /// @notice Create or update a pending unstake request
@@ -377,7 +372,6 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     function _unstake(
         UserInfo storage _userInfo,
         PendingUnstake storage _userPendingUnstake,
-        address rewardReceiver,
         uint256 _amount,
         LedgerToken _token
     ) private {
@@ -385,45 +379,38 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         if (_userInfo.balance[uint256(_token)] == 0) revert UserHasZeroBalance();
 
         _updateRewardVars();
-        _claimReward(_userInfo, rewardReceiver);
+        _claimReward(_userInfo);
 
         _userInfo.balance[uint256(_token)] -= _amount;
-        _userPendingUnstake.balance[uint256(_token)] += _amount;
+        _userPendingUnstake.balanceOrder += _amount;
 
         _userPendingUnstake.unlockTimestamp = block.timestamp + unstakeLockPeriod;
         _userInfo.rewardDebt = _getUserTotalRewardDebt(_userInfo);
 
-        emit UnstakeRequested(_getNextEventId(), _msgSender(), rewardReceiver, _amount, _tokenContract(_token));
+        emit UnstakeRequested(_getNextEventId(0), _msgSender(), _amount, _token);
     }
 
     /// @notice Cancel unstaking request
     function _cancelUnstake(
         UserInfo storage _userInfo,
-        PendingUnstake storage _userPendingUnstake,
-        address rewardReceiver
+        PendingUnstake storage _userPendingUnstake
     ) private {
         if (_userPendingUnstake.unlockTimestamp == 0) revert NoPendingUnstakeRequest();
 
         _updateRewardVars();
-        _claimReward(_userInfo, rewardReceiver);
+        _claimReward(_userInfo);
 
-        uint256 pendingAmountOrder = _userPendingUnstake.balance[uint256(LedgerToken.ORDER)];
-        uint256 pendingAmountEsorder = _userPendingUnstake.balance[uint256(LedgerToken.ESORDER)];
+        uint256 pendingAmountOrder = _userPendingUnstake.balanceOrder;
 
         if (pendingAmountOrder > 0) {
             _userInfo.balance[uint256(LedgerToken.ORDER)] += pendingAmountOrder;
-            _userPendingUnstake.balance[uint256(LedgerToken.ORDER)] = 0;
-        }
-
-        if (pendingAmountEsorder > 0) {
-            _userInfo.balance[uint256(LedgerToken.ESORDER)] += pendingAmountEsorder;
-            _userPendingUnstake.balance[uint256(LedgerToken.ESORDER)] = 0;
+            _userPendingUnstake.balanceOrder = 0;
         }
 
         _userInfo.rewardDebt = _getUserTotalRewardDebt(_userInfo);
         _userPendingUnstake.unlockTimestamp = 0;
 
-        emit UnstakeCancelled(_getNextEventId(), _msgSender(), rewardReceiver, pendingAmountOrder, pendingAmountEsorder);
+        emit UnstakeCancelled(_getNextEventId(0), _msgSender(), pendingAmountOrder);
     }
 
     /// @notice Withdraw unstaked tokens
@@ -431,12 +418,10 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         if (_userPendingUnstake.unlockTimestamp == 0) revert NoPendingUnstakeRequest();
         if (block.timestamp < _userPendingUnstake.unlockTimestamp) revert UnlockTimeNotPassedYet();
 
-        if (_userPendingUnstake.balance[uint256(LedgerToken.ORDER)] > 0) {
-            orderToken.safeTransfer(_msgSender(), _userPendingUnstake.balance[uint256(LedgerToken.ORDER)]);
-            emit Withdraw(
-                _getNextEventId(), _msgSender(), _userPendingUnstake.balance[uint256(LedgerToken.ORDER)], orderToken
-            );
-            _userPendingUnstake.balance[uint256(LedgerToken.ORDER)] = 0;
+        if (_userPendingUnstake.balanceOrder > 0) {
+            // orderToken.safeTransfer(_msgSender(), _userPendingUnstake.balanceOrder);
+            emit Withdraw(_getNextEventId(0), _msgSender(), _userPendingUnstake.balanceOrder);
+            _userPendingUnstake.balanceOrder = 0;
         }
 
         _userPendingUnstake.unlockTimestamp = 0;
@@ -445,7 +430,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     function _tokenContract(LedgerToken _token) private view returns (IERC20) {
         if (_token == LedgerToken.ORDER) {
-            return orderToken;
+            return IERC20(orderToken);
         } else {
             revert Unsupportedtoken();
         }

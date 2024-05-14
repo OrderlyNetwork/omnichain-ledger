@@ -14,7 +14,7 @@ abstract contract Staking {
         uint256 unlockTimestamp; // Timestamp (block.timestamp) when unstaking amount will be unlocked
     }
 
-    uint256[2] public totalStakedmounts; // Total amount of staken $ORDER and $esORDER
+    uint256[2] public totalStakedAmounts; // Total amount of staken $ORDER and $esORDER
 
     uint256 internal constant MAX_REWARD_PER_SECOND = 1 ether;
     uint256 internal constant DEFAULT_UNSTAKE_LOCK_PERIOD = 7 days;
@@ -22,6 +22,8 @@ abstract contract Staking {
 
     mapping(address => UserInfo) internal userInfos;
     mapping(address => PendingUnstake) internal pendingUnstakes;
+
+    mapping(address => uint256) public collectedRewards;
 
     /// @notice The last time that the reward variables were updated
     uint256 public lastRewardUpdateTimestamp;
@@ -111,7 +113,7 @@ abstract contract Staking {
     /// @notice Get the total amount of staked ORDER and esORDER
     /// @return The total amount of staked ORDER and esORDER
     function _getTotalStaked() internal view returns (uint256) {
-        return totalStakedmounts[uint256(LedgerToken.ORDER)] + totalStakedmounts[uint256(LedgerToken.ESORDER)];
+        return totalStakedAmounts[uint256(LedgerToken.ORDER)] + totalStakedAmounts[uint256(LedgerToken.ESORDER)];
     }
 
     /// @notice Get current accrued reward share, updated to the current block
