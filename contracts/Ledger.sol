@@ -30,11 +30,11 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     /* ========== INITIALIZER ========== */
 
-    function initialize(address _owner, address _occAdaptor, IOFT _orderTokenOft, uint256 _rewardPerSecond, uint256 totalValorAmount) external initializer {
+    function initialize(address _owner, address _occAdaptor, IOFT _orderTokenOft, uint256 _valorPerSecond, uint256 totalValorAmount) external initializer {
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
 
-        if (_rewardPerSecond > Staking.MAX_REWARD_PER_SECOND) revert RewardPerSecondExceedsMaxValue();
+        if (_valorPerSecond > Staking.MAX_VALOR_PER_SECOND) revert ValorPerSecondExceedsMaxValue();
 
         __AccessControl_init();
         __ReentrancyGuard_init();
@@ -46,9 +46,9 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         occAdaptor = _occAdaptor;
 
         // Staking parameters
-        rewardPerSecond = _rewardPerSecond;
+        valorPerSecond = _valorPerSecond;
         totalValorAmount = totalValorAmount;
-        lastRewardUpdateTimestamp = block.timestamp;
+        lastValorUpdateTimestamp = block.timestamp;
     }
 
     /* ========== ADMIN FUNCTIONS ========== */
@@ -280,18 +280,18 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     //      ██    ██    ██   ██ ██  ██  ██ ██  ██ ██ ██    ██ 
     // ███████    ██    ██   ██ ██   ██ ██ ██   ████  ██████  
 
-    /* ========== REGULAR USER CALL FUNCTIONS ========== */
+    /* ========== EXTERNAL FUNCTIONS ========== */
 
     /// @notice Stake tokens from LedgerToken list for a given user
     function stake(address _user, LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
         if (_amount == 0) revert AmountIsZero();
 
-        _updateRewardVars();
-        _claimReward(_user);
+        _updateValorVars();
+        _collectValor(_user);
 
         totalStakedAmount += _amount;
         userInfos[_user].balance[uint256(_token)] += _amount;
-        userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
+        userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
 
         emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);        
     }
@@ -301,14 +301,14 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         if (_amount == 0) revert AmountIsZero();
         if (userInfos[_user].balance[uint256(_token)] == 0) revert UserHasZeroBalance();
 
-        _updateRewardVars();
-        _claimReward(_user);
+        _updateValorVars();
+        _collectValor(_user);
 
         userInfos[_user].balance[uint256(_token)] -= _amount;
         pendingUnstakes[_user].balanceOrder += _amount;
 
         pendingUnstakes[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
-        userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
+        userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
 
         emit UnstakeRequested(_getNextEventId(0), _msgSender(), _amount, _token);
     }
@@ -317,8 +317,8 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     function cancelUnstakeRequest(address _user) external nonReentrant whenNotPaused {
         if (pendingUnstakes[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
 
-        _updateRewardVars();
-        _claimReward(_user);
+        _updateValorVars();
+        _collectValor(_user);
 
         uint256 pendingAmountOrder = pendingUnstakes[_user].balanceOrder;
 
@@ -327,7 +327,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             pendingUnstakes[_user].balanceOrder = 0;
         }
 
-        userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
+        userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
         pendingUnstakes[_user].unlockTimestamp = 0;
 
         emit UnstakeCancelled(_getNextEventId(0), _msgSender(), pendingAmountOrder);
@@ -350,36 +350,36 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     /// @notice Claim reward for sender
     function claimReward(address _user) external nonReentrant whenNotPaused {
         if (_getUserHasZeroBalance(_user)) revert UserHasZeroBalance();
-        _updateRewardVars();
-        _claimReward(_user);
+        _updateValorVars();
+        _collectValor(_user);
     }
 
     /// @notice Update reward variables to be up-to-date.
-    function updateRewardVars() external {
-        _updateRewardVars();
-    }
-
-    /// @notice Update reward variables to be up-to-date.
-    function _updateRewardVars() private {
-        if (block.timestamp <= lastRewardUpdateTimestamp) {
-            return;
-        }
-
-        accRewardPerShareScaled = _getCurrentAccRewardPreShare();
-        lastRewardUpdateTimestamp = block.timestamp;
-
-        emit UpdateRewardVars(_getNextEventId(0), lastRewardUpdateTimestamp, accRewardPerShareScaled);
+    function updateValorVars() external {
+        _updateValorVars();
     }
 
     /* ========== PRIVATE FUNCTIONS ========== */
 
+    /// @notice Update reward variables to be up-to-date.
+    function _updateValorVars() private {
+        if (block.timestamp <= lastValorUpdateTimestamp) {
+            return;
+        }
+
+        accValorPerShareScaled = _getCurrentAccValorPreShare();
+        lastValorUpdateTimestamp = block.timestamp;
+
+        emit UpdateValorVars(_getNextEventId(0), lastValorUpdateTimestamp, accValorPerShareScaled);
+    }
+
     /// @notice Claim pending reward for a caller
-    function _claimReward(address _user) private {
-        uint256 pendingReward = _getPendingReward(_user);
+    function _collectValor(address _user) private {
+        uint256 pendingReward = _getPendingValor(_user);
 
         if (pendingReward > 0) {
-            userInfos[_user].rewardDebt += pendingReward;
-            collectedRewards[_user] += pendingReward;
+            userInfos[_user].valorDebt += pendingReward;
+            collectedValor[_user] += pendingReward;
         }
     }
 }

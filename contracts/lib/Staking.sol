@@ -6,7 +6,7 @@ import { LedgerToken } from "./Common.sol";
 abstract contract Staking {
     struct UserInfo {
         uint256[2] balance; // Amount of staken $ORDER and $esORDER
-        uint256 rewardDebt; // Amount of reward, that was already claimed by user
+        uint256 valorDebt; // Amount of valor, that was already claimed by user
     }
 
     struct PendingUnstake {
@@ -14,34 +14,34 @@ abstract contract Staking {
         uint256 unlockTimestamp; // Timestamp (block.timestamp) when unstaking amount will be unlocked
     }
 
-    uint256 public totalStakedAmount; // Total amount of staken $ORDER and $esORDER
-
-    uint256 internal constant MAX_REWARD_PER_SECOND = 1 ether;
+    uint256 internal constant MAX_VALOR_PER_SECOND = 1 ether;
     uint256 internal constant DEFAULT_UNSTAKE_LOCK_PERIOD = 7 days;
-    uint256 internal constant ACC_REWARD_PER_SHARE_PRECISION = 1e18;
+    uint256 internal constant ACC_VALOR_PER_SHARE_PRECISION = 1e18;
 
     mapping(address => UserInfo) internal userInfos;
     mapping(address => PendingUnstake) internal pendingUnstakes;
 
-    mapping(address => uint256) public collectedRewards;
+    mapping(address => uint256) public collectedValor;
 
-    /// @notice The last time that the reward variables were updated
-    uint256 public lastRewardUpdateTimestamp;
+    uint256 public totalStakedAmount; // Total amount of staken $ORDER and $esORDER
 
-    /// @notice The amount of reward token, that will be emitted per second
-    uint256 public rewardPerSecond;
+    /// @notice The last time that the valor variables were updated
+    uint256 public lastValorUpdateTimestamp;
+
+    /// @notice The amount of valor token, that will be emitted per second
+    uint256 public valorPerSecond;
 
     uint256 public totalValorAmount;
 
-    /// @notice The accrued reward share, scaled to `ACC_REWARD_PER_SHARE_PRECISION`
-    uint256 public accRewardPerShareScaled;
+    /// @notice The accrued valor share, scaled to `ACC_VALOR_PER_SHARE_PRECISION`
+    uint256 public accValorPerShareScaled;
 
     /// @notice Period of time, that user have to wait after unstake request, before he can withdraw tokens
     uint256 public unstakeLockPeriod;
 
     /* ========== EVENTS ========== */
 
-    event UpdateRewardVars(uint256 eventId, uint256 lastRewardUpdateTimestamp, uint256 accRewardPerShareScaled);
+    event UpdateValorVars(uint256 eventId, uint256 lastValorUpdateTimestamp, uint256 accValorPerShareScaled);
     event Staked(
         uint256 eventId,
         address indexed staker,
@@ -65,8 +65,7 @@ abstract contract Staking {
 
     error OrderTokenAddressIsZero();
     error EsOrderTokenAddressIsZero();
-    error RewardTokenAddressIsZero();
-    error RewardPerSecondExceedsMaxValue();
+    error ValorPerSecondExceedsMaxValue();
     error UserHasZeroBalance();
     error AmountIsZero();
     error NoPendingUnstakeRequest();
@@ -97,11 +96,11 @@ abstract contract Staking {
         orderAmount = userPendingUnstake.balanceOrder;
     }
 
-    /// @notice Get the pending amount of reward for a given user
+    /// @notice Get the pending amount of valor for a given user
     /// @param _user The user to lookup
-    /// @return The number of pending reward tokens for `_user`
-    function getPendingReward(address _user) external view returns (uint256) {
-        return _getPendingReward(_user) + collectedRewards[_user];
+    /// @return The number of pending valor tokens for `_user`
+    function getPendingValor(address _user) external view returns (uint256) {
+        return _getPendingValor(_user) + collectedValor[_user];
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
@@ -113,49 +112,47 @@ abstract contract Staking {
         return userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)] == 0;
     }
 
-    /// @notice Get current accrued reward share, updated to the current block
-    function _getCurrentAccRewardPreShare() internal view returns (uint256) {
-        if (block.timestamp <= lastRewardUpdateTimestamp) {
-            return accRewardPerShareScaled;
+    /// @notice Get current accrued valor share, updated to the current block
+    function _getCurrentAccValorPreShare() internal view returns (uint256) {
+        if (block.timestamp <= lastValorUpdateTimestamp) {
+            return accValorPerShareScaled;
         }
 
-        uint256 accRewardPerShareCurrentScaled = accRewardPerShareScaled;
-        uint256 secondsElapsed = block.timestamp - lastRewardUpdateTimestamp;
+        uint256 accValorPerShareCurrentScaled = accValorPerShareScaled;
+        uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;
         uint256 totalStaked = totalStakedAmount;
         if (secondsElapsed > 0 && totalStaked > 0) {
-            uint256 rewardEmission = secondsElapsed * rewardPerSecond;
-            accRewardPerShareCurrentScaled += ((rewardEmission * ACC_REWARD_PER_SHARE_PRECISION) / totalStaked);
+            uint256 valorEmission = secondsElapsed * valorPerSecond;
+            accValorPerShareCurrentScaled += ((valorEmission * ACC_VALOR_PER_SHARE_PRECISION) / totalStaked);
         }
 
-        return accRewardPerShareCurrentScaled;
+        return accValorPerShareCurrentScaled;
     }
 
-    /// @notice Get the pending amount of reward for a given user
+    /// @notice Get the pending amount of valor for a given user
     /// @param _user The user to lookup
-    /// @return The number of pending reward tokens for `_user`
-    function _getPendingReward(address _user) internal view returns (uint256) {
+    /// @return The number of pending valor tokens for `_user`
+    function _getPendingValor(address _user) internal view returns (uint256) {
         if (_getUserHasZeroBalance(_user)) {
             return 0;
         }
 
-        uint256 accRewardPerShareCurrentScaled = _getCurrentAccRewardPreShare();
+        uint256 accValorPerShareCurrentScaled = _getCurrentAccValorPreShare();
         return (
             (
                 (userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)])
-                    * accRewardPerShareCurrentScaled
-            ) / ACC_REWARD_PER_SHARE_PRECISION
-        ) - userInfos[_user].rewardDebt;
+                    * accValorPerShareCurrentScaled
+            ) / ACC_VALOR_PER_SHARE_PRECISION
+        ) - userInfos[_user].valorDebt;
     }
 
-    /// @notice Get the total amount of reward debt for a given user
+    /// @notice Get the total amount of valor debt for a given user
     /// @param _user The user to lookup
-    /// @return The total amount of reward debt for `_user`
-    function _getUserTotalRewardDebt(address _user) internal view returns (uint256) {
+    /// @return The total amount of valor debt for `_user`
+    function _getUserTotalValorDebt(address _user) internal view returns (uint256) {
         return (
             (userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)])
-                * accRewardPerShareScaled
-        ) / ACC_REWARD_PER_SHARE_PRECISION;
+                * accValorPerShareScaled
+        ) / ACC_VALOR_PER_SHARE_PRECISION;
     }
-
-
 }
