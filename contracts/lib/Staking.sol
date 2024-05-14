@@ -96,18 +96,19 @@ abstract contract Staking {
     }
 
     /// @notice Get the pending amount of reward for a given user
+    /// @param _user The user to lookup
     /// @return The number of pending reward tokens for `_user`
     function getPendingReward(address _user) external view returns (uint256) {
-        return _getPendingReward(userInfos[_user]);
+        return _getPendingReward(_user);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
 
     /// @notice Checks to see if a given user currently has staked ORDER or esORDER
-    /// @param _userInfo The user to check
+    /// @param _user The user to check
     /// @return Whether `_user` currently has staked tokens
-    function _getUserHasZeroBalance(UserInfo storage _userInfo) internal view returns (bool) {
-        return _userInfo.balance[uint256(LedgerToken.ORDER)] + _userInfo.balance[uint256(LedgerToken.ESORDER)] == 0;
+    function _getUserHasZeroBalance(address _user) internal view returns (bool) {
+        return userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)] == 0;
     }
 
     /// @notice Get the total amount of staked ORDER and esORDER
@@ -134,28 +135,28 @@ abstract contract Staking {
     }
 
     /// @notice Get the pending amount of reward for a given user
-    /// @param _userInfo The user info to lookup
+    /// @param _user The user to lookup
     /// @return The number of pending reward tokens for `_user`
-    function _getPendingReward(UserInfo storage _userInfo) internal view returns (uint256) {
-        if (_getUserHasZeroBalance(_userInfo)) {
+    function _getPendingReward(address _user) internal view returns (uint256) {
+        if (_getUserHasZeroBalance(_user)) {
             return 0;
         }
 
         uint256 accRewardPerShareCurrentScaled = _getCurrentAccRewardPreShare();
         return (
             (
-                (_userInfo.balance[uint256(LedgerToken.ORDER)] + _userInfo.balance[uint256(LedgerToken.ESORDER)])
+                (userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)])
                     * accRewardPerShareCurrentScaled
             ) / ACC_REWARD_PER_SHARE_PRECISION
-        ) - _userInfo.rewardDebt;
+        ) - userInfos[_user].rewardDebt;
     }
 
     /// @notice Get the total amount of reward debt for a given user
-    /// @param _userInfo The user info to lookup
+    /// @param _user The user to lookup
     /// @return The total amount of reward debt for `_user`
-    function _getUserTotalRewardDebt(UserInfo storage _userInfo) internal view returns (uint256) {
+    function _getUserTotalRewardDebt(address _user) internal view returns (uint256) {
         return (
-            (_userInfo.balance[uint256(LedgerToken.ORDER)] + _userInfo.balance[uint256(LedgerToken.ESORDER)])
+            (userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)])
                 * accRewardPerShareScaled
         ) / ACC_REWARD_PER_SHARE_PRECISION;
     }

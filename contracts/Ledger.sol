@@ -7,9 +7,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
-import {IOFT, OFTReceipt, SendParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
-import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
-import {MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFTCore.sol";
+import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
 import {LedgerToken} from "./lib/Common.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
@@ -218,26 +216,6 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             // Record based distributions just return the claimable amount.
             if (token == LedgerToken.ORDER) {
                 // TODO: just send $ORDER tokens to the OCC adaptor
-                SendParam memory sendParam = SendParam(
-                    _dstEid,
-                    _addressToBytes32(_user),
-                    claimableAmount,
-                    claimableAmount,
-                    OptionsBuilder.addExecutorLzReceiveOption(OptionsBuilder.newOptions(), 200000, 0),
-                    "",
-                    ""
-                );
-                IOFT oftRewardToken = IOFT(orderToken);
-                MessagingFee memory fee = oftRewardToken.quoteSend(sendParam, false);
-
-                (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt) = oftRewardToken.send{value: fee.nativeFee}(
-                    sendParam,
-                    fee,
-                    payable(address(this))
-                );
-                if (oftReceipt.amountSentLD != claimableAmount || msgReceipt.fee.lzTokenFee != 0) {
-                    revert OFTTransferFailed();
-                }
             } else {
                 // TODO: implement staking!
                 // Record based distribution. Stake the claimable amount.
@@ -287,31 +265,75 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     /* ========== REGULAR USER CALL FUNCTIONS ========== */
 
     /// @notice Stake tokens from LedgerToken list for a given user
-    function stake(LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
-        _stake(userInfos[_msgSender()], _amount, _token);
+    function stake(address _user, LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
+        if (_amount == 0) revert AmountIsZero();
+
+        _updateRewardVars();
+        _claimReward(_user);
+
+        userInfos[_user].balance[uint256(_token)] += _amount;
+        userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
+
+        // TODO: tokem!!!
+        emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);        
     }
 
     /// @notice Create unstaking request for `_amount` of tokens
-    function createUnstakeRequest(LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
-        _unstake(userInfos[_msgSender()], pendingUnstakes[_msgSender()], _amount, _token);
+    function createUnstakeRequest(address _user, LedgerToken _token, uint256 _amount) external nonReentrant whenNotPaused {
+        if (_amount == 0) revert AmountIsZero();
+        if (userInfos[_user].balance[uint256(_token)] == 0) revert UserHasZeroBalance();
+
+        _updateRewardVars();
+        _claimReward(_user);
+
+        userInfos[_user].balance[uint256(_token)] -= _amount;
+        pendingUnstakes[_user].balanceOrder += _amount;
+
+        pendingUnstakes[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
+        userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
+
+        emit UnstakeRequested(_getNextEventId(0), _msgSender(), _amount, _token);
     }
 
     /// @notice Cancel unstaking request
-    function cancelUnstakeRequest() external nonReentrant whenNotPaused {
-        _cancelUnstake(userInfos[_msgSender()], pendingUnstakes[_msgSender()]);
+    function cancelUnstakeRequest(address _user) external nonReentrant whenNotPaused {
+        if (pendingUnstakes[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
+
+        _updateRewardVars();
+        _claimReward(_user);
+
+        uint256 pendingAmountOrder = pendingUnstakes[_user].balanceOrder;
+
+        if (pendingAmountOrder > 0) {
+            userInfos[_user].balance[uint256(LedgerToken.ORDER)] += pendingAmountOrder;
+            pendingUnstakes[_user].balanceOrder = 0;
+        }
+
+        userInfos[_user].rewardDebt = _getUserTotalRewardDebt(_user);
+        pendingUnstakes[_user].unlockTimestamp = 0;
+
+        emit UnstakeCancelled(_getNextEventId(0), _msgSender(), pendingAmountOrder);
     }
 
     /// @notice Withdraw unstaked tokens
-    function withdraw() external nonReentrant whenNotPaused {
-        _withdraw(pendingUnstakes[_msgSender()]);
+    function withdraw(address _user) external nonReentrant whenNotPaused {
+        if (pendingUnstakes[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
+        if (block.timestamp < pendingUnstakes[_user].unlockTimestamp) revert UnlockTimeNotPassedYet();
+
+        if (pendingUnstakes[_user].balanceOrder > 0) {
+            // orderToken.safeTransfer(_msgSender(), pendingUnstakes[_user].balanceOrder);
+            emit Withdraw(_getNextEventId(0), _msgSender(), pendingUnstakes[_user].balanceOrder);
+            pendingUnstakes[_user].balanceOrder = 0;
+        }
+
+        pendingUnstakes[_user].unlockTimestamp = 0;        
     }
 
     /// @notice Claim reward for sender
-    function claimReward() external nonReentrant whenNotPaused {
-        UserInfo storage userInfo = userInfos[_msgSender()];
-        if (_getUserHasZeroBalance(userInfo)) revert UserHasZeroBalance();
+    function claimReward(address _user) external nonReentrant whenNotPaused {
+        if (_getUserHasZeroBalance(_user)) revert UserHasZeroBalance();
         _updateRewardVars();
-        _claimReward(userInfo);
+        _claimReward(_user);
     }
 
     /// @notice Update reward variables to be up-to-date.
@@ -334,106 +356,12 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     /* ========== PRIVATE FUNCTIONS ========== */
 
     /// @notice Claim pending reward for a caller
-    function _claimReward(UserInfo storage _userInfo, address rewardReceiver) private {
-        uint256 pendingReward = _getPendingReward(_userInfo);
+    function _claimReward(address _user) private {
+        uint256 pendingReward = _getPendingReward(_user);
 
         if (pendingReward > 0) {
-            _userInfo.rewardDebt += pendingReward;
+            userInfos[_user].rewardDebt += pendingReward;
             collectedRewards[_user] += pendingReward;
-    }
-
-
-    /// @notice Stake ORDER or esORDER tokens
-    /// @param _userInfo The user info to update
-    /// @param _amount The amount of tokens to stake
-    /// @param _token The token to stake
-    function _stake(UserInfo storage _userInfo, address rewardReceiver, uint256 _amount, LedgerToken _token) private {
-        if (_amount == 0) revert AmountIsZero();
-
-        _updateRewardVars();
-        _claimReward(_userInfo);
-
-        IERC20 tokenContract = _tokenContract(_token);
-        tokenContract.safeTransferFrom(_msgSender(), address(this), _amount);
-
-        _userInfo.balance[uint256(_token)] += _amount;
-        _userInfo.rewardDebt = _getUserTotalRewardDebt(_userInfo);
-
-        // TODO: tokem!!!
-        emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);
-    }
-
-    /// @notice Create or update a pending unstake request
-    /// Unstaking has a 7 day unbinding period (to de-incentivize unstaking).
-    /// Unlock timestamp update from current timestamp + 7 days
-    /// @param _userInfo The user info to update
-    /// @param _amount The amount of tokens to unstake
-    /// @param _token The token to unstake
-    function _unstake(
-        UserInfo storage _userInfo,
-        PendingUnstake storage _userPendingUnstake,
-        uint256 _amount,
-        LedgerToken _token
-    ) private {
-        if (_amount == 0) revert AmountIsZero();
-        if (_userInfo.balance[uint256(_token)] == 0) revert UserHasZeroBalance();
-
-        _updateRewardVars();
-        _claimReward(_userInfo);
-
-        _userInfo.balance[uint256(_token)] -= _amount;
-        _userPendingUnstake.balanceOrder += _amount;
-
-        _userPendingUnstake.unlockTimestamp = block.timestamp + unstakeLockPeriod;
-        _userInfo.rewardDebt = _getUserTotalRewardDebt(_userInfo);
-
-        emit UnstakeRequested(_getNextEventId(0), _msgSender(), _amount, _token);
-    }
-
-    /// @notice Cancel unstaking request
-    function _cancelUnstake(
-        UserInfo storage _userInfo,
-        PendingUnstake storage _userPendingUnstake
-    ) private {
-        if (_userPendingUnstake.unlockTimestamp == 0) revert NoPendingUnstakeRequest();
-
-        _updateRewardVars();
-        _claimReward(_userInfo);
-
-        uint256 pendingAmountOrder = _userPendingUnstake.balanceOrder;
-
-        if (pendingAmountOrder > 0) {
-            _userInfo.balance[uint256(LedgerToken.ORDER)] += pendingAmountOrder;
-            _userPendingUnstake.balanceOrder = 0;
-        }
-
-        _userInfo.rewardDebt = _getUserTotalRewardDebt(_userInfo);
-        _userPendingUnstake.unlockTimestamp = 0;
-
-        emit UnstakeCancelled(_getNextEventId(0), _msgSender(), pendingAmountOrder);
-    }
-
-    /// @notice Withdraw unstaked tokens
-    function _withdraw(PendingUnstake storage _userPendingUnstake) private {
-        if (_userPendingUnstake.unlockTimestamp == 0) revert NoPendingUnstakeRequest();
-        if (block.timestamp < _userPendingUnstake.unlockTimestamp) revert UnlockTimeNotPassedYet();
-
-        if (_userPendingUnstake.balanceOrder > 0) {
-            // orderToken.safeTransfer(_msgSender(), _userPendingUnstake.balanceOrder);
-            emit Withdraw(_getNextEventId(0), _msgSender(), _userPendingUnstake.balanceOrder);
-            _userPendingUnstake.balanceOrder = 0;
-        }
-
-        _userPendingUnstake.unlockTimestamp = 0;
-    }
-
-
-    function _tokenContract(LedgerToken _token) private view returns (IERC20) {
-        if (_token == LedgerToken.ORDER) {
-            return IERC20(orderToken);
-        } else {
-            revert Unsupportedtoken();
         }
     }
-
 }
