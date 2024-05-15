@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import { LedgerToken } from "./Common.sol";
+import {LedgerToken} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
+import {Valor} from "./Valor.sol";
 
-abstract contract Staking {
+abstract contract Staking is Valor {
     struct UserInfo {
         uint256[2] balance; // Amount of staken $ORDER and $esORDER
         uint256 valorDebt; // Amount of valor, that was already claimed by user
     }
 
     struct PendingUnstake {
-        uint256 balanceOrder;    // Amount of unstaked $ORDER; $esORDER unstake immediately
+        uint256 balanceOrder; // Amount of unstaked $ORDER; $esORDER unstake immediately
         uint256 unlockTimestamp; // Timestamp (block.timestamp) when unstaking amount will be unlocked
     }
 
@@ -28,11 +29,6 @@ abstract contract Staking {
     /// @notice The last time that the valor variables were updated
     uint256 public lastValorUpdateTimestamp;
 
-    /// @notice The amount of valor token, that will be emitted per second
-    uint256 public valorPerSecond;
-
-    uint256 public totalValorAmount;
-
     /// @notice The accrued valor share, scaled to `ACC_VALOR_PER_SHARE_PRECISION`
     uint256 public accValorPerShareScaled;
 
@@ -42,23 +38,9 @@ abstract contract Staking {
     /* ========== EVENTS ========== */
 
     event UpdateValorVars(uint256 eventId, uint256 lastValorUpdateTimestamp, uint256 accValorPerShareScaled);
-    event Staked(
-        uint256 eventId,
-        address indexed staker,
-        uint256 amount,
-        LedgerToken token
-    );
-    event UnstakeRequested(
-        uint256 eventId,
-        address indexed staker,
-        uint256 amount,
-        LedgerToken token
-    );
-    event UnstakeCancelled(
-        uint256 eventId,
-        address indexed staker,
-        uint256 pendingAmountOrder
-    );
+    event Staked(uint256 eventId, address indexed staker, uint256 amount, LedgerToken token);
+    event UnstakeRequested(uint256 eventId, address indexed staker, uint256 amount, LedgerToken token);
+    event UnstakeCancelled(uint256 eventId, address indexed staker, uint256 pendingAmountOrder);
     event Withdraw(uint256 eventId, address indexed staker, uint256 amount);
 
     /* ========== ERRORS ========== */
@@ -99,7 +81,7 @@ abstract contract Staking {
     /// @notice Get the pending amount of valor for a given user
     /// @param _user The user to lookup
     /// @return The number of pending valor tokens for `_user`
-    function getPendingValor(address _user) external view returns (uint256) {
+    function getUserValor(address _user) public returns (uint256) {
         return _getPendingValor(_user) + collectedValor[_user];
     }
 
@@ -113,7 +95,7 @@ abstract contract Staking {
     }
 
     /// @notice Get current accrued valor share, updated to the current block
-    function _getCurrentAccValorPreShare() internal view returns (uint256) {
+    function _getCurrentAccValorPreShare() internal returns (uint256) {
         if (block.timestamp <= lastValorUpdateTimestamp) {
             return accValorPerShareScaled;
         }
@@ -123,6 +105,11 @@ abstract contract Staking {
         uint256 totalStaked = totalStakedAmount;
         if (secondsElapsed > 0 && totalStaked > 0) {
             uint256 valorEmission = secondsElapsed * valorPerSecond;
+            if (totalValorEmitted + valorEmission > maximumValorEmission) {
+                valorEmission = maximumValorEmission - totalValorEmitted;
+            }
+            totalValorEmitted += valorEmission;
+            totalValorAmount += valorEmission;
             accValorPerShareCurrentScaled += ((valorEmission * ACC_VALOR_PER_SHARE_PRECISION) / totalStaked);
         }
 
@@ -132,27 +119,23 @@ abstract contract Staking {
     /// @notice Get the pending amount of valor for a given user
     /// @param _user The user to lookup
     /// @return The number of pending valor tokens for `_user`
-    function _getPendingValor(address _user) internal view returns (uint256) {
+    function _getPendingValor(address _user) internal returns (uint256) {
         if (_getUserHasZeroBalance(_user)) {
             return 0;
         }
 
         uint256 accValorPerShareCurrentScaled = _getCurrentAccValorPreShare();
-        return (
-            (
-                (userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)])
-                    * accValorPerShareCurrentScaled
-            ) / ACC_VALOR_PER_SHARE_PRECISION
-        ) - userInfos[_user].valorDebt;
+        return
+            (((userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)]) *
+                accValorPerShareCurrentScaled) / ACC_VALOR_PER_SHARE_PRECISION) - userInfos[_user].valorDebt;
     }
 
     /// @notice Get the total amount of valor debt for a given user
     /// @param _user The user to lookup
     /// @return The total amount of valor debt for `_user`
     function _getUserTotalValorDebt(address _user) internal view returns (uint256) {
-        return (
-            (userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)])
-                * accValorPerShareScaled
-        ) / ACC_VALOR_PER_SHARE_PRECISION;
+        return
+            ((userInfos[_user].balance[uint256(LedgerToken.ORDER)] + userInfos[_user].balance[uint256(LedgerToken.ESORDER)]) *
+                accValorPerShareScaled) / ACC_VALOR_PER_SHARE_PRECISION;
     }
 }

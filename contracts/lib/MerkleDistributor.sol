@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import { LedgerToken } from "./Common.sol";
+import {LedgerToken} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
 
 struct MerkleTree {
     /// @dev The Merkle root.

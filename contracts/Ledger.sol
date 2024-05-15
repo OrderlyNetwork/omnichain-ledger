@@ -9,15 +9,27 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
-import {LedgerToken} from "./lib/Common.sol";
 import {LedgerTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
 import {Distribution, MerkleTree, MerkleDistributor} from "./lib/MerkleDistributor.sol";
-import {OCCVaultMessage, OCCLedgerMessage, IOCCReceiver} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
+import {LedgerToken, OCCVaultMessage, OCCLedgerMessage, IOCCReceiver} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
 import {OCCManager} from "./lib/OCCManager.sol";
+import {Valor} from "./lib/Valor.sol";
 import {Staking} from "./lib/Staking.sol";
+import {Revenue} from "./lib/Revenue.sol";
 
-contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, ChainedEventIdCounter, OCCManager, MerkleDistributor, Staking {
+contract Ledger is
+    Initializable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
+    ChainedEventIdCounter,
+    OCCManager,
+    MerkleDistributor,
+    Valor,
+    Staking,
+    Revenue
+{
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -30,7 +42,13 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     /* ========== INITIALIZER ========== */
 
-    function initialize(address _owner, address _occAdaptor, IOFT _orderTokenOft, uint256 _valorPerSecond, uint256 totalValorAmount) external initializer {
+    function initialize(
+        address _owner,
+        address _occAdaptor,
+        IOFT _orderTokenOft,
+        uint256 _valorPerSecond,
+        uint256 _maximumValorEmission
+    ) external initializer {
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
 
@@ -47,7 +65,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
         // Staking parameters
         valorPerSecond = _valorPerSecond;
-        totalValorAmount = totalValorAmount;
+        maximumValorEmission = _maximumValorEmission;
         lastValorUpdateTimestamp = block.timestamp;
     }
 
@@ -64,9 +82,15 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
     }
 
     function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
-        if(message.payloadType == uint8(PayloadDataType.ClaimReward)) {
+        if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerTypes.ClaimReward));
-            claimRewards(claimRewardPayload.distributionId, claimRewardPayload.user, message.srcChainId, claimRewardPayload.cumulativeAmount, claimRewardPayload.merkleProof);
+            claimRewards(
+                claimRewardPayload.distributionId,
+                claimRewardPayload.user,
+                message.srcChainId,
+                claimRewardPayload.cumulativeAmount,
+                claimRewardPayload.merkleProof
+            );
         }
     }
 
@@ -119,7 +143,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         _proposeRoot(_distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
 
         emit DistributionCreated(_getNextEventId(0), _distributionId, _token, _merkleRoot, _startTimestamp, _ipfsCid);
-    }    
+    }
 
     /**
      * @notice Set the proposed root parameters.
@@ -246,12 +270,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
     /* ========== INTERNAL FUNCTIONS ========== */
 
-    function _proposeRoot(
-        uint32 _distributionId,
-        bytes32 _merkleRoot,
-        uint256 _startTimestamp,
-        bytes calldata _ipfsCid
-    ) internal {
+    function _proposeRoot(uint32 _distributionId, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid) internal {
         if (!_distributionExists(_distributionId)) revert DistributionNotFound();
 
         if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
@@ -273,12 +292,12 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
 
         emit RootProposed(_getNextEventId(0), _distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
     }
-    
-    // ███████ ████████  █████  ██   ██ ██ ███    ██  ██████  
-    // ██         ██    ██   ██ ██  ██  ██ ████   ██ ██       
-    // ███████    ██    ███████ █████   ██ ██ ██  ██ ██   ███ 
-    //      ██    ██    ██   ██ ██  ██  ██ ██  ██ ██ ██    ██ 
-    // ███████    ██    ██   ██ ██   ██ ██ ██   ████  ██████  
+
+    // ███████ ████████  █████  ██   ██ ██ ███    ██  ██████
+    // ██         ██    ██   ██ ██  ██  ██ ████   ██ ██
+    // ███████    ██    ███████ █████   ██ ██ ██  ██ ██   ███
+    //      ██    ██    ██   ██ ██  ██  ██ ██  ██ ██ ██    ██
+    // ███████    ██    ██   ██ ██   ██ ██ ██   ████  ██████
 
     /* ========== EXTERNAL FUNCTIONS ========== */
 
@@ -293,7 +312,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         userInfos[_user].balance[uint256(_token)] += _amount;
         userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
 
-        emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);        
+        emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);
     }
 
     /// @notice Create unstaking request for `_amount` of tokens
@@ -333,7 +352,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
         emit UnstakeCancelled(_getNextEventId(0), _msgSender(), pendingAmountOrder);
     }
 
-    /// @notice Withdraw unstaked tokens
+    /// @notice Withdraw unstaked $ORDER tokens
     function withdraw(address _user) external nonReentrant whenNotPaused {
         if (pendingUnstakes[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
         if (block.timestamp < pendingUnstakes[_user].unlockTimestamp) revert UnlockTimeNotPassedYet();
@@ -344,7 +363,7 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             pendingUnstakes[_user].balanceOrder = 0;
         }
 
-        pendingUnstakes[_user].unlockTimestamp = 0;        
+        pendingUnstakes[_user].unlockTimestamp = 0;
     }
 
     /// @notice Claim reward for sender
@@ -381,5 +400,38 @@ contract Ledger is Initializable, AccessControlUpgradeable, ReentrancyGuardUpgra
             userInfos[_user].valorDebt += pendingReward;
             collectedValor[_user] += pendingReward;
         }
+    }
+
+    // ██████  ███████ ██    ██ ███████ ███    ██ ██    ██ ███████
+    // ██   ██ ██      ██    ██ ██      ████   ██ ██    ██ ██
+    // ██████  █████   ██    ██ █████   ██ ██  ██ ██    ██ █████
+    // ██   ██ ██       ██  ██  ██      ██  ██ ██ ██    ██ ██
+    // ██   ██ ███████   ████   ███████ ██   ████  ██████  ███████
+
+    function redeemValor(address _user, uint256 _amount) external nonReentrant {
+        if (_amount == 0) revert AmountIsZero();
+        if (getUserValor(_user) < _amount) revert AmountIsGreaterThanPendingValor();
+
+        _updateValorVars();
+        _collectValor(_user);
+
+        collectedValor[_user] -= _amount;
+
+        uint16 currentBatchId = getCurrentBatchId();
+        batches[currentBatchId].totalAmount += _amount;
+        bool found = false;
+        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
+            if (userRevenue[_user].requests[i].batchId == currentBatchId) {
+                userRevenue[_user].requests[i].amount += _amount;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            userRevenue[_user].requests.push(UserReremprionRequest({batchId: currentBatchId, amount: _amount}));
+        }
+
+        emit Redeemed(_getNextEventId(0), _user, found ? currentBatchId : 0, _amount);
     }
 }

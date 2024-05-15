@@ -146,13 +146,13 @@ describe("MerkleDistributor", function () {
 
     const fakeAdapterAddress = owner.address;
     const valorPerSecond = 1;
-    const totalValorAmount = 1000000;
+    const maximumValorEmission = 1000000;
     const distributor = await upgrades.deployProxy(ledgerCF, [
       owner.address,
       fakeAdapterAddress,
       orderTokenOft.address,
       valorPerSecond,
-      totalValorAmount
+      maximumValorEmission
     ]);
     await distributor.deployed();
 

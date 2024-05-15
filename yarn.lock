@@ -3937,7 +3937,7 @@ optionator@^0.8.1:
 
 "orderly-omnichain-occ@https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git":
   version "0.0.1"
-  resolved "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#d3c0bc0bd394b5a05c8308a222678fe200f659a1"
+  resolved "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#4e7b95de221f4258aaccd68f1421933ffc85543a"
 
 ordinal@^1.0.3:
   version "1.0.3"
