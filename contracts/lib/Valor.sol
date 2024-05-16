@@ -21,6 +21,9 @@ abstract contract Valor {
     /// @notice The total amount of USDC, that has been collected in the treasure
     uint256 public totalUsdcInTreasure;
 
+    /// @notice The current rate of valor to USDC
+    uint256 public valorToUsdcRate;
+
     /// @notice The amount of valor token, that has been collected by the user
     mapping(address => uint256) public collectedValor;
 
@@ -34,5 +37,10 @@ abstract contract Valor {
 
         valorPerSecond = _valorPerSecond;
         maximumValorEmission = _maximumValorEmission;
+    }
+
+    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) internal {
+        totalUsdcInTreasure = _totalUsdcInTreasure;
+        valorToUsdcRate = totalValorAmount == 0 ? 0 : totalUsdcInTreasure / totalValorAmount;
     }
 }
