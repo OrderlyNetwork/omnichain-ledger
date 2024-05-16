@@ -203,7 +203,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
 
         _proposeRoot(_distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
 
-        emit DistributionCreated(_getNextEventId(0), _distributionId, _token, _merkleRoot, _startTimestamp, _ipfsCid);
+        emit DistributionCreated(_getNextChainedEventId(0), _distributionId, _token, _merkleRoot, _startTimestamp, _ipfsCid);
     }
 
     /**
@@ -247,7 +247,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         delete proposedRoots[_distributionId];
 
         emit RootUpdated(
-            _getNextEventId(0),
+            _getNextChainedEventId(0),
             _distributionId,
             activeDistributions[_distributionId].merkleTree.merkleRoot,
             activeDistributions[_distributionId].merkleTree.startTimestamp,
@@ -325,7 +325,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
                 return claimableAmount;
             }
 
-            emit RewardsClaimed(_getNextEventId(0), _distributionId, _user, claimableAmount, token, _srcChainId);
+            emit RewardsClaimed(_getNextChainedEventId(0), _distributionId, _user, claimableAmount, token, _srcChainId);
         }
     }
 
@@ -351,7 +351,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         // Set the proposed root and the start timestamp when proposed root to become active.
         proposedRoots[_distributionId] = MerkleTree({merkleRoot: _merkleRoot, startTimestamp: _startTimestamp, ipfsCid: _ipfsCid});
 
-        emit RootProposed(_getNextEventId(0), _distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
+        emit RootProposed(_getNextChainedEventId(0), _distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
     }
 
     /**

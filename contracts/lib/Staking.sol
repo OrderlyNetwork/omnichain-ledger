@@ -103,7 +103,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userInfos[_user].balance[uint256(_token)] += _amount;
         userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
 
-        emit Staked(_getNextEventId(0), _msgSender(), _amount, LedgerToken.ORDER);
+        emit Staked(_getNextChainedEventId(0), _msgSender(), _amount, LedgerToken.ORDER);
     }
 
     /// @notice Create unstaking request for `_amount` of tokens
@@ -120,7 +120,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         pendingUnstakes[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
         userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
 
-        emit UnstakeRequested(_getNextEventId(0), _msgSender(), _amount, _token);
+        emit UnstakeRequested(_getNextChainedEventId(0), _msgSender(), _amount, _token);
     }
 
     /// @notice Cancel unstaking request
@@ -140,7 +140,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userInfos[_user].valorDebt = _getUserTotalValorDebt(_user);
         pendingUnstakes[_user].unlockTimestamp = 0;
 
-        emit UnstakeCancelled(_getNextEventId(0), _msgSender(), pendingAmountOrder);
+        emit UnstakeCancelled(_getNextChainedEventId(0), _msgSender(), pendingAmountOrder);
     }
 
     /// @notice Withdraw unstaked $ORDER tokens
@@ -150,7 +150,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
         if (pendingUnstakes[_user].balanceOrder > 0) {
             // orderToken.safeTransfer(_msgSender(), pendingUnstakes[_user].balanceOrder);
-            emit Withdraw(_getNextEventId(0), _msgSender(), pendingUnstakes[_user].balanceOrder);
+            emit Withdraw(_getNextChainedEventId(0), _msgSender(), pendingUnstakes[_user].balanceOrder);
             pendingUnstakes[_user].balanceOrder = 0;
         }
 
@@ -175,7 +175,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         accValorPerShareScaled = _getCurrentAccValorPreShare();
         lastValorUpdateTimestamp = block.timestamp;
 
-        emit UpdateValorVars(_getNextEventId(0), lastValorUpdateTimestamp, accValorPerShareScaled);
+        emit UpdateValorVars(_getNextChainedEventId(0), lastValorUpdateTimestamp, accValorPerShareScaled);
     }
 
     /// @notice Claim pending reward for a caller

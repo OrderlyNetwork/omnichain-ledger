@@ -6,7 +6,7 @@ abstract contract ChainedEventIdCounter {
     mapping(uint256 => uint256) public srcChainIdToEventId;
 
     /// @notice Increment event id for source chain and return it
-    function _getNextEventId(uint256 srcChainId) internal returns (uint256) {
+    function _getNextChainedEventId(uint256 srcChainId) internal returns (uint256) {
         srcChainIdToEventId[srcChainId]++;
         return srcChainIdToEventId[srcChainId];
     }
