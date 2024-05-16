@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 import {Valor} from "./Valor.sol";
 
 abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     uint256 internal constant BATCH_DURATION = 14 days;
+
+    struct ChainedAmount {
+        uint256 chainId;
+        uint256 amount;
+    }
 
     struct Batch {
         /// @dev Admin set this by calling batchPreparedToClaim after provide USDC for batch to the contract
@@ -19,18 +22,18 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         uint256 claimedUsdcAmount;
         /// @dev When batch finished, current rate will be fixed as the rate for the batch
         uint256 fixedValorToUsdcRate;
+        /// @dev Total amount of valor, that was redeemed in the batch per chain
+        ChainedAmount[] chainedValorAmount;
     }
 
-    struct UserReremprionRequest {
+    struct BatchedReremprionRequest {
         uint16 batchId;
-        EnumerableMap.UintToUintMap chainIdToValorAmount;
+        ChainedAmount[] chainedValorAmount;
     }
 
     struct UserRevenue {
-        uint256 redeemedAmount;
-        uint256 claimedAmount;
-        EnumerableMap.UintToUintMap usdcRevenueByChainId;
-        UserReremprionRequest[] requests;
+        mapping(uint256 => uint256) chainedUsdcRevenue;
+        BatchedReremprionRequest[] requests;
     }
 
     /// @notice The timestamp when the first batch starts
@@ -42,7 +45,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== EVENTS ========== */
 
-    event Redeemed(uint256 eventId, address indexed user, uint16 batchId, uint256 amount);
+    event RedeemValor(uint256 chainEventId, uint256 chainId, address indexed user, uint16 batchId, uint256 valorAmount);
+    event ClaimUsdc(uint256 chainEventId, uint256 chainId, address indexed user, uint256 usdcAmount);
 
     /* ========== ERRORS ========== */
 
@@ -101,44 +105,88 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (collectedValor[_user] < _amount) revert AmountIsGreaterThanCollectedValor();
         collectedValor[_user] -= _amount;
 
+        // If user has pending USDC revenue for claimable batch, collect it
+        _collectUserRevenueForClaimableBatch(_user);
+
+        // Update or create redemption request for the user for current batch
         uint16 currentBatchId = getCurrentBatchId();
-        batches[currentBatchId].redeemedValorAmount += _amount;
-        bool found = false;
+        _getOrCreateBatch(currentBatchId).redeemedValorAmount += _amount;
+        BatchedReremprionRequest storage request = _getOrCreateBatchedRedemptionRequest(_user, currentBatchId);
+        ChainedAmount storage chainedAmount = _getOrCreateChainedAmount(request.chainedValorAmount, _srcChainId);
+        chainedAmount.amount += _amount;
+
+        // Update redeemed valor amount for current batch and chain
+        _getOrCreateChainedAmount(batches[currentBatchId].chainedValorAmount, _srcChainId).amount += _amount;
+
+        emit RedeemValor(_getNextChainedEventId(0), _srcChainId, _user, currentBatchId, _amount);
+    }
+
+    function _claimUsdc(address _user, uint256 _chainId) internal returns (uint256) {
+        uint256 usdcAmount = userRevenue[_user].chainedUsdcRevenue[_chainId];
+        userRevenue[_user].chainedUsdcRevenue[_chainId] = 0;
+
+        emit ClaimUsdc(_getNextChainedEventId(_chainId), _chainId, _user, usdcAmount);
+        return usdcAmount;
+    }
+
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    function _getOrCreateBatch(uint16 _batchId) internal returns (Batch storage) {
+        if (_batchId >= batches.length) {
+            batches.push();
+        }
+        return batches[_batchId];
+    }
+
+    function _getOrCreateBatchedRedemptionRequest(address _user, uint16 _batchId) internal returns (BatchedReremprionRequest storage) {
         for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
-            if (userRevenue[_user].requests[i].batchId == currentBatchId) {
-                (, uint256 currentAmount) = EnumerableMap.tryGet(userRevenue[_user].requests[i].chainIdToValorAmount, _srcChainId);
-                EnumerableMap.set(userRevenue[_user].requests[i].chainIdToValorAmount, _srcChainId, currentAmount + _amount);
-                found = true;
-                break;
+            if (userRevenue[_user].requests[i].batchId == _batchId) {
+                return userRevenue[_user].requests[i];
             }
         }
 
-        if (!found) {
-            uint256 idx = userRevenue[_user].requests.length;
-            userRevenue[_user].requests.push();
-            UserReremprionRequest storage request = userRevenue[_user].requests[idx];
-            request.batchId = currentBatchId;
-            EnumerableMap.set(request.chainIdToValorAmount, _srcChainId, _amount);
+        uint256 idx = userRevenue[_user].requests.length;
+        userRevenue[_user].requests.push();
+        userRevenue[_user].requests[idx].batchId = _batchId;
+        return userRevenue[_user].requests[idx];
+    }
+
+    function _getOrCreateChainedAmount(ChainedAmount[] storage _chainedAmounts, uint256 _chainId) internal returns (ChainedAmount storage) {
+        for (uint256 i = 0; i < _chainedAmounts.length; i++) {
+            if (_chainedAmounts[i].chainId == _chainId) {
+                return _chainedAmounts[i];
+            }
         }
 
-        emit Redeemed(_getNextEventId(0), _user, found ? currentBatchId : 0, _amount);
+        uint256 idx = _chainedAmounts.length;
+        _chainedAmounts.push();
+        _chainedAmounts[idx].chainId = _chainId;
+        return _chainedAmounts[idx];
     }
 
     /**
-     * @notice Collect USDC revenue for the user for claimable batches
-     * @param _user User address
+     * @notice Traverse all user revenue requests and collect USDC revenue for claimable batch
+     *         Suppose that this function will be called each time when user redeem valor or claim USDC
+     *         There shouldn't be more than one request for claimable batch at the same time
+     *         And no more than 3 requests for the user: claimable, finished but not prepared yet and current
+     *         So, overal complexity is 3 requests to find claimable O(1) + chainNum ^ 2 to collect USDC
      */
-    function _collectRevenue(address _user) internal {
-        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
-            UserReremprionRequest storage request = userRevenue[_user].requests[i];
-            if (batches[request.batchId].claimable == true) {
-                for (uint256 j = 0; j < EnumerableMap.length(request.chainIdToValorAmount); j++) {
-                    (uint256 chainId, uint256 amount) = EnumerableMap.at(request.chainIdToValorAmount, j);
-                    uint256 usdcAmount = (amount * batches[request.batchId].fixedValorToUsdcRate);
-                    (, uint256 currentUsdcAmount) = EnumerableMap.tryGet(userRevenue[_user].usdcRevenueByChainId, chainId);
-                    EnumerableMap.set(userRevenue[_user].usdcRevenueByChainId, chainId, currentUsdcAmount + usdcAmount);
+    function _collectUserRevenueForClaimableBatch(address _user) internal {
+        for (uint256 requestIndex = 0; requestIndex < userRevenue[_user].requests.length; requestIndex++) {
+            BatchedReremprionRequest storage request = userRevenue[_user].requests[requestIndex];
+            if (batches[request.batchId].claimable) {
+                // Ok, we found request for claimable batch, let's collect USDC revenue for it
+                for (uint256 chainIndex = 0; chainIndex < request.chainedValorAmount.length; chainIndex++) {
+                    uint256 chainId = request.chainedValorAmount[chainIndex].chainId;
+                    uint256 amount = request.chainedValorAmount[chainIndex].amount;
+                    uint256 usdcAmount = amount * batches[request.batchId].fixedValorToUsdcRate;
+                    userRevenue[_user].chainedUsdcRevenue[chainId] += usdcAmount;
                 }
-                delete userRevenue[_user].requests[i];
+                // Now we can remove this request
+                uint256 lastIndex = userRevenue[_user].requests.length - 1;
+                userRevenue[_user].requests[requestIndex] = userRevenue[_user].requests[lastIndex];
+                userRevenue[_user].requests.pop();
+                return;
             }
         }
     }
