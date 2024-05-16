@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
+import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 import {Valor} from "./Valor.sol";
@@ -21,11 +23,13 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     struct UserReremprionRequest {
         uint16 batchId;
-        uint256 amount;
+        EnumerableMap.UintToUintMap chainIdToValorAmount;
     }
+
     struct UserRevenue {
         uint256 redeemedAmount;
         uint256 claimedAmount;
+        EnumerableMap.UintToUintMap usdcRevenueByChainId;
         UserReremprionRequest[] requests;
     }
 
@@ -34,7 +38,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     Batch[] public batches;
 
-    mapping(address => UserRevenue) public userRevenue;
+    mapping(address => UserRevenue) private userRevenue;
 
     /* ========== EVENTS ========== */
 
@@ -95,7 +99,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     function _redeemValor(address _user, uint256 _srcChainId, uint256 _amount) internal {
         if (_amount == 0) revert RedemptionAmountIsZero();
         if (collectedValor[_user] < _amount) revert AmountIsGreaterThanCollectedValor();
-
         collectedValor[_user] -= _amount;
 
         uint16 currentBatchId = getCurrentBatchId();
@@ -103,16 +106,40 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         bool found = false;
         for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
             if (userRevenue[_user].requests[i].batchId == currentBatchId) {
-                userRevenue[_user].requests[i].amount += _amount;
+                (, uint256 currentAmount) = EnumerableMap.tryGet(userRevenue[_user].requests[i].chainIdToValorAmount, _srcChainId);
+                EnumerableMap.set(userRevenue[_user].requests[i].chainIdToValorAmount, _srcChainId, currentAmount + _amount);
                 found = true;
                 break;
             }
         }
 
         if (!found) {
-            userRevenue[_user].requests.push(UserReremprionRequest({batchId: currentBatchId, amount: _amount}));
+            uint256 idx = userRevenue[_user].requests.length;
+            userRevenue[_user].requests.push();
+            UserReremprionRequest storage request = userRevenue[_user].requests[idx];
+            request.batchId = currentBatchId;
+            EnumerableMap.set(request.chainIdToValorAmount, _srcChainId, _amount);
         }
 
         emit Redeemed(_getNextEventId(0), _user, found ? currentBatchId : 0, _amount);
+    }
+
+    /**
+     * @notice Collect USDC revenue for the user for claimable batches
+     * @param _user User address
+     */
+    function _collectRevenue(address _user) internal {
+        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
+            UserReremprionRequest storage request = userRevenue[_user].requests[i];
+            if (batches[request.batchId].claimable == true) {
+                for (uint256 j = 0; j < EnumerableMap.length(request.chainIdToValorAmount); j++) {
+                    (uint256 chainId, uint256 amount) = EnumerableMap.at(request.chainIdToValorAmount, j);
+                    uint256 usdcAmount = (amount * batches[request.batchId].fixedValorToUsdcRate);
+                    (, uint256 currentUsdcAmount) = EnumerableMap.tryGet(userRevenue[_user].usdcRevenueByChainId, chainId);
+                    EnumerableMap.set(userRevenue[_user].usdcRevenueByChainId, chainId, currentUsdcAmount + usdcAmount);
+                }
+                delete userRevenue[_user].requests[i];
+            }
+        }
     }
 }
