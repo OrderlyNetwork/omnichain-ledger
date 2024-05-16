@@ -6,6 +6,7 @@ import "@typechain/hardhat";
 import "dotenv/config";
 import "hardhat-deploy";
 import "hardhat-deploy-ethers";
+import "hardhat-contract-sizer";
 import type { HardhatUserConfig } from "hardhat/config";
 import { task } from "hardhat/config";
 
