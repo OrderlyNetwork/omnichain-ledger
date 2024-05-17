@@ -3958,9 +3958,9 @@ optionator@^0.8.1:
     jsdom-global "^3.0.2"
     ts-node "^10.9.2"
 
-"orderly-omnichain-occ@https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git":
+"orderly-omnichain-occ@https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#dev":
   version "0.0.1"
-  resolved "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#4e7b95de221f4258aaccd68f1421933ffc85543a"
+  resolved "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#b5fda6e1cbee4df19b0d49e9e36194da549ddd5b"
 
 ordinal@^1.0.3:
   version "1.0.3"

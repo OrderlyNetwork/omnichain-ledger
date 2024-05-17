@@ -123,7 +123,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         }
     }
 
-    /* ========== CALL FUNCTIONS ========== */
+    /* ========== ADMIN FUNCTIONS ========== */
 
     function fixBatchPrice(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
@@ -141,6 +141,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         totalUsdcInTreasure -= batches[_batchId].redeemedValorAmount * batches[_batchId].fixedValorToUsdcRate;
         batches[_batchId].claimable = true;
     }
+
+    /* ========== USER FUNCTIONS ========== */
 
     /**
      * @notice Create redemption request for the user to current batch and given chainId

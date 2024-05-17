@@ -4,11 +4,11 @@ pragma solidity 0.8.22;
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
-import {LedgerToken, OCCVaultMessage, OCCLedgerMessage, IOCCReceiver} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
+import {LedgerToken, OCCVaultMessage, OCCLedgerMessage, IOCCLedgerReceiver} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
 
 import {LedgerAccessControl} from "./lib/LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
-import {LedgerTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
+import {LedgerPayloadTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
 import {OCCManager} from "./lib/OCCManager.sol";
 import {Revenue} from "./lib/Revenue.sol";
@@ -50,7 +50,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
 
     function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
-            LedgerTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerTypes.ClaimReward));
+            LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
             claimRewards(
                 claimRewardPayload.distributionId,
                 claimRewardPayload.user,
@@ -60,8 +60,6 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
             );
         }
     }
-
-    function vaultRecvFromLedger(OCCLedgerMessage calldata message) external override {}
 
     /* ========== EXTERNAL FUNCTIONS ========== */
 

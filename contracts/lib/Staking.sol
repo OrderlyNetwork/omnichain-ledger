@@ -66,7 +66,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /// @notice Get the amount of $ORDER ready to be withdrawn by `_user`
-    function getOrderAvailableToWithdraw(address _user) external view returns (uint256 orderAmount) {
+    function getOrderAvailableToWithdraw(address _user) internal view returns (uint256 orderAmount) {
         PendingUnstake storage userPendingUnstake = pendingUnstakes[_user];
         if (userPendingUnstake.unlockTimestamp == 0 || block.timestamp < userPendingUnstake.unlockTimestamp) {
             return 0;
@@ -80,7 +80,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return _getPendingValor(_user) + collectedValor[_user];
     }
 
-    /* ========== CALL FUNCTIONS ========== */
+    /* ========== USER FUNCTIONS ========== */
 
     /// @notice Stake tokens from LedgerToken list for a given user
     /// For now only $ORDER and es$ORDER tokens are supported
@@ -182,17 +182,17 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /// @notice Get the pending amount of valor for a given user
-    function _getPendingValor(address _user) internal returns (uint256) {
+    function _getPendingValor(address _user) private returns (uint256) {
         return _getUserTotalValorDebt(_user) - userInfos[_user].valorDebt;
     }
 
     /// @notice Get the total amount of valor debt for a given user
-    function _getUserTotalValorDebt(address _user) internal returns (uint256) {
+    function _getUserTotalValorDebt(address _user) private returns (uint256) {
         return (_userTotalStakingBalance(_user) * _getUpdatedAccValorPerShare()) / ACC_VALOR_PER_SHARE_PRECISION;
     }
 
     /// @notice Get current accrued valor share, updated to the current block
-    function _getUpdatedAccValorPerShare() internal returns (uint256) {
+    function _getUpdatedAccValorPerShare() private returns (uint256) {
         if (block.timestamp > lastValorUpdateTimestamp) {
             if (totalStakedAmount > 0) {
                 uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;

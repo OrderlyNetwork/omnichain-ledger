@@ -255,7 +255,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         );
     }
 
-    /* ========== CLAIMING ========== */
+    /* ========== USER FUNCTIONS ========== */
 
     /**
      * @notice Claim the remaining unclaimed rewards for a user, and send them to that user on the chain, pointed by _dstEid.
@@ -329,9 +329,9 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         }
     }
 
-    /* ========== INTERNAL FUNCTIONS ========== */
+    /* ========== PRIVATE FUNCTIONS ========== */
 
-    function _proposeRoot(uint32 _distributionId, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid) internal {
+    function _proposeRoot(uint32 _distributionId, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid) private {
         if (!_distributionExists(_distributionId)) revert DistributionNotFound();
 
         if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
@@ -359,7 +359,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
      * @param _addr The address to convert.
      * @return The bytes32 representation of the address.
      */
-    function _addressToBytes32(address _addr) internal pure returns (bytes32) {
+    function _addressToBytes32(address _addr) private pure returns (bytes32) {
         return bytes32(uint256(uint160(_addr)));
     }
 
@@ -368,7 +368,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
      * @param _distributionId The distribution id.
      * @return Boolean `true` if the distribution exists, else `false`.
      */
-    function _distributionExists(uint32 _distributionId) internal view returns (bool) {
+    function _distributionExists(uint32 _distributionId) private view returns (bool) {
         return activeDistributions[_distributionId].merkleTree.startTimestamp != 0;
     }
 }
