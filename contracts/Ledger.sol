@@ -66,8 +66,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
     /* ========== EXTERNAL FUNCTIONS ========== */
 
     function redeemValor(address _user, uint256 _srcChainId, uint256 _amount) external nonReentrant {
-        _updateValorVars();
-        _collectValor(_user);
+        _updateValorVarsAndCollectValor(_user);
 
         _redeemValor(_user, _srcChainId, _amount);
     }
