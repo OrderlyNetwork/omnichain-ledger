@@ -16,8 +16,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     struct Batch {
         /// @dev Admin set this by calling batchPreparedToClaim after provide USDC for batch to the contract
         bool claimable;
-        /// @dev Set when Admin call burnBatchValor after batch finished
-        bool valorBurned;
         /// @dev Total amount of valor, that was redeemed in the batch
         uint256 redeemedValorAmount;
         /// @dev When batch finished, current rate will be fixed as the rate for the batch
@@ -31,7 +29,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         ChainedAmount[] chainedValorAmount;
     }
 
-    struct UserRevenue {
+    struct UserRevenueRecord {
         mapping(uint256 => uint256) chainedUsdcRevenue;
         BatchedReremprionRequest[] requests;
     }
@@ -41,7 +39,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     Batch[] public batches;
 
-    mapping(address => UserRevenue) private userRevenue;
+    mapping(address => UserRevenueRecord) private userRevenue;
 
     /* ========== EVENTS ========== */
 
@@ -107,9 +105,27 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return 0;
     }
 
+    function getUserBudgetForChain(
+        address _user,
+        uint256 _chainId
+    ) public view returns (uint256 redeemingValor, uint256 pendingInTwoDays, uint256 usdcAvailableNow) {
+        usdcAvailableNow = userRevenue[_user].chainedUsdcRevenue[_chainId];
+        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
+            uint16 batchId = userRevenue[_user].requests[i].batchId;
+            uint256 redeemedValorForChain = _getRedeemedValorAmountForChain(userRevenue[_user].requests[i], _chainId);
+            if (batches[batchId].claimable) {
+                usdcAvailableNow += redeemedValorForChain * batches[batchId].fixedValorToUsdcRate;
+            } else if (batches[batchId].fixedValorToUsdcRate != 0) {
+                pendingInTwoDays += redeemedValorForChain * batches[batchId].fixedValorToUsdcRate;
+            } else {
+                redeemingValor += redeemedValorForChain;
+            }
+        }
+    }
+
     /* ========== CALL FUNCTIONS ========== */
 
-    function fixBatchPrice(uint16 _batchId) public returns (uint256) {
+    function fixBatchPrice(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
         if (batches[_batchId].fixedValorToUsdcRate == 0) {
             batches[_batchId].fixedValorToUsdcRate = valorToUsdcRate;
@@ -117,16 +133,12 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return batches[_batchId].fixedValorToUsdcRate;
     }
 
-    function burnBatchValor(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
-        if (batches[_batchId].valorBurned) revert BatchIsAlreadyBurned();
-
-        totalValorAmount -= batches[_batchId].redeemedValorAmount;
-    }
-
     function batchPreparedToClaim(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
+        if (batches[_batchId].claimable) return;
 
+        totalValorAmount -= batches[_batchId].redeemedValorAmount;
+        totalUsdcInTreasure -= batches[_batchId].redeemedValorAmount * batches[_batchId].fixedValorToUsdcRate;
         batches[_batchId].claimable = true;
     }
 
@@ -158,6 +170,9 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     function _claimUsdcRevenue(address _user, uint256 _chainId) internal returns (uint256) {
+        // If user has pending USDC revenue for claimable batch, collect it
+        _collectUserRevenueForClaimableBatch(_user);
+
         uint256 usdcAmount = userRevenue[_user].chainedUsdcRevenue[_chainId];
         userRevenue[_user].chainedUsdcRevenue[_chainId] = 0;
 
@@ -169,7 +184,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     function _getOrCreateBatch(uint16 _batchId) internal returns (Batch storage) {
         if (_batchId >= batches.length) {
-            fixBatchPrice(uint16(batches.length - 1));
             batches.push();
         }
         return batches[_batchId];
@@ -201,12 +215,21 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return _chainedAmounts[idx];
     }
 
+    function _getRedeemedValorAmountForChain(BatchedReremprionRequest storage request, uint256 _chainId) internal view returns (uint256) {
+        for (uint256 i = 0; i < request.chainedValorAmount.length; i++) {
+            if (request.chainedValorAmount[i].chainId == _chainId) {
+                return request.chainedValorAmount[i].amount;
+            }
+        }
+        return 0;
+    }
+
     /**
      * @notice Traverse all user revenue requests and collect USDC revenue for claimable batch
      *         Suppose that this function will be called each time when user redeem valor or claim USDC
      *         There shouldn't be more than one request for claimable batch at the same time
      *         And no more than 3 requests for the user: claimable, finished but not prepared yet and current
-     *         So, overal complexity is 3 requests to find claimable O(1) + chainNum to collect USDC
+     *         So, overal complexity is 3 requests to find claimable batch O(1) + chainNum to collect USDC O(N)
      */
     function _collectUserRevenueForClaimableBatch(address _user) internal {
         for (uint256 requestIndex = 0; requestIndex < userRevenue[_user].requests.length; requestIndex++) {
