@@ -4,10 +4,11 @@ pragma solidity 0.8.22;
 import {LedgerToken} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
+import {Staking} from "./Staking.sol";
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 
-abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounter {
+abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounter, Staking {
     /// @dev May propose new/updated Merkle roots for tokens.
     bytes32 public constant ROOT_UPDATER_ROLE = keccak256("ROOT_UPDATER_ROLE");
 
@@ -55,6 +56,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     /* ========== ERRORS ========== */
 
     error DistributionAlreadyExists();
+    error TokenIsNotSupportedForDistribution();
     error DistributionNotFound();
     error ProposedMerkleRootIsZero();
     error StartTimestampIsInThePast();
@@ -185,7 +187,8 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
      * @param  _startTimestamp  The timestamp when this Merkle root become active.
      * @param  _ipfsCid         An IPFS CID pointing to the Merkle tree data.
      *
-     *  Reverts if the distribution with the same id is already exists or Merkle root params are invalid.
+     * Reverts if the distribution with the same id is already exists or Merkle root params are invalid.
+     * Reverts if the token is not supported for distribution. Currently only ORDER and ESORDER tokens are supported.
      */
     function createDistribution(
         uint32 _distributionId,
@@ -195,6 +198,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         bytes calldata _ipfsCid
     ) external nonReentrant onlyUpdater {
         if (_distributionExists(_distributionId)) revert DistributionAlreadyExists();
+        if (_token != LedgerToken.ORDER && _token != LedgerToken.ESORDER) revert TokenIsNotSupportedForDistribution();
 
         activeDistributions[_distributionId] = Distribution({
             token: _token,
@@ -320,8 +324,8 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
             if (token == LedgerToken.ORDER) {
                 // TODO: just send $ORDER tokens to the OCC adaptor
             } else {
-                // TODO: implement staking!
                 // Record based distribution. Stake the claimable amount.
+                stake(_user, _srcChainId, token, claimableAmount);
                 return claimableAmount;
             }
 

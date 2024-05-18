@@ -9,13 +9,14 @@ import {LedgerToken, OCCVaultMessage, OCCLedgerMessage, IOCCLedgerReceiver} from
 import {LedgerAccessControl} from "./lib/LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
 import {LedgerPayloadTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
-import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
 import {OCCManager} from "./lib/OCCManager.sol";
-import {Revenue} from "./lib/Revenue.sol";
-import {Staking} from "./lib/Staking.sol";
 import {Valor} from "./lib/Valor.sol";
+import {Staking} from "./lib/Staking.sol";
+import {Vesting} from "./lib/Vesting.sol";
+import {Revenue} from "./lib/Revenue.sol";
+import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
 
-contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, MerkleDistributor, Valor, Staking, Revenue {
+contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor, Staking, Vesting, Revenue, MerkleDistributor {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -53,7 +54,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
             claimRewards(
                 claimRewardPayload.distributionId,
-                claimRewardPayload.user,
+                message.sender,
                 message.srcChainId,
                 claimRewardPayload.cumulativeAmount,
                 claimRewardPayload.merkleProof

@@ -43,8 +43,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== EVENTS ========== */
 
-    event ValorRedeemed(uint256 chainEventId, uint256 chainId, address indexed user, uint16 batchId, uint256 valorAmount);
-    event UsdcClaimed(uint256 chainEventId, uint256 chainId, address indexed user, uint256 usdcAmount);
+    event ValorRedeemed(uint256 indexed chainEventId, uint256 indexed chainId, address indexed user, uint16 batchId, uint256 valorAmount);
+    event UsdcClaimed(uint256 indexed chainEventId, uint256 indexed chainId, address indexed user, uint256 usdcAmount);
 
     /* ========== ERRORS ========== */
 

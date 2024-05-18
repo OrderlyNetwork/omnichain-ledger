@@ -20,7 +20,6 @@ contract OCCAdaptorMock {
     ) external {
         LedgerPayloadTypes.ClaimReward memory claimRewardPayload = LedgerPayloadTypes.ClaimReward({
             distributionId: _distributionId,
-            user: _user,
             cumulativeAmount: _cumulativeAmount,
             merkleProof: _merkleProof
         });
