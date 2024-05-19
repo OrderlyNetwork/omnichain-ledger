@@ -7,7 +7,7 @@ import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY, LedgerToken } from "./utilities/index";
 
-describe("MerkleDistributor", function () {
+describe("LedgerMerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
   function prepareMerkleTree(addresses: string[], amounts: string[]) {
@@ -32,6 +32,7 @@ describe("MerkleDistributor", function () {
   }
 
   async function createDistribution(
+    token: LedgerToken,
     addresses: string[],
     amounts: string[],
     distributor: Contract,
@@ -42,66 +43,65 @@ describe("MerkleDistributor", function () {
     const { tree, amountsBigNumber } = prepareMerkleTree(addresses, amounts);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
-    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, tree.root, startTimestamp, ipfsCid);
+    await distributor.connect(updater).createDistribution(distributionId, token, tree.root, startTimestamp, ipfsCid);
     return { tree, amountsBigNumber, startTimestamp, ipfsCid };
   }
 
   async function proposeAndUpdateRootDistribution(
+    token: LedgerToken,
     addresses: string[],
     amounts: string[],
     distributor: Contract,
     updater: SignerWithAddress,
-    orderToken: Contract
+    distributionId: number
   ) {
-    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(addresses, amounts, distributor, updater, 1);
+    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      token,
+      addresses,
+      amounts,
+      distributor,
+      updater,
+      distributionId
+    );
     await helpers.time.increaseTo(startTimestamp + 1);
-    await distributor.connect(updater).updateRoot(orderToken.address);
+    await distributor.connect(updater).updateRoot(distributionId);
     return { tree, amountsBigNumber, startTimestamp, ipfsCid };
   }
 
   async function claimUserRewardsAndCheckResults(
-    tokenContract: Contract,
     distributor: Contract,
+    distributionId: number,
+    token: LedgerToken,
     user: SignerWithAddress,
     rewardAmount: BigNumber,
     proof: string[],
     expectedClaimedAmount?: BigNumber
   ) {
-    const userBalanceBefore = await tokenContract.balanceOf(user.address);
-    const tokenTotalSupplyBefore = await tokenContract.totalSupply();
-
     // User should be able to claim tokens
-    const tx = await distributor.connect(user).claimRewards(tokenContract.address, rewardAmount, proof);
+    // Here chainId is hardcoded as 1.
+    const tx = await distributor.connect(user).claimRewards(distributionId, user.address, 1, rewardAmount, proof);
     await expect(tx)
       .to.emit(distributor, "RewardsClaimed")
-      .withArgs(anyValue, tokenContract.address, user.address, expectedClaimedAmount ? expectedClaimedAmount : rewardAmount);
-
-    // Check that the user token claimed amount has been updated
-    expect(await distributor.getClaimed(tokenContract.address, user.address)).to.be.equal(rewardAmount);
-
-    // Check that the user has received the tokens
-    expect(await tokenContract.balanceOf(user.address)).to.be.equal(
-      userBalanceBefore.add(expectedClaimedAmount ? expectedClaimedAmount : rewardAmount)
-    );
-
-    // Check that the total supply has been updated
-    expect(await tokenContract.totalSupply()).to.be.equal(tokenTotalSupplyBefore.add(expectedClaimedAmount ? expectedClaimedAmount : rewardAmount));
+      .withArgs(anyValue, 1, distributionId, user.address, expectedClaimedAmount ? expectedClaimedAmount : rewardAmount, token);
   }
 
-  async function checkActualRoot(
+  async function checkDistribution(
     distributor: Contract,
-    token: Contract,
+    distributionId: number,
+    token: LedgerToken,
     tree: StandardMerkleTree<string[]>,
     startTimestamp: number,
     ipfsCid: string
   ) {
     const {
+      token: actualToken,
       merkleRoot: actualMerkleRoot,
       startTimestamp: actualStartTimestamp,
       ipfsCid: actualIpfsCid
-    } = await distributor.getActualRoot(token.address);
+    } = await distributor.getDistribution(distributionId);
+    expect(actualToken).to.be.equal(token);
     expect(actualMerkleRoot).to.be.equal(tree.root);
-    expect(startTimestamp).to.be.equal(startTimestamp);
+    expect(actualStartTimestamp).to.be.equal(startTimestamp);
     expect(actualIpfsCid).to.be.equal(ipfsCid);
   }
 
@@ -123,7 +123,7 @@ describe("MerkleDistributor", function () {
   }
 
   async function distributorFixture() {
-    const ledgerCF = await ethers.getContractFactory("Ledger");
+    const ledgerCF = await ethers.getContractFactory("LedgerTest");
     const orderTokenOftCF = await ethers.getContractFactory("OrderTokenOFT");
 
     const [owner, user, updater, operator] = await ethers.getSigners();
@@ -221,6 +221,7 @@ describe("MerkleDistributor", function () {
     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
     const distributionId = 1;
     const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      LedgerToken.ORDER,
       [user.address],
       [INITIAL_SUPPLY_STR],
       distributor,
@@ -238,6 +239,7 @@ describe("MerkleDistributor", function () {
     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
     const distributionId = 1;
     const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      LedgerToken.ORDER,
       [user.address],
       [INITIAL_SUPPLY_STR],
       distributor,
@@ -267,149 +269,178 @@ describe("MerkleDistributor", function () {
     await checkProposedRoot(distributor, distributionId, newTree, startTimestamp, newIpfsCid);
   });
 
-  // it("should propogate the proposed root to the active one during proposing new one if startTimestamp has passed", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, startTimestamp, ipfsCid } = await proposeRootDistribution([user.address], [INITIAL_SUPPLY_STR], distributor, updater, orderToken);
+  it("should propogate the proposed root to the active one during proposing new one if startTimestamp has passed", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, startTimestamp, ipfsCid } = await createDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      [INITIAL_SUPPLY_STR],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     await helpers.time.increaseTo(startTimestamp + 1);
+    await helpers.time.increaseTo(startTimestamp + 1);
 
-  //     const newStartTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
-  //     const { tree: newTree } = prepareMerkleTree([user.address], ["2000000000"]);
-  //     await expect(distributor.connect(updater).proposeRoot(orderToken.address, newTree.root, newStartTimestamp, ipfsCid))
-  //         .to.emit(distributor, "RootProposed")
-  //         .withArgs(anyValue, orderToken.address, newTree.root, newStartTimestamp, ipfsCid);
+    const newStartTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+    const { tree: newTree } = prepareMerkleTree([user.address], ["2000000000"]);
+    await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, newStartTimestamp, ipfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, newTree.root, newStartTimestamp, ipfsCid);
 
-  //     await checkActualRoot(distributor, orderToken, tree, startTimestamp, ipfsCid);
-  //     await checkProposedRoot(distributor, orderToken, newTree, newStartTimestamp, ipfsCid);
-  // });
+    await checkDistribution(distributor, distributionId, LedgerToken.ORDER, tree, startTimestamp, ipfsCid);
+    await checkProposedRoot(distributor, distributionId, newTree, newStartTimestamp, ipfsCid);
+  });
 
-  // it("should allow to activate a proposed root after startTimestamp has passed", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, startTimestamp, ipfsCid } = await proposeRootDistribution([user.address], [INITIAL_SUPPLY_STR], distributor, updater, orderToken);
+  it("should allow to activate a proposed root after startTimestamp has passed", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, startTimestamp, ipfsCid } = await createDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      [INITIAL_SUPPLY_STR],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     // Proposed root cannot be activated before startTimestamp
-  //     expect(await distributor.canUpdateRoot(orderToken.address)).to.be.equal(false);
-  //     await expect(distributor.connect(user).updateRoot(orderToken.address)).to.be.revertedWithCustomError(distributor, "CannotUpdateRoot");
+    // Proposed root cannot be activated before startTimestamp
+    expect(await distributor.canUpdateRoot(distributionId)).to.be.equal(false);
+    await expect(distributor.connect(user).updateRoot(distributionId)).to.be.revertedWithCustomError(distributor, "CannotUpdateRoot");
 
-  //     // Proposed root can be activated after startTimestamp
-  //     await helpers.time.increaseTo(startTimestamp + 1);
-  //     expect(await distributor.canUpdateRoot(orderToken.address)).to.be.equal(true);
-  //     await expect(distributor.connect(user).updateRoot(orderToken.address))
-  //         .to.emit(distributor, "RootUpdated")
-  //         .withArgs(anyValue, orderToken.address, tree.root, startTimestamp, ipfsCid);
+    // Proposed root can be activated after startTimestamp
+    await helpers.time.increaseTo(startTimestamp + 1);
+    expect(await distributor.canUpdateRoot(distributionId)).to.be.equal(true);
+    await expect(distributor.connect(user).updateRoot(distributionId))
+      .to.emit(distributor, "RootUpdated")
+      .withArgs(anyValue, distributionId, tree.root, startTimestamp, ipfsCid);
 
-  //     // Check that the active root is now the proposed one
-  //     await checkActualRoot(distributor, orderToken, tree, startTimestamp, ipfsCid);
+    // Check that the active root is now the proposed one
+    await checkDistribution(distributor, distributionId, LedgerToken.ORDER, tree, startTimestamp, ipfsCid);
 
-  //     // Check that the proposed root is now the default one
-  //     expect((await distributor.getProposedRoot(orderToken.address)).merkleRoot).to.be.equal(emptyRoot);
-  // });
+    // Check that the proposed root is now the default one
+    expect((await distributor.getProposedRoot(distributionId)).merkleRoot).to.be.equal(emptyRoot);
+  });
 
-  // it("should allow to claim tokens", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
+  it("should allow to claim tokens", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     await claimUserRewardsAndCheckResults(orderToken, distributor, user, amountsBigNumber[0], tree.getProof(0));
-  // });
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
+  });
 
-  // it("repeat claim should transfer nothing", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
+  it("repeat claim should transfer nothing", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     await claimUserRewardsAndCheckResults(orderToken, distributor, user, amountsBigNumber[0], tree.getProof(0));
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
 
-  //     const userBalanceBefore = await orderToken.balanceOf(user.address);
-  //     const tokenTotalSupplyBefore = await orderToken.totalSupply();
+    // Repeat claim should transfer nothing and not emit events
+    const tx2 = await distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0));
+    await expect(tx2).to.not.emit(distributor, "RewardsClaimed");
+  });
 
-  //     // Repeat claim should transfer nothing and not emit events
-  //     const tx2 = await distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0));
-  //     await expect(tx2).to.not.emit(distributor, "RewardsClaimed");
+  it("should allow to claim tokens for multiple addresses", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address, updater.address],
+      ["1000000000", "2000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, updater, amountsBigNumber[1], tree.getProof(1));
+  });
 
-  //     // Check that the user token claimed amount has not changed
-  //     expect(await distributor.getClaimed(orderToken.address, user.address)).to.be.equal(amountsBigNumber[0]);
+  it("should allow to claim tokens for multiple addresses in multiple roots", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId1 = 1;
+    const { tree, amountsBigNumber: orderAmounts1 } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address, updater.address],
+      ["1000000000", "2000000000"],
+      distributor,
+      updater,
+      distributionId1
+    );
 
-  //     // Check that the user balance has not changed
-  //     expect(await orderToken.balanceOf(user.address)).to.be.equal(userBalanceBefore);
+    const distributionId2 = 2;
+    const { tree: tree2, amountsBigNumber: orderAmounts2 } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [updater.address, user.address],
+      ["3000000000", "4000000000"],
+      distributor,
+      updater,
+      distributionId2
+    );
 
-  //     // Check that the total supply has not changed
-  //     expect(await orderToken.totalSupply()).to.be.equal(tokenTotalSupplyBefore);
-  // });
+    await claimUserRewardsAndCheckResults(distributor, distributionId1, LedgerToken.ORDER, user, orderAmounts1[0], tree.getProof(0));
+    await claimUserRewardsAndCheckResults(distributor, distributionId1, LedgerToken.ORDER, updater, orderAmounts1[1], tree.getProof(1));
+    await claimUserRewardsAndCheckResults(distributor, distributionId2, LedgerToken.ORDER, updater, orderAmounts2[0], tree2.getProof(0));
+    await claimUserRewardsAndCheckResults(distributor, distributionId2, LedgerToken.ORDER, user, orderAmounts2[1], tree2.getProof(1));
+  });
 
-  // it("should allow to claim tokens for multiple addresses", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
-  //         [user.address, updater.address],
-  //         ["1000000000", "2000000000"],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
-  //     await claimUserRewardsAndCheckResults(orderToken, distributor, user, amountsBigNumber[0], tree.getProof(0));
-  //     await claimUserRewardsAndCheckResults(orderToken, distributor, updater, amountsBigNumber[1], tree.getProof(1));
-  // });
+  it("should allow to repeatedly claim tokens after root has been updated", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const {
+      tree: tree1,
+      amountsBigNumber: amountsBigNumber1,
+      startTimestamp: startTimestamp1
+    } = await proposeAndUpdateRootDistribution(LedgerToken.ORDER, [user.address], ["1000000000"], distributor, updater, distributionId);
 
-  // it("should allow to claim tokens for multiple addresses in multiple roots", async function () {
-  //     const { orderToken, esOrderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber: orderAmounts } = await proposeAndUpdateRootDistribution(
-  //         [user.address, updater.address],
-  //         ["1000000000", "2000000000"],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
+    await claimUserRewardsAndCheckResults(
+      distributor,
+      distributionId,
+      LedgerToken.ORDER,
+      user,
+      amountsBigNumber1[0],
+      tree1.getProof([user.address, amountsBigNumber1[0].toString()])
+    );
 
-  //     const { tree: tree2, amountsBigNumber: esOrderAmounts } = await proposeAndUpdateRootDistribution(
-  //         [updater.address, user.address],
-  //         ["3000000000", "4000000000"],
-  //         distributor,
-  //         updater,
-  //         esOrderToken
-  //     );
+    const { tree: tree2, amountsBigNumber: amountsBigNumber2 } = prepareMerkleTree([user.address], ["3000000000"]);
+    const newStartTimestamp = startTimestamp1 + ONE_DAY_IN_SECONDS;
+    const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
+    await expect(distributor.connect(updater).proposeRoot(distributionId, tree2.root, newStartTimestamp, newIpfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, tree2.root, newStartTimestamp, newIpfsCid);
 
-  //     await claimUserRewardsAndCheckResults(orderToken, distributor, user, orderAmounts[0], tree.getProof(0));
-  //     await claimUserRewardsAndCheckResults(orderToken, distributor, updater, orderAmounts[1], tree.getProof(1));
-  //     await claimUserRewardsAndCheckResults(esOrderToken, distributor, updater, esOrderAmounts[0], tree2.getProof(0));
-  //     await claimUserRewardsAndCheckResults(esOrderToken, distributor, user, esOrderAmounts[1], tree2.getProof(1));
-  // });
+    await helpers.time.increaseTo(newStartTimestamp + 1);
 
-  // it("should allow to repeatedly claim tokens after root has been updated", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
-  //     const { tree: tree1, amountsBigNumber: amountsBigNumber1 } = await proposeAndUpdateRootDistribution(
-  //         [user.address],
-  //         ["1000000000"],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
-
-  //     await claimUserRewardsAndCheckResults(
-  //         orderToken,
-  //         distributor,
-  //         user,
-  //         amountsBigNumber1[0],
-  //         tree1.getProof([user.address, amountsBigNumber1[0].toString()])
-  //     );
-
-  //     const { tree: tree2, amountsBigNumber: amountsBigNumber2 } = await proposeAndUpdateRootDistribution(
-  //         [user.address],
-  //         ["3000000000"],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
-
-  //     await claimUserRewardsAndCheckResults(
-  //         orderToken,
-  //         distributor,
-  //         user,
-  //         amountsBigNumber2[0],
-  //         tree2.getProof(0),
-  //         amountsBigNumber2[0].sub(amountsBigNumber1[0])
-  //     );
-  // });
+    await claimUserRewardsAndCheckResults(
+      distributor,
+      distributionId,
+      LedgerToken.ORDER,
+      user,
+      amountsBigNumber2[0],
+      tree2.getProof([user.address, amountsBigNumber2[0].toString()]),
+      amountsBigNumber2[0].sub(amountsBigNumber1[0])
+    );
+  });
 
   // it("should update root after claiming if startTimestamp has passed", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
+  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
 
   //     // Create first distribution
   //     await proposeRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
@@ -434,7 +465,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("should allow to claim tokens for user by operator", async function () {
-  //     const { orderToken, distributor, user, updater, operator } = await distributorFixture();
+  //     const { orderTokenOft, distributor, user, updater, operator } = await distributorFixture();
   //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
 
   //     const userBalanceBefore = await orderToken.balanceOf(user.address);
@@ -455,7 +486,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("should allow to claim tokens for user by another user if alwaysAllowClaimsFor is set", async function () {
-  //     const { orderToken, distributor, user, updater, operator } = await distributorFixture();
+  //     const { orderTokenOft, distributor, user, updater, operator } = await distributorFixture();
   //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
 
   //     // Check, that updater cannot claim tokens for user without alwaysAllowClaimsFor set
@@ -492,7 +523,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("should fail if the root is not active", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
+  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
   //     const { tree, amountsBigNumber } = await proposeRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
   //     await expect(distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0)))
   //         .to.be.revertedWithCustomError(distributor, "NoActiveMerkleRoot")
@@ -500,7 +531,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("should fail if user not in merkle tree", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
+  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
   //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
   //     await expect(distributor.connect(updater).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0))).to.be.revertedWithCustomError(
   //         distributor,
@@ -509,7 +540,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("should fail if user proof is not valid", async function () {
-  //     const { orderToken, distributor, user, updater } = await distributorFixture();
+  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
   //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
   //     await expect(
   //         distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0].add(1), tree.getProof(0))
@@ -517,7 +548,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("should fail if token cannot be minted", async function () {
-  //     const { orderToken, distributor, owner, user, updater } = await distributorFixture();
+  //     const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
 
   //     orderToken.connect(owner).revokeRole(await orderToken.MINTER_ROLE(), distributor.address);
   //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
@@ -534,7 +565,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("check that only owner can pause/unpause", async function () {
-  //     const { orderToken, distributor, owner, user, updater } = await distributorFixture();
+  //     const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
 
   //     // Only owner should be able to pause/unpause
   //     await expect(distributor.connect(user).pause()).to.be.revertedWith(/AccessControl: account .* is missing role .*/);
@@ -546,7 +577,7 @@ describe("MerkleDistributor", function () {
   // });
 
   // it("pause should fail functions, that requires unpaused state", async function () {
-  //     const { orderToken, distributor, owner, user, updater, operator } = await distributorFixture();
+  //     const { orderTokenOft, distributor, owner, user, updater, operator } = await distributorFixture();
   //     await distributor.connect(owner).pause();
 
   //     const { tree, amountsBigNumber, startTimestamp } = await proposeRootDistribution(
