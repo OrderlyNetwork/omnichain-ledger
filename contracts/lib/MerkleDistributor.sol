@@ -4,11 +4,10 @@ pragma solidity 0.8.22;
 import {LedgerToken} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-import {Staking} from "./Staking.sol";
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 
-abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounter, Staking {
+abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounter {
     /// @dev May propose new/updated Merkle roots for tokens.
     bytes32 public constant ROOT_UPDATER_ROLE = keccak256("ROOT_UPDATER_ROLE");
 
@@ -51,7 +50,14 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     event RootUpdated(uint256 eventId, uint32 distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
 
     /// @notice Emitted when a user (or behalf of user) claims rewards.
-    event RewardsClaimed(uint256 eventId, uint32 distributionId, address account, uint256 amount, LedgerToken token, uint256 dstEid);
+    event RewardsClaimed(
+        uint256 indexed chainedEventId,
+        uint256 indexed chainId,
+        uint32 distributionId,
+        address indexed account,
+        uint256 amount,
+        LedgerToken token
+    );
 
     /* ========== ERRORS ========== */
 
@@ -262,32 +268,21 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     /* ========== USER FUNCTIONS ========== */
 
     /**
-     * @notice Claim the remaining unclaimed rewards for a user, and send them to that user on the chain, pointed by _dstEid.
-     * Works only if distribution is OFT token based.
-     * Send tokens using LZ bridge to the
-     * Claim the remaining unclaimed rewards for a user, and send them to that user.
-     *         Will propogate pending Merkle root updates before claiming if startTimestamp has
-     *         passed for the token.
+     * @notice Check Merkle proof and claim the remaining unclaimed rewards for a user.
+     *         Will propogate pending Merkle root updates before claiming if startTimestamp for pending root has passed.
+     *         Return token and claimable amount. Caller should transfer the token to the user or stake if token is record based.
      *
-     * @param  _distributionId  The distribution id.
-     * @param  _user            Address of the user.
-     * @param  _srcChainId      The source chain id.
-     * @param  _cumulativeAmount The total all-time rewards this user has earned.
-     * @param  _merkleProof      The Merkle proof for the user and cumulative amount.
-     *
-     * @return claimableAmount  The number of rewards tokens claimed.
-     *
-     *  Reverts if the distribution is not OFT token based.
+     *  Reverts if there is no active distribution for the _distributionId.
      *  Reverts if no active Merkle root is set for the _distributionId.
      *  Reverts if the provided Merkle proof is invalid.
      */
-    function claimRewards(
+    function _claimRewards(
         uint32 _distributionId,
         address _user,
         uint256 _srcChainId,
         uint256 _cumulativeAmount,
         bytes32[] memory _merkleProof
-    ) internal whenNotPaused nonReentrant returns (uint256 claimableAmount) {
+    ) internal whenNotPaused nonReentrant returns (LedgerToken token, uint256 claimableAmount) {
         if (canUpdateRoot(_distributionId)) {
             updateRoot(_distributionId);
         }
@@ -307,29 +302,15 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
             if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidMerkleProof();
         }
 
-        // Get the claimable amount.
-        //
         // Note: If this reverts, then there was an error in the Merkle tree, since the cumulative
         // amount for a given user should never decrease over time.
         claimableAmount = _cumulativeAmount - claimedAmounts[_distributionId][_user];
+        token = activeDistributions[_distributionId].token;
+
+        claimedAmounts[_distributionId][_user] = _cumulativeAmount;
 
         if (claimableAmount > 0) {
-            // Mark the user as having claimed the full amount.
-            claimedAmounts[_distributionId][_user] = _cumulativeAmount;
-
-            LedgerToken token = activeDistributions[_distributionId].token;
-
-            // If distribution is token based, send the claimable amount to the user on the destination chain.
-            // Record based distributions just return the claimable amount.
-            if (token == LedgerToken.ORDER) {
-                // TODO: just send $ORDER tokens to the OCC adaptor
-            } else {
-                // Record based distribution. Stake the claimable amount.
-                stake(_user, _srcChainId, token, claimableAmount);
-                return claimableAmount;
-            }
-
-            emit RewardsClaimed(_getNextChainedEventId(0), _distributionId, _user, claimableAmount, token, _srcChainId);
+            emit RewardsClaimed(_getNextChainedEventId(_srcChainId), _srcChainId, _distributionId, _user, claimableAmount, token);
         }
     }
 

@@ -6,7 +6,7 @@ import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 import {Staking} from "./Staking.sol";
 
-abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter, Staking {
+abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     uint256 internal constant VESTING_LOCK_PERIOD = 15 days;
     uint256 internal constant VESTING_LINEAR_PERIOD = 75 days;
 
@@ -108,34 +108,34 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter, Staking
         );
     }
 
-    /// @notice Cancel vesting request for user and stake back es$ORDER tokens
+    /// @notice Cancel vesting request for user and return es$ORDER amount
+    /// Caller should stake back es$ORDER tokens
     function cancelVestingRequest(
         address _user,
         uint256 _chainId,
         uint256 _requestId
-    ) internal whenNotPaused nonReentrant returns (uint256 amountEsorderStakedBack) {
+    ) internal whenNotPaused nonReentrant returns (uint256 esOrderAmountToStakeBack) {
         VestingRequest storage userVestingRequest = _findVestingRequest(_user, _requestId);
 
-        amountEsorderStakedBack = userVestingRequest.esOrderAmount;
+        esOrderAmountToStakeBack = userVestingRequest.esOrderAmount;
         userVestingRequest = userVestingInfos[_user].requests[userVestingInfos[_user].requests.length - 1];
         userVestingInfos[_user].requests.pop();
 
-        emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, _requestId, amountEsorderStakedBack);
-
-        stake(_user, _chainId, LedgerToken.ESORDER, amountEsorderStakedBack);
+        emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, _requestId, esOrderAmountToStakeBack);
     }
 
-    /// @notice Cancel all vesting requests for user and stake back es$ORDER tokens
-    function cancelAllVestingRequests(address _user, uint256 _chainId) internal whenNotPaused nonReentrant returns (uint256 totalEsOrderAmount) {
+    /// @notice Cancel all vesting requests for user
+    function cancelAllVestingRequests(
+        address _user,
+        uint256 _chainId
+    ) internal whenNotPaused nonReentrant returns (uint256 esOrderAmountToStakeBack) {
         UserVestingInfo memory userVestingInfo = userVestingInfos[_user];
 
         for (uint256 i = 0; i < userVestingInfo.requests.length; i++) {
             uint256 esOrderAmount = userVestingInfo.requests[i].esOrderAmount;
-            totalEsOrderAmount += esOrderAmount;
+            esOrderAmountToStakeBack += esOrderAmount;
 
             emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, userVestingInfo.requests[i].requestId, esOrderAmount);
-
-            stake(_user, _chainId, LedgerToken.ESORDER, esOrderAmount);
         }
 
         delete userVestingInfos[_user];

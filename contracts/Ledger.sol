@@ -52,13 +52,15 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
     function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
-            claimRewards(
+            (LedgerToken token, uint256 claimableAmount) = _claimRewards(
                 claimRewardPayload.distributionId,
                 message.sender,
                 message.srcChainId,
                 claimRewardPayload.cumulativeAmount,
                 claimRewardPayload.merkleProof
             );
+
+            stake(message.sender, message.srcChainId, token, claimableAmount);
         }
     }
 
