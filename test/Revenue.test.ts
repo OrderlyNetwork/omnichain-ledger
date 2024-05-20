@@ -132,4 +132,41 @@ describe("Revenue", function () {
     const tx = await ledger.connect(user).claimUsdcRevenue(user.address, chainId);
     await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, chainId, user.address, 500);
   });
+
+  it("user can claim usdc revenue for multiple batches", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+
+    const chainId = 0;
+    await ledger.connect(user).setCollectedValor(user.address, 2000);
+    await ledger.connect(user).redeemValor(user.address, chainId, 1000);
+
+    await prepareBatchForClaiming(ledger, owner, 0);
+
+    await ledger.connect(user).redeemValor(user.address, chainId, 1000);
+
+    await prepareBatchForClaiming(ledger, owner, 1);
+
+    expect(await ledger.totalValorAmount()).to.equal(1000);
+
+    const tx = await ledger.connect(user).claimUsdcRevenue(user.address, chainId);
+    await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, chainId, user.address, 1000);
+  });
+
+  it("user can claim usdc revenue for multiple chains", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+
+    await ledger.connect(user).setCollectedValor(user.address, 2000);
+    await ledger.connect(user).redeemValor(user.address, 0, 1000);
+    await ledger.connect(user).redeemValor(user.address, 1, 1000);
+
+    await prepareBatchForClaiming(ledger, owner, 0);
+
+    expect(await ledger.totalValorAmount()).to.equal(0);
+
+    const tx = await ledger.connect(user).claimUsdcRevenue(user.address, 0);
+    await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 0, user.address, 500);
+
+    const tx2 = await ledger.connect(user).claimUsdcRevenue(user.address, 1);
+    await expect(tx2).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 1, user.address, 500);
+  });
 });
