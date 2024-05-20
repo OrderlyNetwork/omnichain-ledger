@@ -68,6 +68,24 @@ describe("LedgerMerkleDistributor", function () {
     return { tree, amountsBigNumber, startTimestamp, ipfsCid };
   }
 
+  async function proposeAndUpdateNewRootForDistribution(
+    addresses: string[],
+    amounts: string[],
+    distributor: Contract,
+    updater: SignerWithAddress,
+    distributionId: number
+  ) {
+    const { tree: tree2, amountsBigNumber: amountsBigNumber2 } = prepareMerkleTree(addresses, amounts);
+    const newStartTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+    const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
+    await expect(distributor.connect(updater).proposeRoot(distributionId, tree2.root, newStartTimestamp, newIpfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, distributionId, tree2.root, newStartTimestamp, newIpfsCid);
+    await helpers.time.increaseTo(newStartTimestamp + 1);
+    await distributor.connect(updater).updateRoot(distributionId);
+    return { tree: tree2, amountsBigNumber: amountsBigNumber2, startTimestamp: newStartTimestamp, ipfsCid: newIpfsCid };
+  }
+
   async function claimUserRewardsAndCheckResults(
     distributor: Contract,
     distributionId: number,
@@ -77,12 +95,23 @@ describe("LedgerMerkleDistributor", function () {
     proof: string[],
     expectedClaimedAmount?: BigNumber
   ) {
+    const userTotalStakingBalanceBefore = await distributor.userTotalStakingBalance(user.address);
+
     // User should be able to claim tokens
     // Here chainId is hardcoded as 1.
     const tx = await distributor.connect(user).claimRewards(distributionId, user.address, 1, rewardAmount, proof);
     await expect(tx)
       .to.emit(distributor, "RewardsClaimed")
       .withArgs(anyValue, 1, distributionId, user.address, expectedClaimedAmount ? expectedClaimedAmount : rewardAmount, token);
+
+    const userTotalStakingBalanceAfter = await distributor.userTotalStakingBalance(user.address);
+    if (token === LedgerToken.ESORDER) {
+      // Check that claimed amount has been staked
+      expect(userTotalStakingBalanceAfter).to.be.equal(userTotalStakingBalanceBefore.add(rewardAmount));
+    } else if (token === LedgerToken.ORDER) {
+      // Check that claimed amount has not been staked
+      expect(userTotalStakingBalanceAfter).to.be.equal(userTotalStakingBalanceBefore);
+    }
   }
 
   async function checkDistribution(
@@ -419,14 +448,13 @@ describe("LedgerMerkleDistributor", function () {
       tree1.getProof([user.address, amountsBigNumber1[0].toString()])
     );
 
-    const { tree: tree2, amountsBigNumber: amountsBigNumber2 } = prepareMerkleTree([user.address], ["3000000000"]);
-    const newStartTimestamp = startTimestamp1 + ONE_DAY_IN_SECONDS;
-    const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
-    await expect(distributor.connect(updater).proposeRoot(distributionId, tree2.root, newStartTimestamp, newIpfsCid))
-      .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, tree2.root, newStartTimestamp, newIpfsCid);
-
-    await helpers.time.increaseTo(newStartTimestamp + 1);
+    const { tree: tree2, amountsBigNumber: amountsBigNumber2 } = await proposeAndUpdateNewRootForDistribution(
+      [user.address],
+      ["3000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
 
     await claimUserRewardsAndCheckResults(
       distributor,
@@ -439,30 +467,61 @@ describe("LedgerMerkleDistributor", function () {
     );
   });
 
-  // it("should update root after claiming if startTimestamp has passed", async function () {
-  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+  it("should update root after claiming if startTimestamp has passed", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
 
-  //     // Create first distribution
-  //     await proposeRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
+    const distributionId = 1;
+    const chainId = 1;
+    // Create first distribution
+    await createDistribution(LedgerToken.ORDER, [user.address], ["1000000000"], distributor, updater, distributionId);
 
-  //     // Create second distribution
-  //     const {
-  //         tree: tree2,
-  //         amountsBigNumber: amountsBigNumber2,
-  //         startTimestamp: startTimestamp2,
-  //         ipfsCid: ipfsCid2
-  //     } = await proposeAndUpdateRootDistribution([user.address], ["3000000000"], distributor, updater, orderToken);
+    const { tree: tree2, amountsBigNumber: amountsBigNumber2 } = await proposeAndUpdateNewRootForDistribution(
+      [user.address],
+      ["3000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     const userBalanceBefore = await orderToken.balanceOf(user.address);
-  //     const tokenTotalSupplyBefore = await orderToken.totalSupply();
+    // Claim user's reward from the active root, the pending root will be promoted during the claim
+    const tx = await distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber2[0], tree2.getProof(0));
+    await expect(tx)
+      .to.emit(distributor, "RewardsClaimed")
+      .withArgs(anyValue, chainId, distributionId, user.address, amountsBigNumber2[0], LedgerToken.ORDER);
 
-  //     // Claim user's reward from the active root, the pending root will be promoted during the claim
-  //     const tx = await distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber2[0], tree2.getProof(0));
-  //     await expect(tx).to.emit(distributor, "RewardsClaimed").withArgs(anyValue, orderToken.address, user.address, amountsBigNumber2[0]);
+    // Check that the user token claimed amount has been updated
+    expect(await distributor.getClaimed(distributionId, user.address)).to.be.equal(amountsBigNumber2[0]);
+  });
 
-  //     // Check that the user token claimed amount has been updated
-  //     expect(await distributor.getClaimed(orderToken.address, user.address)).to.be.equal(amountsBigNumber2[0]);
-  // });
+  it("should stake tokens when claiming ESORDER tokens", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ESORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ESORDER, user, amountsBigNumber[0], tree.getProof(0));
+  });
+
+  it("should NOT stake tokens when claiming ORDER tokens", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
+  });
 
   // it("should allow to claim tokens for user by operator", async function () {
   //     const { orderTokenOft, distributor, user, updater, operator } = await distributorFixture();
