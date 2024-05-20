@@ -1,11 +1,11 @@
-import { deployments, ethers, upgrades } from "hardhat";
-import { BigNumber, Contract, ContractFactory } from "ethers";
+import { ethers } from "hardhat";
+import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY, LedgerToken } from "./utilities/index";
+import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture } from "./utilities/index";
 
 describe("LedgerMerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -152,45 +152,7 @@ describe("LedgerMerkleDistributor", function () {
   }
 
   async function distributorFixture() {
-    const ledgerCF = await ethers.getContractFactory("LedgerTest");
-    const orderTokenOftCF = await ethers.getContractFactory("OrderTokenOFT");
-
-    const [owner, user, updater, operator] = await ethers.getSigners();
-
-    // The EndpointV2Mock contract comes from @layerzerolabs/test-devtools-evm-hardhat package
-    // and its artifacts are connected as external artifacts to this project
-    //
-    // Unfortunately, hardhat itself does not yet provide a way of connecting external artifacts
-    // so we rely on hardhat-deploy to create a ContractFactory for EndpointV2Mock
-    //
-    // See https://github.com/NomicFoundation/hardhat/issues/1040
-    const eidA = 1;
-    const EndpointV2MockArtifact = await deployments.getArtifact("EndpointV2Mock");
-    const EndpointV2Mock = new ContractFactory(EndpointV2MockArtifact.abi, EndpointV2MockArtifact.bytecode, owner);
-    const mockEndpointA = await EndpointV2Mock.deploy(eidA);
-
-    // TODO: Make OrderToken OFT
-    const orderTokenOft = await orderTokenOftCF.deploy(owner.address, TOTAL_SUPPLY, mockEndpointA.address);
-    await orderTokenOft.deployed();
-
-    const fakeAdapterAddress = owner.address;
-    const valorPerSecond = 1;
-    const maximumValorEmission = 1000000;
-    const distributor = await upgrades.deployProxy(ledgerCF, [
-      owner.address,
-      fakeAdapterAddress,
-      orderTokenOft.address,
-      valorPerSecond,
-      maximumValorEmission
-    ]);
-    await distributor.deployed();
-
-    await distributor.connect(owner).grantRole(distributor.ROOT_UPDATER_ROLE(), updater.address);
-
-    // console.log("owner: ", owner.address);
-    // console.log("updater: ", updater.address);
-    // console.log("distributor: ", distributor.address);
-
+    const { ledger: distributor, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
     return { distributor, orderTokenOft, owner, user, updater, operator };
   }
 
