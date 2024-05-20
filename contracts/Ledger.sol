@@ -38,9 +38,9 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
     ) external initializer {
         ledgerAccessControlInit(_owner);
         merkleDistributorInit(_owner);
-        valorInit(_valorPerSecond, _maximumValorEmission);
-        stakingInit();
-        revenueInit(block.timestamp);
+        valorInit(_owner, _valorPerSecond, _maximumValorEmission);
+        stakingInit(_owner);
+        revenueInit(_owner, block.timestamp);
 
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
@@ -49,6 +49,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
         occAdaptor = _occAdaptor;
     }
 
+    /// @notice Receives message from OCCAdapter and processes it
     function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
@@ -69,14 +70,10 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
                     revert UnsupportedToken();
                 }
             }
+        } else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
+            LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
+            _updateValorVarsAndCollectValor(message.sender);
+            _redeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
         }
-    }
-
-    /* ========== EXTERNAL FUNCTIONS ========== */
-
-    function redeemValor(address _user, uint256 _srcChainId, uint256 _amount) external nonReentrant {
-        _updateValorVarsAndCollectValor(_user);
-
-        _redeemValor(_user, _srcChainId, _amount);
     }
 }

@@ -23,4 +23,21 @@ contract LedgerTest is Ledger {
             }
         }
     }
+
+    function setTotalValorAmount(uint256 _amount) external {
+        totalValorAmount = _amount;
+    }
+
+    function setCollectedValor(address _user, uint256 _amount) external {
+        collectedValor[_user] = _amount;
+    }
+
+    function redeemValor(address _user, uint256 _chainId, uint256 _amount) external {
+        _updateValorVarsAndCollectValor(_user);
+        _redeemValor(_user, _chainId, _amount);
+    }
+
+    function claimUsdcRevenue(address _user, uint256 _chainId) external {
+        _claimUsdcRevenue(_user, _chainId);
+    }
 }

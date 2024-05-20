@@ -7,6 +7,7 @@ import {Valor} from "./Valor.sol";
 
 abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     uint256 internal constant BATCH_DURATION = 14 days;
+    uint256 internal constant MAX_BATCH_NUMBER = 182;
 
     struct ChainedAmount {
         uint256 chainId;
@@ -19,7 +20,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         /// @dev Total amount of valor, that was redeemed in the batch
         uint256 redeemedValorAmount;
         /// @dev When batch finished, current rate will be fixed as the rate for the batch
-        uint256 fixedValorToUsdcRate;
+        uint256 fixedValorToUsdcRateScaled;
         /// @dev Total amount of valor, that was redeemed in the batch per chain
         ChainedAmount[] chainedValorAmount;
     }
@@ -44,19 +45,26 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /* ========== EVENTS ========== */
 
     event ValorRedeemed(uint256 indexed chainEventId, uint256 indexed chainId, address indexed user, uint16 batchId, uint256 valorAmount);
-    event UsdcClaimed(uint256 indexed chainEventId, uint256 indexed chainId, address indexed user, uint256 usdcAmount);
+    event UsdcRevenueClaimed(uint256 indexed chainEventId, uint256 indexed chainId, address indexed user, uint256 usdcAmount);
+    event BatchValorToUsdcRateIsFixed(uint16 indexed batchId, uint256 fixedValorToUsdcRate);
+    event BatchPreparedToClaim(uint16 indexed batchId);
 
     /* ========== ERRORS ========== */
 
     error RedemptionAmountIsZero();
     error AmountIsGreaterThanCollectedValor();
+    error BatchNumberIsMoreThanMax();
+    error BatchIsNotCreatedYet();
     error BatchIsNotFinished();
-    error BatchIsAlreadyBurned();
+    error BatchValorToUsdcRateIsNotFixed();
+    error NothingToClaim(address user, uint256 chainId);
 
     /* ========== INITIALIZER ========== */
 
-    function revenueInit(uint256 _startTimstamp) internal onlyInitializing {
+    function revenueInit(address, uint256 _startTimstamp) internal onlyInitializing {
         startTimestamp = _startTimstamp;
+        // create first batch
+        batches.push();
     }
 
     /* ========== VIEW FUNCTIONS ========== */
@@ -78,7 +86,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     function getBatch(uint16 _batchId) public view returns (Batch memory) {
-        return batches[_batchId];
+        return _getBatch(_batchId);
     }
 
     function isBatchFinished(uint16 _batchId) public view returns (bool) {
@@ -86,9 +94,10 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     function getUsdcAmountForBatch(uint16 _batchId) public view returns (ChainedAmount[] memory chainedUsdcAmount) {
-        chainedUsdcAmount = batches[_batchId].chainedValorAmount;
+        Batch storage batch = _getBatch(_batchId);
+        chainedUsdcAmount = batch.chainedValorAmount;
         for (uint256 i = 0; i < chainedUsdcAmount.length; i++) {
-            chainedUsdcAmount[i].amount *= batches[_batchId].fixedValorToUsdcRate;
+            chainedUsdcAmount[i].amount *= batch.fixedValorToUsdcRateScaled;
         }
     }
 
@@ -113,10 +122,11 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
             uint16 batchId = userRevenue[_user].requests[i].batchId;
             uint256 redeemedValorForChain = _getRedeemedValorAmountForChain(userRevenue[_user].requests[i], _chainId);
-            if (batches[batchId].claimable) {
-                usdcAvailableNow += redeemedValorForChain * batches[batchId].fixedValorToUsdcRate;
-            } else if (batches[batchId].fixedValorToUsdcRate != 0) {
-                pendingInTwoDays += redeemedValorForChain * batches[batchId].fixedValorToUsdcRate;
+            Batch storage batch = _getBatch(batchId);
+            if (batch.claimable) {
+                usdcAvailableNow += redeemedValorForChain * batch.fixedValorToUsdcRateScaled;
+            } else if (batch.fixedValorToUsdcRateScaled != 0) {
+                pendingInTwoDays += redeemedValorForChain * batch.fixedValorToUsdcRateScaled;
             } else {
                 redeemingValor += redeemedValorForChain;
             }
@@ -125,21 +135,35 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== ADMIN FUNCTIONS ========== */
 
-    function fixBatchPrice(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
+    /// @notice CeFi fixes valor to USDC rate for the batch after providing total USDC amunt after batch is finished
+    ///         This suppose to avoid the last day gap in USDC treasure amount
+    ///         that can lead to set incorrect valor to USDC rate for the batch
+    function fixBatchValorToUsdcRate(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
-        if (batches[_batchId].fixedValorToUsdcRate == 0) {
-            batches[_batchId].fixedValorToUsdcRate = valorToUsdcRate;
+        Batch storage batch = _getBatch(_batchId);
+        if (batch.fixedValorToUsdcRateScaled == 0) {
+            batch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
         }
-        return batches[_batchId].fixedValorToUsdcRate;
+        emit BatchValorToUsdcRateIsFixed(_batchId, batch.fixedValorToUsdcRateScaled);
+
+        return batch.fixedValorToUsdcRateScaled;
     }
 
+    /// @notice Admin marks batch as claimable when USDC is provided for the batch
+    ///         This also reduce total valor amount and total USDC in treasure
     function batchPreparedToClaim(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
-        if (batches[_batchId].claimable) return;
+        Batch storage batch = _getBatch(_batchId);
+        if (batch.fixedValorToUsdcRateScaled == 0) revert BatchValorToUsdcRateIsNotFixed();
+        if (batch.claimable) return;
 
-        totalValorAmount -= batches[_batchId].redeemedValorAmount;
-        totalUsdcInTreasure -= batches[_batchId].redeemedValorAmount * batches[_batchId].fixedValorToUsdcRate;
-        batches[_batchId].claimable = true;
+        totalValorAmount -= batch.redeemedValorAmount;
+
+        // !!!! TODO: Possible should be removed if CeFi provide whole USDC amount. Then CeFi should control this
+        totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
+        batch.claimable = true;
+
+        emit BatchPreparedToClaim(_batchId);
     }
 
     /* ========== USER FUNCTIONS ========== */
@@ -171,24 +195,32 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         emit ValorRedeemed(_getNextChainedEventId(0), _chainId, _user, currentBatchId, _amount);
     }
 
-    function _claimUsdcRevenue(address _user, uint256 _chainId) internal returns (uint256) {
+    function _claimUsdcRevenue(address _user, uint256 _chainId) internal returns (uint256 claimedUsdcAmount) {
         // If user has pending USDC revenue for claimable batch, collect it
         _collectUserRevenueForClaimableBatch(_user);
 
-        uint256 usdcAmount = userRevenue[_user].chainedUsdcRevenue[_chainId];
+        claimedUsdcAmount = userRevenue[_user].chainedUsdcRevenue[_chainId];
+        if (claimedUsdcAmount == 0) revert NothingToClaim(_user, _chainId);
+
         userRevenue[_user].chainedUsdcRevenue[_chainId] = 0;
 
-        emit UsdcClaimed(_getNextChainedEventId(_chainId), _chainId, _user, usdcAmount);
-        return usdcAmount;
+        emit UsdcRevenueClaimed(_getNextChainedEventId(_chainId), _chainId, _user, claimedUsdcAmount);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
 
+    function _getBatch(uint16 _batchId) internal view returns (Batch storage) {
+        if (_batchId >= MAX_BATCH_NUMBER) revert BatchNumberIsMoreThanMax();
+        if (_batchId >= batches.length) revert BatchIsNotCreatedYet();
+        return batches[_batchId];
+    }
+
     function _getOrCreateBatch(uint16 _batchId) internal returns (Batch storage) {
-        if (_batchId >= batches.length) {
+        if (_batchId >= MAX_BATCH_NUMBER) revert BatchNumberIsMoreThanMax();
+        while (_batchId >= batches.length) {
             batches.push();
         }
-        return batches[_batchId];
+        return _getBatch(_batchId);
     }
 
     function _getOrCreateBatchedRedemptionRequest(address _user, uint16 _batchId) internal returns (BatchedReremprionRequest storage) {
@@ -240,8 +272,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
                 // Ok, we found request for claimable batch, let's collect USDC revenue for it
                 for (uint256 chainIndex = 0; chainIndex < request.chainedValorAmount.length; chainIndex++) {
                     uint256 chainId = request.chainedValorAmount[chainIndex].chainId;
-                    uint256 amount = request.chainedValorAmount[chainIndex].amount;
-                    uint256 usdcAmount = amount * batches[request.batchId].fixedValorToUsdcRate;
+                    uint256 valorAmount = request.chainedValorAmount[chainIndex].amount;
+                    uint256 usdcAmount = (valorAmount * batches[request.batchId].fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
                     userRevenue[_user].chainedUsdcRevenue[chainId] += usdcAmount;
                 }
                 // Now we can remove this request
