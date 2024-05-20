@@ -17,7 +17,7 @@ contract LedgerTest is Ledger {
             if (token == LedgerToken.ORDER) {
                 // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
             } else if (token == LedgerToken.ESORDER) {
-                stake(_user, _srcChainId, token, claimableAmount);
+                _stake(_user, _srcChainId, token, claimableAmount);
             } else {
                 revert UnsupportedToken();
             }
@@ -39,5 +39,25 @@ contract LedgerTest is Ledger {
 
     function claimUsdcRevenue(address _user, uint256 _chainId) external {
         _claimUsdcRevenue(_user, _chainId);
+    }
+
+    function stake(address _user, uint256 _chainId, LedgerToken _token, uint256 _amount) external {
+        _stake(_user, _chainId, _token, _amount);
+    }
+
+    function createOrderUnstakeRequest(address _user, uint256 _chainId, uint256 _amount) external {
+        _createOrderUnstakeRequest(_user, _chainId, _amount);
+    }
+
+    function cancelOrderUnstakeRequest(address _user, uint256 _chainId) external {
+        _cancelOrderUnstakeRequest(_user, _chainId);
+    }
+
+    function withdrawOrder(address _user, uint256 _chainId) external {
+        _withdrawOrder(_user, _chainId);
+    }
+
+    function esOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) external {
+        _esOrderUnstakeAndVest(_user, _chainId, _amount);
     }
 }

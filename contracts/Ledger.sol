@@ -77,7 +77,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
             if (token == LedgerToken.ORDER) {
                 // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
             } else if (token == LedgerToken.ESORDER) {
-                stake(message.sender, message.srcChainId, token, claimableAmount);
+                _stake(message.sender, message.srcChainId, token, claimableAmount);
             } else {
                 revert UnsupportedToken();
             }
