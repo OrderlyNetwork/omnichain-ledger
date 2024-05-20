@@ -60,7 +60,15 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
                 claimRewardPayload.merkleProof
             );
 
-            stake(message.sender, message.srcChainId, token, claimableAmount);
+            if (claimableAmount != 0) {
+                if (token == LedgerToken.ORDER) {
+                    // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
+                } else if (token == LedgerToken.ESORDER) {
+                    stake(message.sender, message.srcChainId, token, claimableAmount);
+                } else {
+                    revert UnsupportedToken();
+                }
+            }
         }
     }
 
