@@ -20,12 +20,13 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
-    address public orderToken;
+    address public orderTokenOft;
     address public occAdaptor;
 
     /* ========== ERRORS ========== */
     error OrderTokenIsZero();
     error OCCAdaptorIsZero();
+    error UnsupportedPayloadType();
 
     /* ========== INITIALIZER ========== */
 
@@ -45,35 +46,47 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
 
-        orderToken = address(_orderTokenOft);
+        orderTokenOft = address(_orderTokenOft);
         occAdaptor = _occAdaptor;
     }
 
     /// @notice Receives message from OCCAdapter and processes it
     function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
-            LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
-            (LedgerToken token, uint256 claimableAmount) = _claimRewards(
-                claimRewardPayload.distributionId,
-                message.sender,
-                message.srcChainId,
-                claimRewardPayload.cumulativeAmount,
-                claimRewardPayload.merkleProof
-            );
-
-            if (claimableAmount != 0) {
-                if (token == LedgerToken.ORDER) {
-                    // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
-                } else if (token == LedgerToken.ESORDER) {
-                    stake(message.sender, message.srcChainId, token, claimableAmount);
-                } else {
-                    revert UnsupportedToken();
-                }
-            }
+            _LedgerClaimRewards(message);
         } else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
-            LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
-            _updateValorVarsAndCollectValor(message.sender);
-            _redeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
+            _LedgerRedeemValor(message);
+        } else {
+            revert UnsupportedPayloadType();
         }
+    }
+
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    function _LedgerClaimRewards(OCCVaultMessage calldata message) internal {
+        LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
+        (LedgerToken token, uint256 claimableAmount) = _claimRewards(
+            claimRewardPayload.distributionId,
+            message.sender,
+            message.srcChainId,
+            claimRewardPayload.cumulativeAmount,
+            claimRewardPayload.merkleProof
+        );
+
+        if (claimableAmount != 0) {
+            if (token == LedgerToken.ORDER) {
+                // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
+            } else if (token == LedgerToken.ESORDER) {
+                stake(message.sender, message.srcChainId, token, claimableAmount);
+            } else {
+                revert UnsupportedToken();
+            }
+        }
+    }
+
+    function _LedgerRedeemValor(OCCVaultMessage calldata message) internal {
+        LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
+        _updateValorVarsAndCollectValor(message.sender);
+        _redeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
     }
 }
