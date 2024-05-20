@@ -16,7 +16,7 @@ import {Vesting} from "./lib/Vesting.sol";
 import {Revenue} from "./lib/Revenue.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
 
-contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor, Staking, Vesting, Revenue, MerkleDistributor {
+contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, MerkleDistributor, Valor, Staking, Revenue, Vesting {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -42,6 +42,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Valor
         valorInit(_owner, _valorPerSecond, _maximumValorEmission);
         stakingInit(_owner);
         revenueInit(_owner, block.timestamp);
+        vestingInit(VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _owner);
 
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();

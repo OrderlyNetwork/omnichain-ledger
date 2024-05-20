@@ -60,4 +60,20 @@ contract LedgerTest is Ledger {
     function esOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) external {
         _esOrderUnstakeAndVest(_user, _chainId, _amount);
     }
+
+    function createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) external {
+        _createVestingRequest(_user, _chainId, _amountEsorder);
+    }
+
+    function cancelVestingRequest(address _user, uint256 _chainId, uint256 _requestId) external returns (uint256 esOrderAmountToStakeBack) {
+        esOrderAmountToStakeBack = _cancelVestingRequest(_user, _chainId, _requestId);
+    }
+
+    function cancelAllVestingRequests(address _user, uint256 _chainId) external returns (uint256 esOrderAmountToStakeBack) {
+        esOrderAmountToStakeBack = _cancelAllVestingRequests(_user, _chainId);
+    }
+
+    function claimVestingRequest(address _user, uint256 _chainId, uint256 _requestId) external returns (uint256 claimedOrderAmount) {
+        claimedOrderAmount = _claimVestingRequest(_user, _chainId, _requestId);
+    }
 }

@@ -21,14 +21,15 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         VestingRequest[] requests;
     }
 
-    mapping(address => UserVestingInfo) public userVestingInfos;
+    mapping(address => UserVestingInfo) private userVestingInfos;
 
     /// @notice Lock period where user can not withdraw vested $ORDER
-    uint256 public lockPeriod;
+    uint256 public vestingLockPeriod;
 
     /// @notice Period after lock period, during which vesting $ORDER amount linearly increase from 50% to 100%
-    uint256 public linearVestingPeriod;
+    uint256 public vestingLinearPeriod;
 
+    /// @notice Address, that will collect unvested $ORDER when user prematurely withdraws
     address public orderCollector;
 
     /* ========== EVENTS ========== */
@@ -59,23 +60,23 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     /* ========== ERRORS ========== */
 
-    error LockPeriodIsZero();
-    error LinearVestingPeriodIsZero();
+    error VestingLockPeriodIsZero();
+    error VestingLinearPeriodIsZero();
     error OrderCollectorIsZero();
     error VestingAmountIsZero();
     error VestingPeriodIsOutOfRange();
     error UserDontHaveVestingRequest(address _user, uint256 _requestId);
-    error LockPeriodNotPassed();
+    error VestingLockPeriodNotPassed();
     error DepositNotEnough(uint256 amountEsorderDeposited, uint256 amountEsorderRequested);
 
     /* ========== INITIALIZER ========== */
-    function vestingInit(uint256 _lockPeriod, uint256 _linearVestingPeriod, address _orderCollector) internal onlyInitializing {
-        if (_lockPeriod == 0) revert LockPeriodIsZero();
-        if (_linearVestingPeriod == 0) revert LinearVestingPeriodIsZero();
+    function vestingInit(uint256 _vestingLockPeriod, uint256 _vestingLinearPeriod, address _orderCollector) internal onlyInitializing {
+        if (_vestingLockPeriod == 0) revert VestingLockPeriodIsZero();
+        if (_vestingLinearPeriod == 0) revert VestingLinearPeriodIsZero();
         if (_orderCollector == address(0)) revert OrderCollectorIsZero();
 
-        lockPeriod = _lockPeriod;
-        linearVestingPeriod = _linearVestingPeriod;
+        vestingLockPeriod = _vestingLockPeriod;
+        vestingLinearPeriod = _vestingLinearPeriod;
         orderCollector = _orderCollector;
     }
 
@@ -83,18 +84,22 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     /// @notice Return amount of $ORDER tokens for withdraw at the moment
     /// @param _user User address
     function calculateVestingOrderAmount(address _user, uint256 _requestId) public view returns (uint256) {
-        return _calculateVestingOrderAmount(userVestingInfos[_user].requests[_requestId]);
+        return _calculateVestingOrderAmount(_findVestingRequest(_user, _requestId));
+    }
+
+    function getUserVestingRequests(address _user) public view returns (VestingRequest[] memory) {
+        return userVestingInfos[_user].requests;
     }
 
     /* ========== USER FUNCTIONS ========== */
 
     /// @notice Create vesting request for user
-    function createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) internal whenNotPaused nonReentrant {
+    function _createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) internal whenNotPaused nonReentrant {
         if (_amountEsorder == 0) revert VestingAmountIsZero();
 
         UserVestingInfo storage vestingInfo = userVestingInfos[_user];
 
-        VestingRequest memory vestingRequest = VestingRequest(vestingInfo.currentRequestId, _amountEsorder, block.timestamp + lockPeriod);
+        VestingRequest memory vestingRequest = VestingRequest(vestingInfo.currentRequestId, _amountEsorder, block.timestamp + vestingLockPeriod);
         vestingInfo.requests.push(vestingRequest);
         vestingInfo.currentRequestId++;
 
@@ -110,7 +115,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     /// @notice Cancel vesting request for user and return es$ORDER amount
     /// Caller should stake back es$ORDER tokens
-    function cancelVestingRequest(
+    function _cancelVestingRequest(
         address _user,
         uint256 _chainId,
         uint256 _requestId
@@ -125,7 +130,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     }
 
     /// @notice Cancel all vesting requests for user
-    function cancelAllVestingRequests(
+    function _cancelAllVestingRequests(
         address _user,
         uint256 _chainId
     ) internal whenNotPaused nonReentrant returns (uint256 esOrderAmountToStakeBack) {
@@ -143,14 +148,14 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     /// @notice Withdraw $ORDER tokens for user
     /// @dev User can withdraw $ORDER tokens only after locking period passed
-    function claimVestingRequest(
+    function _claimVestingRequest(
         address _user,
         uint256 _chainId,
         uint256 _requestId
     ) internal whenNotPaused nonReentrant returns (uint256 claimedOrderAmount) {
         VestingRequest storage vestingRequest = _findVestingRequest(_user, _requestId);
 
-        if (block.timestamp < vestingRequest.unlockTimestamp) revert LockPeriodNotPassed();
+        if (block.timestamp < vestingRequest.unlockTimestamp) revert VestingLockPeriodNotPassed();
 
         claimedOrderAmount = _calculateVestingOrderAmount(vestingRequest);
 
@@ -189,7 +194,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         }
 
         uint256 vestedTime = block.timestamp - _vestingRequest.unlockTimestamp;
-        if (vestedTime > linearVestingPeriod) vestedTime = linearVestingPeriod;
-        return _vestingRequest.esOrderAmount / 2 + (_vestingRequest.esOrderAmount * vestedTime) / linearVestingPeriod / 2;
+        if (vestedTime > vestingLinearPeriod) vestedTime = vestingLinearPeriod;
+        return _vestingRequest.esOrderAmount / 2 + (_vestingRequest.esOrderAmount * vestedTime) / vestingLinearPeriod / 2;
     }
 }
