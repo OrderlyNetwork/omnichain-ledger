@@ -54,7 +54,7 @@ abstract contract Valor is LedgerAccessControl {
     function valorInit(address _owner, uint256 _valorPerSecond, uint256 _maximumValorEmission) internal onlyInitializing {
         if (_valorPerSecond > MAX_VALOR_PER_SECOND) revert ValorPerSecondExceedsMaxValue();
 
-        _setupRole(TREASURE_UPDATER_ROLE, _owner);
+        _grantRole(TREASURE_UPDATER_ROLE, _owner);
 
         valorPerSecond = _valorPerSecond;
         maximumValorEmission = _maximumValorEmission;

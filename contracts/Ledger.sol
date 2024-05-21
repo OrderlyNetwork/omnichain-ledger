@@ -71,6 +71,8 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
                 (LedgerPayloadTypes.EsOrderUnstakeAndVest)
             );
             _LedgerEsOrderUnstakeAndVest(message.sender, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
+        } else if (message.payloadType == uint8(PayloadDataType.Stake)) {
+            _stake(message.sender, message.srcChainId, message.token, message.tokenAmount);
         } else {
             revert UnsupportedPayloadType();
         }

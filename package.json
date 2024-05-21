@@ -29,18 +29,26 @@
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
-    "@layerzerolabs/lz-evm-messagelib-v2": "^2.3.7",
-    "@layerzerolabs/lz-evm-oapp-v2": "^2.3.7",
-    "@layerzerolabs/lz-evm-protocol-v2": "^2.3.7",
-    "@layerzerolabs/lz-v2-utilities": "^2.3.7",
+    "@layerzerolabs/eslint-config-next": "^2.3.9",
+    "@layerzerolabs/lz-definitions": "^2.3.9",
+    "@layerzerolabs/lz-evm-messagelib-v2": "^2.3.9",
+    "@layerzerolabs/lz-evm-oapp-v2": "^2.3.9",
+    "@layerzerolabs/lz-evm-protocol-v2": "^2.3.9",
+    "@layerzerolabs/lz-evm-v1-0.7": "^2.3.9",
+    "@layerzerolabs/lz-v2-utilities": "^2.3.9",
+    "@layerzerolabs/prettier-config-next": "^2.1.27",
+    "@layerzerolabs/solhint-config": "^2.1.27",
+    "@layerzerolabs/test-devtools-evm-foundry": "0.2.3",
     "@layerzerolabs/test-devtools-evm-hardhat": "^0.2.3",
+    "@layerzerolabs/toolbox-foundry": "~0.1.4",
+    "@layerzerolabs/toolbox-hardhat": "~0.2.4",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.0",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.0.0",
     "@nomiclabs/hardhat-etherscan": "^3.0.0",
-    "@openzeppelin/contracts": "^4.9.1",
-    "@openzeppelin/contracts-upgradeable": "^4.9.1",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "@openzeppelin/hardhat-upgrades": "^1.28.0",
     "@openzeppelin/merkle-tree": "^1.0.5",
     "@typechain/ethers-v5": "^10.1.0",
@@ -51,14 +59,14 @@
     "bs58": "^4.0.1",
     "chai": "^4.2.0",
     "dotenv": "^16.0.3",
-    "ethers": "^5.4.7",
+    "ethers": "^5.7.2",
     "hardhat": "^2.16.1",
     "hardhat-contract-sizer": "^2.10.0",
-    "hardhat-deploy": "^0.11.26",
+    "hardhat-deploy": "^0.12.1",
     "hardhat-deploy-ethers": "^0.3.0-beta.11",
     "hardhat-gas-reporter": "^1.0.8",
     "orderly-network-config": "https://gitlab.com/orderlynetwork/orderly-v2/network_config.git",
-    "orderly-omnichain-occ": "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#dev",
+    "orderly-omnichain-occ": "gitlab:orderlynetwork/orderly-v2/omnichain-occ#dev",
     "prettier": "^3.0.0",
     "solhint": "^3.4.1",
     "solidity-bytes-utils": "^0.8.2",
@@ -66,5 +74,18 @@
     "ts-node": ">=8.0.0",
     "typechain": "^8.1.0",
     "typescript": ">=4.5.0"
+  },
+  "engines": {
+    "node": ">=18.16.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "ethers": "^5.7.2",
+      "hardhat-deploy": "^0.12.1"
+    }
+  },
+  "overrides": {
+    "ethers": "^5.7.2",
+    "hardhat-deploy": "^0.12.1"
   }
 }
