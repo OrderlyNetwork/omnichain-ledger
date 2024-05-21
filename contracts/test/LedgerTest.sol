@@ -12,16 +12,7 @@ contract LedgerTest is Ledger {
         uint256 _cumulativeAmount,
         bytes32[] memory _merkleProof
     ) external {
-        (LedgerToken token, uint256 claimableAmount) = _claimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
-        if (claimableAmount != 0) {
-            if (token == LedgerToken.ORDER) {
-                // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
-            } else if (token == LedgerToken.ESORDER) {
-                _stake(_user, _srcChainId, token, claimableAmount);
-            } else {
-                revert UnsupportedToken();
-            }
-        }
+        _LedgerClaimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
     }
 
     function setTotalValorAmount(uint256 _amount) external {
@@ -33,8 +24,7 @@ contract LedgerTest is Ledger {
     }
 
     function redeemValor(address _user, uint256 _chainId, uint256 _amount) external {
-        _updateValorVarsAndCollectUserValor(_user);
-        _redeemValor(_user, _chainId, _amount);
+        _LedgerRedeemValor(_user, _chainId, _amount);
     }
 
     function claimUsdcRevenue(address _user, uint256 _chainId) external {
@@ -58,8 +48,7 @@ contract LedgerTest is Ledger {
     }
 
     function esOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) external {
-        _esOrderUnstake(_user, _chainId, _amount);
-        _createVestingRequest(_user, _chainId, _amount);
+        _LedgerEsOrderUnstakeAndVest(_user, _chainId, _amount);
     }
 
     function createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) external {

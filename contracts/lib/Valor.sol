@@ -23,6 +23,9 @@ abstract contract Valor is LedgerAccessControl {
     /// @notice The total amount of valor token, that is currently in circulation
     uint256 public totalValorAmount;
 
+    /// @notice The timestamp of the last update of the USDC net fee revenue
+    uint256 public lastUsdcNetFeeRevenueUpdateTimestamp;
+
     /// @notice The total amount of USDC, that has been collected in the treasure
     uint256 public totalUsdcInTreasure;
 
@@ -34,10 +37,17 @@ abstract contract Valor is LedgerAccessControl {
 
     /* ========== EVENTS ========== */
 
-    event ValorToUsdcRateUdated(uint256 newRate);
+    event DailyUsdcNetFeeRevenueUpdated(
+        uint256 indexed timestamp,
+        uint256 usdcNetFeeRevenue,
+        uint256 totalUsdcInTreasure,
+        uint256 totalValorAmount,
+        uint256 valorToUsdcRateScaled
+    );
 
     /* ========== ERRORS ========== */
     error ValorPerSecondExceedsMaxValue();
+    error TooEarlyUsdcNetFeeRevenueUpdate();
 
     /* ========== INITIALIZER ========== */
 
@@ -50,9 +60,12 @@ abstract contract Valor is LedgerAccessControl {
         maximumValorEmission = _maximumValorEmission;
     }
 
-    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(TREASURE_UPDATER_ROLE) {
-        totalUsdcInTreasure = _totalUsdcInTreasure;
+    function dailyUsdcNetFeeRevenue(uint256 _usdcNetFeeRevenue) external onlyRole(TREASURE_UPDATER_ROLE) {
+        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
+
+        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+        totalUsdcInTreasure += _usdcNetFeeRevenue;
         valorToUsdcRateScaled = totalValorAmount == 0 ? 0 : (totalUsdcInTreasure * VALOR_TO_USDC_RATE_PRECISION) / totalValorAmount;
-        emit ValorToUsdcRateUdated(valorToUsdcRateScaled);
+        emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
     }
 }

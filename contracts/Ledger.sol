@@ -54,9 +54,23 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
     /// @notice Receives message from OCCAdapter and processes it
     function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
-            _LedgerClaimRewards(message);
+            LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
+            _LedgerClaimRewards(
+                claimRewardPayload.distributionId,
+                message.sender,
+                message.srcChainId,
+                claimRewardPayload.cumulativeAmount,
+                claimRewardPayload.merkleProof
+            );
         } else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
-            _LedgerRedeemValor(message);
+            LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
+            _LedgerRedeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
+        } else if (message.payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest)) {
+            LedgerPayloadTypes.EsOrderUnstakeAndVest memory esOrderUnstakeAndVestPayload = abi.decode(
+                message.payload,
+                (LedgerPayloadTypes.EsOrderUnstakeAndVest)
+            );
+            _LedgerEsOrderUnstakeAndVest(message.sender, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
         } else {
             revert UnsupportedPayloadType();
         }
@@ -64,30 +78,33 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
 
     /* ========== INTERNAL FUNCTIONS ========== */
 
-    function _LedgerClaimRewards(OCCVaultMessage calldata message) internal {
-        LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
-        (LedgerToken token, uint256 claimableAmount) = _claimRewards(
-            claimRewardPayload.distributionId,
-            message.sender,
-            message.srcChainId,
-            claimRewardPayload.cumulativeAmount,
-            claimRewardPayload.merkleProof
-        );
+    function _LedgerClaimRewards(
+        uint32 _distributionId,
+        address _user,
+        uint256 _srcChainId,
+        uint256 _cumulativeAmount,
+        bytes32[] memory _merkleProof
+    ) internal {
+        (LedgerToken token, uint256 claimedAmount) = _claimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
 
-        if (claimableAmount != 0) {
+        if (claimedAmount != 0) {
             if (token == LedgerToken.ORDER) {
-                // compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
+                // TODO: compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
             } else if (token == LedgerToken.ESORDER) {
-                _stake(message.sender, message.srcChainId, token, claimableAmount);
+                _stake(_user, _srcChainId, token, claimedAmount);
             } else {
                 revert UnsupportedToken();
             }
         }
     }
 
-    function _LedgerRedeemValor(OCCVaultMessage calldata message) internal {
-        LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
-        _updateValorVarsAndCollectUserValor(message.sender);
-        _redeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
+    function _LedgerRedeemValor(address _user, uint256 _chainId, uint256 _amount) internal {
+        _updateValorVarsAndCollectUserValor(_user);
+        _redeemValor(_user, _chainId, _amount);
+    }
+
+    function _LedgerEsOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) internal {
+        _esOrderUnstake(_user, _chainId, _amount);
+        _createVestingRequest(_user, _chainId, _amount);
     }
 }
