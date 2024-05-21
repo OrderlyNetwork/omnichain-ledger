@@ -1,4 +1,4 @@
-ds-test/=lib/forge-std/lib/ds-test/src/
-forge-std/=lib/forge-std/src/
+ds-test/=node_modules/@layerzerolabs/toolbox-foundry/lib/ds-test
+forge-std/=node_modules/@layerzerolabs/toolbox-foundry/lib/forge-std
 @openzeppelin/=node_modules/@openzeppelin/
 orderly-omnichain-occ/=node_modules/orderly-omnichain-occ/
