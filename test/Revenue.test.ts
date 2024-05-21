@@ -98,7 +98,7 @@ describe("Revenue", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
 
     // User can't fix batch price
-    await expect(ledger.connect(user).fixBatchValorToUsdcRate(0)).to.be.revertedWith(/AccessControl: account .* is missing role .*/);
+    await expect(ledger.connect(user).fixBatchValorToUsdcRate(0)).to.be.revertedWithCustomError(ledger, "AccessControlUnauthorizedAccount");
 
     // Owner can't fix batch price if the batch is not finished
     await expect(ledger.connect(owner).fixBatchValorToUsdcRate(0)).to.be.revertedWithCustomError(ledger, "BatchIsNotFinished");

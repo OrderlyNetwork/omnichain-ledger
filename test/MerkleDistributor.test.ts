@@ -182,8 +182,9 @@ describe("LedgerMerkleDistributor", function () {
     await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ESORDER, tree.root, startTimestamp, ipfsCid);
 
     // Owner should not be able to propose a root as he has not been granted the ROOT_UPDATER_ROLE
-    await expect(distributor.connect(owner).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWith(
-      /AccessControl: account .* is missing role .*/
+    await expect(distributor.connect(owner).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+      distributor,
+      "AccessControlUnauthorizedAccount"
     );
 
     // Updater should be able to propose a root as he has been granted the ROOT_UPDATER_ROLE

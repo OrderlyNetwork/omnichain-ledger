@@ -174,8 +174,9 @@ describe("MerkleDistributorL1", function () {
     const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
 
     // User should not be able to propose a root as he has not been granted the ROOT_UPDATER_ROLE
-    await expect(distributor.connect(user).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWith(
-      "Ownable: caller is not the owner"
+    await expect(distributor.connect(user).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+      distributor,
+      "OwnableUnauthorizedAccount"
     );
 
     // Updater should be able to propose a root as he has been granted the ROOT_UPDATER_ROLE
@@ -432,8 +433,8 @@ describe("MerkleDistributorL1", function () {
     const { distributor, owner, user } = await distributorFixture();
 
     // Only owner should be able to pause/unpause
-    await expect(distributor.connect(user).pause()).to.be.revertedWith("Ownable: caller is not the owner");
-    await expect(distributor.connect(user).unpause()).to.be.revertedWith("Ownable: caller is not the owner");
+    await expect(distributor.connect(user).pause()).to.be.revertedWithCustomError(distributor, "OwnableUnauthorizedAccount");
+    await expect(distributor.connect(user).unpause()).to.be.revertedWithCustomError(distributor, "OwnableUnauthorizedAccount");
 
     // Owner should be able to pause/unpause
     await distributor.connect(owner).pause();
@@ -446,8 +447,11 @@ describe("MerkleDistributorL1", function () {
 
     const { tree, amountsBigNumber, startTimestamp } = await proposeRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
     await helpers.time.increaseTo(startTimestamp + 1);
-    await expect(distributor.connect(owner).updateRoot()).to.be.revertedWith("Pausable: paused");
-    await expect(distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0))).to.be.revertedWith("Pausable: paused");
+    await expect(distributor.connect(owner).updateRoot()).to.be.revertedWithCustomError(distributor, "EnforcedPause");
+    await expect(distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0))).to.be.revertedWithCustomError(
+      distributor,
+      "EnforcedPause"
+    );
     await distributor.connect(owner).unpause();
     await distributor.connect(owner).updateRoot();
     await distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0));
