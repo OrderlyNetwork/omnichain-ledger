@@ -43,5 +43,9 @@ describe("Vesting", function () {
     // After half of the linear vesting period, the user can withdraw 3 / 4 of the vesting amount
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 15 + (ONE_DAY_IN_SECONDS * 75) / 2);
     expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal((vestingAmount * 3) / 4);
+
+    // After the linear vesting period, the user can withdraw the full vesting amount
+    await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
+    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount);
   });
 });
