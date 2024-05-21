@@ -87,7 +87,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
 
     function _LedgerRedeemValor(OCCVaultMessage calldata message) internal {
         LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
-        _updateValorVarsAndCollectValor(message.sender);
+        _updateValorVarsAndCollectUserValor(message.sender);
         _redeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
     }
 }

@@ -12,6 +12,13 @@ describe("Staking", function () {
     return { ledger, orderTokenOft, owner, user, updater, operator };
   }
 
+  async function checkUserStakingBalance(ledger: Contract, user: SignerWithAddress, orderBalance: number, esOrderBalance: number) {
+    const userStakingBalance = await ledger.getStakingInfo(user.address);
+    expect(userStakingBalance["orderBalance"]).to.equal(orderBalance);
+    expect(userStakingBalance["esOrderBalance"]).to.equal(esOrderBalance);
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderBalance + esOrderBalance);
+  }
+
   it("check staking initial state", async function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
@@ -35,5 +42,199 @@ describe("Staking", function () {
     expect(await ledger.userTotalStakingBalance(user.address)).to.equal(1000);
     expect(await ledger.getOrderAvailableToWithdraw(user.address)).to.equal(0);
     expect(await ledger.getUserValor(user.address)).to.equal(0);
+  });
+
+  it("user stake should produce valor", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    const tx = await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 1000);
+    // Check the Staked event is emitted correctly
+    await expect(tx).to.emit(ledger, "Staked").withArgs(anyValue, chainId, user.address, 1000, LedgerToken.ORDER);
+
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(1000);
+
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Our test valor emission is 1 valor per second.
+    // Only one user staked, so user receives all valor emission for the day. It should be 86400.
+    expect(await ledger.getUserValor(user.address)).to.equal(86400);
+  });
+
+  it("users share valor emission according to their stake", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    // $ORDER and es$ORDER should be counted as well
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 500);
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ESORDER, 500);
+    await ledger.connect(updater).stake(updater.address, chainId, LedgerToken.ORDER, 1000);
+    await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ESORDER, 1000);
+
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Our test valor emission is 1 valor per second.
+    // Three users staked the same amount in total, so they should receive the same amount of valor.
+    // 86400 / 3 = 28800
+    // But they can be greater than 28800 due to a bit of time pass before checking the valor.
+    expect(await ledger.getUserValor(user.address)).to.closeTo(28800, 2);
+    expect(await ledger.getUserValor(updater.address)).to.closeTo(28800, 2);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(28800, 2);
+  });
+
+  it("user can make unstake request for orders", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    // User can't create unstake request if they don't have any staked orders
+    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, 0, 1000)).to.be.revertedWithCustomError(
+      ledger,
+      "InsufficientOrderStakedBalanceForUnstake"
+    );
+
+    const chainId = 0;
+    const orderStakingAmount = 1000;
+    const esOrderStakingAmount = 1000;
+    const orderUnstakingAmount = 500;
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, orderStakingAmount);
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ESORDER, esOrderStakingAmount);
+
+    await checkUserStakingBalance(ledger, user, orderStakingAmount, esOrderStakingAmount);
+
+    // Attempt to withdraw before unstaking should fail
+    await expect(ledger.connect(user).withdrawOrder(user.address, chainId)).to.be.revertedWithCustomError(ledger, "NoPendingUnstakeRequest");
+
+    // User can't create unstake request for zero amount
+    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, 0)).to.be.revertedWithCustomError(ledger, "AmountIsZero");
+
+    // User can't create unstake request for more than they have
+    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderStakingAmount + 1)).to.be.revertedWithCustomError(
+      ledger,
+      "InsufficientOrderStakedBalanceForUnstake"
+    );
+
+    // User make unstake request for 500 orders
+    const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount);
+    // Check the OrderUnstakeRequested event is emitted correctly
+    await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+
+    // Staking balance should be updated
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderStakingAmount + esOrderStakingAmount - orderUnstakingAmount);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, esOrderStakingAmount);
+
+    // Unstaken orders should pass to pending unstake
+    const userPendingUnstake = await ledger.userPendingUnstake(user.address);
+    expect(userPendingUnstake["balanceOrder"]).to.equal(orderUnstakingAmount);
+    expect(userPendingUnstake["unlockTimestamp"]).equal((await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
+
+    // Pending unstake should not be available to withdraw
+    expect(await ledger.getOrderAvailableToWithdraw(user.address)).to.equal(0);
+
+    // Attempt to withdraw unstaked orders before unlock period should fail
+    await expect(ledger.connect(user).withdrawOrder(user.address, chainId)).to.be.revertedWithCustomError(ledger, "UnlockTimeNotPassedYet");
+
+    // After locking period, user should be able to withdraw orders
+    await helpers.time.increase(7 * ONE_DAY_IN_SECONDS);
+    expect(await ledger.getOrderAvailableToWithdraw(user.address)).to.equal(orderUnstakingAmount);
+
+    // Now user should be able to withdraw orders
+    const tx2 = await ledger.connect(user).withdrawOrder(user.address, chainId);
+    // Check the OrderWithdrawn event is emitted correctly
+    await expect(tx2).to.emit(ledger, "OrderWithdrawn").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+  });
+
+  it("user can cancel order unstake request", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    const orderStakingAmount = 1000;
+    const orderUnstakingAmount = 500;
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, orderStakingAmount);
+
+    // Attempt to cancel order unstake request before making one should fail
+    await expect(ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId)).to.be.revertedWithCustomError(
+      ledger,
+      "NoPendingUnstakeRequest"
+    );
+
+    await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount);
+    // Staking balance should be updated
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderStakingAmount - orderUnstakingAmount);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, 0);
+
+    // User can cancel order unstake request
+    const tx = await ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId);
+    // Check the OrderUnstakeCancelled event is emitted correctly
+    await expect(tx).to.emit(ledger, "OrderUnstakeCancelled").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+
+    // Staking balance should be updated
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderStakingAmount);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount, 0);
+
+    // Pending unstake should be cleared
+    const userPendingUnstake = await ledger.userPendingUnstake(user.address);
+    expect(userPendingUnstake["balanceOrder"]).to.equal(0);
+    expect(userPendingUnstake["unlockTimestamp"]).equal(0);
+
+    // Repeated cancel order unstake request should fail
+    await expect(ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId)).to.be.revertedWithCustomError(
+      ledger,
+      "NoPendingUnstakeRequest"
+    );
+  });
+
+  it("user can make unstake and vest request for esOrders", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    const orderStakingAmount = 1000;
+    const esOrderStakingAmount = 1000;
+    const esOrderVestingAmount = 500;
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, orderStakingAmount);
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ESORDER, esOrderStakingAmount);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount, esOrderStakingAmount);
+
+    // Unstake and vest 500 esOrders should be done immediately
+    const tx1 = await ledger.connect(user).esOrderUnstakeAndVest(user.address, chainId, esOrderVestingAmount);
+    // Check the EsOrderUnstakeAndVest event is emitted correctly
+    await expect(tx1).to.emit(ledger, "EsOrderUnstake").withArgs(anyValue, chainId, user.address, esOrderVestingAmount);
+    await expect(tx1).to.emit(ledger, "VestingRequested").withArgs(anyValue, chainId, user.address, 0, esOrderVestingAmount, anyValue);
+
+    // Staking balance should be updated
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderStakingAmount + esOrderStakingAmount - esOrderVestingAmount);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount, esOrderStakingAmount - esOrderVestingAmount);
+
+    // Check that vesting balance is updated
+    const userVestingRequests = await ledger.getUserVestingRequests(user.address);
+    expect(userVestingRequests.length).to.equal(1);
+    expect(userVestingRequests[0]["requestId"]).to.equal(0);
+    expect(userVestingRequests[0]["esOrderAmount"]).to.equal(esOrderVestingAmount);
+    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.equal(0);
+  });
+
+  it("repeated order unstake request increase amount but reset timestamp", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    const orderStakingAmount = 1000;
+    const orderUnstakingAmount1 = 500;
+    const orderUnstakingAmount2 = 300;
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, orderStakingAmount);
+
+    await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount1);
+    // Staking balance should be updated
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderStakingAmount - orderUnstakingAmount1);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1, 0);
+    // Unstaken orders should pass to pending unstake
+    const userPendingUnstake1 = await ledger.userPendingUnstake(user.address);
+    expect(userPendingUnstake1["balanceOrder"]).to.equal(orderUnstakingAmount1);
+    expect(userPendingUnstake1["unlockTimestamp"]).closeTo((await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS, 2);
+
+    // Repeated order unstake request should increase the amount but reset the timestamp
+    await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount2);
+    // Staking balance should be updated
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderStakingAmount - orderUnstakingAmount1 - orderUnstakingAmount2);
+    await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1 - orderUnstakingAmount2, 0);
+    // Unstaken orders should pass to pending unstake
+    const userPendingUnstake2 = await ledger.userPendingUnstake(user.address);
+    expect(userPendingUnstake2["balanceOrder"]).to.equal(orderUnstakingAmount1 + orderUnstakingAmount2);
+    expect(userPendingUnstake2["unlockTimestamp"]).closeTo((await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS, 2);
   });
 });

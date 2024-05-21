@@ -15,7 +15,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         uint256 valorDebt; // Amount of valor, that was already claimed by user
     }
 
-    mapping(address => StakingInfo) public userStakingInfo;
+    mapping(address => StakingInfo) private userStakingInfo;
 
     struct PendingUnstake {
         uint256 balanceOrder; // Amount of unstaked $ORDER; $esORDER unstake immediately
@@ -42,12 +42,13 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     event OrderUnstakeRequested(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
     event OrderUnstakeCancelled(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 pendingOrderAmount);
     event OrderWithdrawn(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
-    event EsOrderUnstakeAndVest(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
+    event EsOrderUnstake(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
 
     /* ========== ERRORS ========== */
 
     error UnsupportedToken();
     error AmountIsZero();
+    error InsufficientOrderStakedBalanceForUnstake();
     error NoPendingUnstakeRequest();
     error UnlockTimeNotPassedYet();
 
@@ -59,6 +60,10 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /* ========== VIEW FUNCTIONS ========== */
+
+    function getStakingInfo(address _user) public view returns (uint256 orderBalance, uint256 esOrderBalance) {
+        return (userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)], userStakingInfo[_user].balance[uint256(LedgerToken.ESORDER)]);
+    }
 
     /// @notice Get the total amount of $ORDER and $esORDER staked by `_user`
     function userTotalStakingBalance(address _user) public view returns (uint256) {
@@ -80,6 +85,14 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return _getPendingValor(_user) + collectedValor[_user];
     }
 
+    /// @notice Calculate valor per share changed over time
+    function updateValorVars() public whenNotPaused {
+        if (block.timestamp > lastValorUpdateTimestamp) {
+            accValorPerShareScaled = _getCurrentAccValorPreShareScaled();
+            lastValorUpdateTimestamp = block.timestamp;
+        }
+    }
+
     /* ========== USER FUNCTIONS ========== */
 
     /// @notice Stake tokens from LedgerToken list for a given user
@@ -88,7 +101,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (_amount == 0) revert AmountIsZero();
         if (_token > LedgerToken.ESORDER) revert UnsupportedToken();
 
-        _updateValorVarsAndCollectValor(_user);
+        _updateValorVarsAndCollectUserValor(_user);
 
         userStakingInfo[_user].balance[uint256(_token)] += _amount;
         userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
@@ -102,9 +115,10 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     function _createOrderUnstakeRequest(address _user, uint256 _chainId, uint256 _amount) internal nonReentrant whenNotPaused {
         if (_amount == 0) revert AmountIsZero();
 
-        _updateValorVarsAndCollectValor(_user);
+        if (userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] < _amount) revert InsufficientOrderStakedBalanceForUnstake();
 
-        // If user has insufficient $ORDER balance, then next operation will be reverted
+        _updateValorVarsAndCollectUserValor(_user);
+
         userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] -= _amount;
         userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
         totalStakedAmount -= _amount;
@@ -115,24 +129,20 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /// @notice Cancel unstaking request for $ORDER tokens and re-stake them
-    function _cancelOrderUnstakeRequest(address _user, uint256 _chainId) internal nonReentrant whenNotPaused returns (uint256) {
+    function _cancelOrderUnstakeRequest(address _user, uint256 _chainId) internal nonReentrant whenNotPaused returns (uint256 pendingOrderAmount) {
         if (userPendingUnstake[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
 
-        _updateValorVarsAndCollectValor(_user);
+        _updateValorVarsAndCollectUserValor(_user);
 
-        uint256 pendingOrderAmount = userPendingUnstake[_user].balanceOrder;
+        pendingOrderAmount = userPendingUnstake[_user].balanceOrder;
 
-        if (pendingOrderAmount > 0) {
-            userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] += pendingOrderAmount;
-            userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
-            totalStakedAmount += pendingOrderAmount;
-            userPendingUnstake[_user].balanceOrder = 0;
-            userPendingUnstake[_user].unlockTimestamp = 0;
+        userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] += pendingOrderAmount;
+        userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
+        totalStakedAmount += pendingOrderAmount;
+        userPendingUnstake[_user].balanceOrder = 0;
+        userPendingUnstake[_user].unlockTimestamp = 0;
 
-            emit OrderUnstakeCancelled(_getNextChainedEventId(_chainId), _chainId, _user, pendingOrderAmount);
-        }
-
-        return pendingOrderAmount;
+        emit OrderUnstakeCancelled(_getNextChainedEventId(_chainId), _chainId, _user, pendingOrderAmount);
     }
 
     /// @notice Withdraw unstaked $ORDER tokens
@@ -145,26 +155,25 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
             userPendingUnstake[_user].balanceOrder = 0;
             userPendingUnstake[_user].unlockTimestamp = 0;
 
-            emit OrderWithdrawn(_getNextChainedEventId(_chainId), _chainId, _user, userPendingUnstake[_user].balanceOrder);
+            emit OrderWithdrawn(_getNextChainedEventId(_chainId), _chainId, _user, orderAmountForWithdraw);
         }
 
         return orderAmountForWithdraw;
     }
 
     /// @notice Unstake es$ORDER tokens and vest them to ORDER in Vesting contract
-    function _esOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) internal {
+    ///         Caller (Ledger) should vest _amount of es$ORDER tokens to Vesting contract
+    function _esOrderUnstake(address _user, uint256 _chainId, uint256 _amount) internal nonReentrant whenNotPaused {
         if (_amount == 0) revert AmountIsZero();
 
-        _updateValorVarsAndCollectValor(_user);
+        _updateValorVarsAndCollectUserValor(_user);
 
         // If user has insufficient es$ORDER balance, then next operation will be reverted
         userStakingInfo[_user].balance[uint256(LedgerToken.ESORDER)] -= _amount;
         userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
         totalStakedAmount -= _amount;
 
-        emit EsOrderUnstakeAndVest(_getNextChainedEventId(_chainId), _chainId, _user, _amount);
-
-        // TODO: create vesting request in Vesting contract
+        emit EsOrderUnstake(_getNextChainedEventId(_chainId), _chainId, _user, _amount);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
@@ -172,8 +181,8 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /// @notice Convert pending valor to collected valor for user
     /// Should be called before any operation with user balance:
     /// stake, unstake, cancel unstake, redeem valor
-    function _updateValorVarsAndCollectValor(address _user) internal {
-        _updatedAccValorPerShare();
+    function _updateValorVarsAndCollectUserValor(address _user) internal {
+        updateValorVars();
 
         uint256 pendingValor = _getPendingValor(_user);
         if (pendingValor > 0) {
@@ -189,23 +198,22 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Get the total amount of valor debt for a given user
     function _getUserTotalValorDebt(address _user) private view returns (uint256) {
-        return (userTotalStakingBalance(_user) * accValorPerShareScaled) / ACC_VALOR_PER_SHARE_PRECISION;
+        return (userTotalStakingBalance(_user) * _getCurrentAccValorPreShareScaled()) / ACC_VALOR_PER_SHARE_PRECISION;
     }
 
     /// @notice Get current accrued valor share, updated to the current block
-    function _updatedAccValorPerShare() private {
-        if (block.timestamp > lastValorUpdateTimestamp) {
-            if (totalStakedAmount > 0) {
-                uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;
-                uint256 valorEmission = secondsElapsed * valorPerSecond;
-                if (totalValorEmitted + valorEmission > maximumValorEmission) {
-                    valorEmission = maximumValorEmission - totalValorEmitted;
-                }
-                totalValorEmitted += valorEmission;
-                totalValorAmount += valorEmission;
-                accValorPerShareScaled += ((valorEmission * ACC_VALOR_PER_SHARE_PRECISION) / totalStakedAmount);
-                lastValorUpdateTimestamp = block.timestamp;
-            }
+    function _getCurrentAccValorPreShareScaled() private view returns (uint256) {
+        if (block.timestamp <= lastValorUpdateTimestamp || totalStakedAmount == 0) {
+            return accValorPerShareScaled;
         }
+
+        uint256 accValorPerShareCurrentScaled = accValorPerShareScaled;
+        uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;
+        uint256 valorEmission = secondsElapsed * valorPerSecond;
+        if (totalValorEmitted + valorEmission > maximumValorEmission) {
+            valorEmission = maximumValorEmission - totalValorEmitted;
+        }
+        accValorPerShareCurrentScaled += ((valorEmission * ACC_VALOR_PER_SHARE_PRECISION) / totalStakedAmount);
+        return accValorPerShareCurrentScaled;
     }
 }

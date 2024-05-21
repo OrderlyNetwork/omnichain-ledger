@@ -33,7 +33,7 @@ contract LedgerTest is Ledger {
     }
 
     function redeemValor(address _user, uint256 _chainId, uint256 _amount) external {
-        _updateValorVarsAndCollectValor(_user);
+        _updateValorVarsAndCollectUserValor(_user);
         _redeemValor(_user, _chainId, _amount);
     }
 
@@ -58,7 +58,8 @@ contract LedgerTest is Ledger {
     }
 
     function esOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) external {
-        _esOrderUnstakeAndVest(_user, _chainId, _amount);
+        _esOrderUnstake(_user, _chainId, _amount);
+        _createVestingRequest(_user, _chainId, _amount);
     }
 
     function createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) external {
