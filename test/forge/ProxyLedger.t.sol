@@ -78,7 +78,8 @@ contract LedgerProxyTest is TestHelperOz5 {
         occAdapterA = new OCCAdapter(address(endpoints[aEid]), address(this)); 
         occAdapterB = new OCCAdapter(address(endpoints[bEid]), address(this));
 
-        proxyA = new ProxyLedger(address(occAdapterA));
+        proxyA = new ProxyLedger();
+        proxyA.initialize(address(occAdapterA), address(this));
         ledgerB = new Ledger();
         ledgerB.initialize(address(this), address(occAdapterB), aOFT, 1 ether, 100 ether);
 
@@ -113,7 +114,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         assertEq(bOFT.token(), address(bOFT));
     }
 
-    function test_send_msg_through_occ_adapter() public {
+    function test_occ_user_stake() public {
 
         assertEq(aOFT.balanceOf(userA), initialBalance);
         assertEq(bOFT.balanceOf(userB), initialBalance);

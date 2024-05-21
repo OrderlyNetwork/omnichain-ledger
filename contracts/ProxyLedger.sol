@@ -1,22 +1,43 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
+// oz imports
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 import { OCCVaultMessage, OCCLedgerMessage, IOCCSender, IOCCVaultReceiver, LedgerToken } from "orderly-omnichain-occ/contracts/OCCInterface.sol";
 
 import { PayloadDataType } from "./lib/LedgerTypes.sol";
 
 /**
- * @notice ProxyLedger for proxy staking, claiming and other ledger operations from vault chains, like Ethereum, Arbitrum, etc.
+ * @title ProxyLedger for proxy requests to ledger
+ * @dev proxy staking, claiming and other ledger operations from vault chains, like Ethereum, Arbitrum, etc.
  */
-contract ProxyLedger is IOCCVaultReceiver{
+contract ProxyLedger is IOCCVaultReceiver, Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     /// @notice the address of the OCCAdapter contract
     address public occAdapterAddr;
 
     /// @notice constructor to set the OCCAdapter address
-    constructor(address _occAdapterAddr) {
+    constructor() {
+        // _disableInitializers();
+    }
+
+    /* ====== initializer ====== */
+
+    /// @notice initialize the contract
+    function initialize(address _occAdapterAddr, address _owner) external initializer {
+        __Ownable_init(_owner);
         occAdapterAddr = _occAdapterAddr;
     }
+
+    /* ====== upgradeable ====== */
+
+    /// @notice upgrade the contract
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    /* ====== staking ====== */
 
     /**
      * @notice construct OCCVaultMessage for stake operation
