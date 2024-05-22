@@ -11,9 +11,14 @@ libs = [
     # - forge-std
     # - ds-test
     # - solidity-bytes-utils
+    'forge-lib',
     'node_modules/@layerzerolabs/toolbox-foundry/lib',
     'node_modules',
 ]
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
 
 remappings = [
     # Due to a misconfiguration of solidity-bytes-utils, an outdated version

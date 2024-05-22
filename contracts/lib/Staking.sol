@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {LedgerToken} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
+import {LedgerToken} from "./OCCTypes.sol";
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 import {Valor} from "./Valor.sol";

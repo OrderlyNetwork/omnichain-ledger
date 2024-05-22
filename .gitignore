@@ -12,5 +12,6 @@ TODO.md
 deployments/localhost/
 forge-cache/
 forge-out/
+out/
 .next
 bin/

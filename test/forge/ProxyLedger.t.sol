@@ -18,7 +18,7 @@ import { OFTComposeMsgCodec } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/
 
 // OZ imports
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 // Forge imports
 import "forge-std/console.sol";
 
@@ -26,7 +26,6 @@ import "forge-std/console.sol";
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // OCCAdapter imports
-import "orderly-omnichain-occ/contracts/OCCAdapter.sol";
 import "../../contracts/Ledger.sol";
 import "../../contracts/ProxyLedger.sol";
 
@@ -38,9 +37,6 @@ contract LedgerProxyTest is TestHelperOz5 {
 
     OFTMock aOFT;
     OFTMock bOFT;
-
-    OCCAdapter occAdapterA;
-    OCCAdapter occAdapterB;
 
     ProxyLedger proxyA;
     Ledger ledgerB;
@@ -74,31 +70,24 @@ contract LedgerProxyTest is TestHelperOz5 {
         aOFT.mint(userA, initialBalance);
         bOFT.mint(userB, initialBalance);
 
-        // OCCAdapter setup
-        occAdapterA = new OCCAdapter(address(endpoints[aEid]), address(this)); 
-        occAdapterB = new OCCAdapter(address(endpoints[bEid]), address(this));
+        // deploy and initialize upgradeable proxy ledger
+        address proxyAImpl = address(new ProxyLedger());
+        bytes memory initBytes = abi.encodeWithSelector(ProxyLedger.initialize.selector, address(aOFT), address(this));
+        address proxyAddr = address(new ERC1967Proxy(proxyAImpl, initBytes));
+        proxyA = ProxyLedger(payable(proxyAddr));
 
-        proxyA = new ProxyLedger();
-        proxyA.initialize(address(occAdapterA), address(this));
         ledgerB = new Ledger();
-        ledgerB.initialize(address(this), address(occAdapterB), aOFT, 1 ether, 100 ether);
+        ledgerB.initialize(address(this), address(ledgerB), aOFT, 1 ether, 100 ether);
 
-        occAdapterA.setRole(0);
-        occAdapterA.setMyChainId(aEid);
-        occAdapterA.setOftAddr(address(aOFT));
+        proxyA.setMyChainId(aEid);
 
-        occAdapterB.setRole(1);
-        occAdapterB.setMyChainId(bEid);
-        occAdapterB.setOftAddr(address(bOFT));
+        ledgerB.setMyChainId(bEid);
 
-        occAdapterA.setLedgerChainId(bEid);
-        occAdapterA.setLedgerCCAdapterAddr(address(occAdapterB));
-        occAdapterA.setVaultAppAddr(address(proxyA));
-        occAdapterA.setChainId2Eid(bEid, bEid);
+        proxyA.setLedgerInfo(bEid, address(ledgerB));
+        proxyA.setChainId2Eid(bEid, bEid);
 
-        occAdapterB.setChainId2Eid(aEid, aEid);
-        occAdapterB.setChainId2VaultCCAdapterAddr(aEid, address(occAdapterA));
-        occAdapterB.setLedgerAppAddr(address(ledgerB));
+        ledgerB.setChainId2Eid(aEid, aEid);
+        ledgerB.setChainId2ProxyLedgerAddr(aEid, address(proxyA));
 
         vm.deal(address(ledgerB), 1000 ether);
     }
@@ -122,7 +111,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         uint256 tokensToSend = 1 ether;
 
         vm.prank(userA);
-        aOFT.approve(address(occAdapterA), tokensToSend);
+        aOFT.approve(address(proxyA), tokensToSend);
 
         uint256 nativeFee = proxyA.qouteStake(tokensToSend, userA, false);
         vm.prank(userA);
@@ -130,22 +119,22 @@ contract LedgerProxyTest is TestHelperOz5 {
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         assertEq(aOFT.balanceOf(userA), initialBalance - tokensToSend);
-        assertEq(bOFT.balanceOf(address(occAdapterB)), tokensToSend);
+        assertEq(bOFT.balanceOf(address(ledgerB)), tokensToSend);
 
         // lzCompose params
-        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = occAdapterA.getLzSendReceipt();
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = proxyA.getLzSendReceipt();
 
         // lzCompose params
         uint32 dstEid_ = bEid;
         address from_ = address(bOFT);
         bytes memory options_ = options;
         bytes32 guid_ = msgReceipt.guid;
-        address to_ = address(occAdapterB);
+        address to_ = address(ledgerB);
         bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
             msgReceipt.nonce,
             aEid,
             oftReceipt.amountReceivedLD,
-            abi.encodePacked(addressToBytes32(address(occAdapterA)), msgCompose)
+            abi.encodePacked(addressToBytes32(address(proxyA)), msgCompose)
         );
         this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
     }
