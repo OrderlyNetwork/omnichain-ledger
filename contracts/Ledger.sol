@@ -4,23 +4,24 @@ pragma solidity 0.8.22;
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
-import {LedgerToken, OCCVaultMessage, OCCLedgerMessage, IOCCLedgerReceiver} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
-
 import {LedgerAccessControl} from "./lib/LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
 import {LedgerPayloadTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
-import {OCCManager} from "./lib/OCCManager.sol";
 import {Valor} from "./lib/Valor.sol";
 import {Staking} from "./lib/Staking.sol";
 import {Vesting} from "./lib/Vesting.sol";
 import {Revenue} from "./lib/Revenue.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
+import {OCCVaultMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {LedgerOCCManager} from "./lib/OCCManager.sol";
 
-contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, MerkleDistributor, Valor, Staking, Revenue, Vesting {
+// lz imports
+import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
+
+contract Ledger is LedgerAccessControl, LedgerOCCManager, ChainedEventIdCounter, MerkleDistributor, Valor, Staking, Revenue, Vesting {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
-    address public orderTokenOft;
     address public occAdaptor;
 
     /* ========== ERRORS ========== */
@@ -52,7 +53,7 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
     }
 
     /// @notice Receives message from OCCAdapter and processes it
-    function ledgerRecvFromVault(OCCVaultMessage calldata message) external override {
+    function ledgerRecvFromVault(OCCVaultMessage memory message) internal {
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
             _LedgerClaimRewards(
@@ -108,5 +109,17 @@ contract Ledger is LedgerAccessControl, ChainedEventIdCounter, OCCManager, Merkl
     function _LedgerEsOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) internal {
         _esOrderUnstake(_user, _chainId, _amount);
         _createVestingRequest(_user, _chainId, _amount);
+    }
+
+    function lzCompose(address, bytes32, bytes calldata _message, address, bytes calldata /*_extraData*/ )
+        external
+        payable
+    {
+        bytes memory _composeMsgContent = OFTComposeMsgCodec.composeMsg(_message);
+
+        OCCVaultMessage memory message = abi.decode(_composeMsgContent, (OCCVaultMessage));
+        ledgerRecvFromVault(message);
+
+        // revert("TestOnly: end of lzCompose");
     }
 }

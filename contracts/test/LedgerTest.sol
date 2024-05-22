@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {LedgerToken} from "orderly-omnichain-occ/contracts/OCCInterface.sol";
+import {LedgerToken} from "../lib/OCCTypes.sol";
 import {Ledger} from "../Ledger.sol";
 
 contract LedgerTest is Ledger {
