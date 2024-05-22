@@ -39,7 +39,13 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /* ========== EVENTS ========== */
 
     event Staked(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount, LedgerToken token);
-    event OrderUnstakeRequested(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
+    event OrderUnstakeRequested(
+        uint256 indexed chainedEventId,
+        uint256 indexed chainId,
+        address indexed staker,
+        uint256 amount,
+        uint256 unlockTimestamp
+    );
     event OrderUnstakeCancelled(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 pendingOrderAmount);
     event OrderWithdrawn(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
     event EsOrderUnstake(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
@@ -125,7 +131,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userPendingUnstake[_user].balanceOrder += _amount;
         userPendingUnstake[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
 
-        emit OrderUnstakeRequested(_getNextChainedEventId(_chainId), _chainId, _user, _amount);
+        emit OrderUnstakeRequested(_getNextChainedEventId(_chainId), _chainId, _user, _amount, userPendingUnstake[_user].unlockTimestamp);
     }
 
     /// @notice Cancel unstaking request for $ORDER tokens and re-stake them
