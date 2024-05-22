@@ -81,6 +81,38 @@ describe("Staking", function () {
     expect(await ledger.getUserValor(user.address)).to.equal(86400);
   });
 
+  it("unstake request should stop valor emission for user", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 1000);
+    await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ORDER, 1000);
+
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Our test valor emission is 1 valor per second.
+    // Two users staked equal amount in total, so they should receive the same amount of valor.
+    // 86400 / 2 = 43200
+    // But they can be greater than 43200 due to a bit of time pass before checking the valor.
+    expect(await ledger.getUserValor(user.address)).to.closeTo(43200, 2);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(43200, 2);
+
+    await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, 1000);
+
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Unstake request should stop valor emission for user, but not for others
+    expect(await ledger.getUserValor(user.address)).to.closeTo(43200, 2);
+    // So, owner should receive all valor emission for the day. It should be 86400.
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(129600, 2);
+
+    //Cancel unstake request should resume valor emission
+    await ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId);
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+
+    // Dayly valor emission should be again divided between two users
+    expect(await ledger.getUserValor(user.address)).to.closeTo(86400, 2);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(172800, 2);
+  });
+
   it("users share valor emission according to their stake", async function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
@@ -105,10 +137,9 @@ describe("Staking", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
     // User can't create unstake request if they don't have any staked orders
-    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, 0, 1000)).to.be.revertedWithCustomError(
-      ledger,
-      "InsufficientOrderStakedBalanceForUnstake"
-    );
+    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, 0, 1000))
+      .to.be.revertedWithCustomError(ledger, "StakingBalanceInsufficient")
+      .withArgs(LedgerToken.ORDER);
 
     const chainId = 0;
     const orderStakingAmount = 1000;
@@ -123,15 +154,15 @@ describe("Staking", function () {
     await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, 0)).to.be.revertedWithCustomError(ledger, "AmountIsZero");
 
     // User can't create unstake request for more than they have
-    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderStakingAmount + 1)).to.be.revertedWithCustomError(
-      ledger,
-      "InsufficientOrderStakedBalanceForUnstake"
-    );
+    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderStakingAmount + 1))
+      .to.be.revertedWithCustomError(ledger, "StakingBalanceInsufficient")
+      .withArgs(LedgerToken.ORDER);
 
     // User make unstake request for 500 orders
     const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount);
+    const unlockTimestamp = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
     // Check the OrderUnstakeRequested event is emitted correctly
-    await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+    await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount, unlockTimestamp);
 
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, esOrderStakingAmount);
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
