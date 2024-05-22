@@ -33,7 +33,9 @@ describe("Revenue", function () {
       );
 
     const batchEndTime = (await ledger.getBatchEndTime(batchId)).toNumber();
-    await helpers.time.increaseTo(batchEndTime + 1);
+    if (batchEndTime > (await helpers.time.latest())) {
+      await helpers.time.increaseTo(batchEndTime + 1);
+    }
 
     // Now batch is finished and owner can fix the batch price
     await ledger.connect(owner).fixBatchValorToUsdcRate(batchId);
@@ -69,15 +71,25 @@ describe("Revenue", function () {
     expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, 0)).to.equal(0);
 
     await expect(ledger.getBatch(1)).to.be.revertedWithCustomError(ledger, "BatchIsNotCreatedYet");
+
+    // Calling for batch more than max should revert
+    await expect(ledger.getBatch(183)).to.be.revertedWithCustomError(ledger, "BatchNumberIsMoreThanMax");
   });
 
   it("user can redeem valor to the current batch", async function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
 
-    // User can't redeem valor if their collected valor is less than the amount they want to redeem
-    await expect(ledger.connect(user).redeemValor(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "AmountIsGreaterThanCollectedValor");
-
     const chainId = 0;
+
+    // User can't redeem zero amount of valor
+    await expect(ledger.connect(user).redeemValor(user.address, chainId, 0)).to.be.revertedWithCustomError(ledger, "RedemptionAmountIsZero");
+
+    // User can't redeem valor if their collected valor is less than the amount they want to redeem
+    await expect(ledger.connect(user).redeemValor(user.address, chainId, 1000)).to.be.revertedWithCustomError(
+      ledger,
+      "AmountIsGreaterThanCollectedValor"
+    );
+
     await ledger.connect(user).setCollectedValor(user.address, 2000);
     await ledger.connect(user).redeemValor(user.address, chainId, 1000);
 
@@ -118,10 +130,15 @@ describe("Revenue", function () {
 
     // Now batch is finished and owner can fix the batch price
     expect(await ledger.isBatchFinished(0)).to.be.equal(true);
+
+    // Owner can't make the batch claimable if the batch valor to USDC rate is not set
+    await expect(ledger.connect(owner).batchPreparedToClaim(0)).to.be.revertedWithCustomError(ledger, "BatchValorToUsdcRateIsNotFixed");
+
     await ledger.connect(owner).fixBatchValorToUsdcRate(0);
 
     const batch0 = await ledger.getBatch(0);
     expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(5000000000000000000n);
+    expect(batch0["claimable"]).to.equal(false);
   });
 
   it("user can claim usdc revenue", async function () {
@@ -197,5 +214,44 @@ describe("Revenue", function () {
 
     const tx2 = await ledger.connect(user).claimUsdcRevenue(user.address, 1);
     await expect(tx2).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 1, user.address, 500);
+  });
+
+  it("user can redeem valor more than once to the same batch", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+
+    await ledger.connect(user).setCollectedValor(user.address, 2000);
+    await ledger.connect(user).redeemValor(user.address, 0, 1000);
+    await ledger.connect(user).redeemValor(user.address, 0, 1000);
+
+    expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, 0)).to.equal(2000);
+  });
+
+  it("user should have no more than 2 BatchedReremprionRequest at the same time", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+
+    await ledger.connect(user).setCollectedValor(user.address, 3000);
+    // User redeem valor to the current batch (0)
+    await ledger.connect(user).redeemValor(user.address, 0, 1000);
+    // So, user should have 1 BatchedReremprionRequest
+    expect(await ledger.nuberOfUsersBatchedReremprionRequests(user.address)).to.equal(1);
+
+    // Batch 1 comes
+    helpers.time.increaseTo((await ledger.getBatchEndTime(0)).toNumber() + 1);
+    // User redeem valor to the current batch (1)
+    await ledger.connect(user).redeemValor(user.address, 0, 1000);
+    // As batch 0 is not claimable yet, it shouldn't be collected, so user should have 2 BatchedReremprionRequest
+    expect(await ledger.nuberOfUsersBatchedReremprionRequests(user.address)).to.equal(2);
+
+    // In the normal case admin should prepare batch 0 for claiming before batch 2 comes
+    await prepareBatchForClaiming(ledger, owner, 0);
+
+    // Let's move to batch 2
+    helpers.time.increaseTo((await ledger.getBatchEndTime(1)).toNumber() + 1);
+    // User redeem valor to the current batch (2)
+    await ledger.connect(user).redeemValor(user.address, 0, 1000);
+    // But as batch 0 is claimable, it should be collected during redeeming valor to batch 2
+    // So, user should have again 2 BatchedReremprionRequest:
+    // batch 1, that is finished but not claimed yet, and batch 2, that is current
+    expect(await ledger.nuberOfUsersBatchedReremprionRequests(user.address)).to.equal(2);
   });
 });

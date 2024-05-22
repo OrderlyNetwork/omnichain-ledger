@@ -3,12 +3,21 @@ pragma solidity 0.8.22;
 
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 
-/// @title Valor contract
-/// @notice This contract is used to manage the valor
+/**
+ * @title Valor contract
+ * @author Orderly Network
+ * @notice Manage the valor (a kind of internal token)
+ *         User obtains valor by staking $ORDER and es$ORDER tokens
+ *         Valor is emmitted over time, based on the valorPerSecond rate
+ *         Valor can be redeemed for USDC in the Redemption contract
+ *         Valor's rate to USDC is updated daily when TREASURE_UPDATER_ROLE calls dailyUsdcNetFeeRevenue
+ *         Contract is source of truth for total totalValorAmount, totalUsdcInTreasure, valorToUsdcRateScaled
+ */
 abstract contract Valor is LedgerAccessControl {
     uint256 internal constant MAX_VALOR_PER_SECOND = 1 ether;
     uint256 public constant VALOR_TO_USDC_RATE_PRECISION = 1e18;
 
+    /// @notice The role, that is allowed to update USDC net fee revenue
     bytes32 public constant TREASURE_UPDATER_ROLE = keccak256("TREASURE_UPDATER_ROLE");
 
     /// @notice The amount of valor token, that will be emitted per second
@@ -37,6 +46,7 @@ abstract contract Valor is LedgerAccessControl {
 
     /* ========== EVENTS ========== */
 
+    /// @notice Emmited, when the daily USDC net fee revenue has been updated
     event DailyUsdcNetFeeRevenueUpdated(
         uint256 indexed timestamp,
         uint256 usdcNetFeeRevenue,
@@ -60,6 +70,12 @@ abstract contract Valor is LedgerAccessControl {
         maximumValorEmission = _maximumValorEmission;
     }
 
+    /**
+     * @notice CeFi updates the daily USDC net fee revenue
+     *          Function reverts, if the function is called too early - less than 12 hours after the last update
+     *          to prevent accidental double updates
+     *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
+     */
     function dailyUsdcNetFeeRevenue(uint256 _usdcNetFeeRevenue) external onlyRole(TREASURE_UPDATER_ROLE) {
         if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
 

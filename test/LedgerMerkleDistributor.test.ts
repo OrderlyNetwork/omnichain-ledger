@@ -181,8 +181,8 @@ describe("LedgerMerkleDistributor", function () {
     // Create distribution
     await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ESORDER, tree.root, startTimestamp, ipfsCid);
 
-    // Owner should not be able to propose a root as he has not been granted the ROOT_UPDATER_ROLE
-    await expect(distributor.connect(owner).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+    // User should not be able to propose a root as he has not been granted the ROOT_UPDATER_ROLE
+    await expect(distributor.connect(user).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
       distributor,
       "AccessControlUnauthorizedAccount"
     );
@@ -486,141 +486,93 @@ describe("LedgerMerkleDistributor", function () {
     await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
   });
 
-  // it("should allow to claim tokens for user by operator", async function () {
-  //     const { orderTokenOft, distributor, user, updater, operator } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
+  it("should fail if the root is not active", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
 
-  //     const userBalanceBefore = await orderToken.balanceOf(user.address);
-  //     const tokenTotalSupplyBefore = await orderToken.totalSupply();
+    await expect(
+      distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0))
+    ).to.be.revertedWithCustomError(distributor, "NoActiveMerkleRoot");
+  });
 
-  //     // Operator should be able to claim tokens for user
-  //     const tx = await distributor.connect(operator).claimRewardsFor(user.address, orderToken.address, amountsBigNumber[0], tree.getProof(0));
-  //     await expect(tx).to.emit(distributor, "RewardsClaimed").withArgs(anyValue, orderToken.address, user.address, amountsBigNumber[0]);
+  it("should fail if user not in merkle tree", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+    await expect(
+      distributor.connect(updater).claimRewards(distributionId, updater.address, chainId, amountsBigNumber[0], tree.getProof(0))
+    ).to.be.revertedWithCustomError(distributor, "InvalidMerkleProof");
+  });
 
-  //     // Check that the user token claimed amount has been updated
-  //     expect(await distributor.getClaimed(orderToken.address, user.address)).to.be.equal(amountsBigNumber[0]);
+  it("should fail if user proof is not valid", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+    await expect(
+      distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0].add(1), tree.getProof(0))
+    ).to.be.revertedWithCustomError(distributor, "InvalidMerkleProof");
+  });
 
-  //     // Check that the user has received the tokens
-  //     expect(await orderToken.balanceOf(user.address)).to.be.equal(userBalanceBefore.add(amountsBigNumber[0]));
+  it("check that only owner can pause/unpause", async function () {
+    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
 
-  //     // Check that the total supply has been updated
-  //     expect(await orderToken.totalSupply()).to.be.equal(tokenTotalSupplyBefore.add(amountsBigNumber[0]));
-  // });
+    // Only owner should be able to pause/unpause
+    await expect(distributor.connect(user).pause()).to.be.revertedWithCustomError(distributor, "AccessControlUnauthorizedAccount");
+    await expect(distributor.connect(user).unpause()).to.be.revertedWithCustomError(distributor, "AccessControlUnauthorizedAccount");
 
-  // it("should allow to claim tokens for user by another user if alwaysAllowClaimsFor is set", async function () {
-  //     const { orderTokenOft, distributor, user, updater, operator } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
+    // Owner should be able to pause/unpause
+    await distributor.connect(owner).pause();
+    await distributor.connect(owner).unpause();
+  });
 
-  //     // Check, that updater cannot claim tokens for user without alwaysAllowClaimsFor set
-  //     await expect(distributor.connect(updater).claimRewardsFor(user.address, orderToken.address, amountsBigNumber[0], tree.getProof(0)))
-  //         .to.be.revertedWithCustomError(distributor, "NoPermissionsToClaimForThisUser")
-  //         .withArgs(user.address);
+  it("pause should fail functions, that requires unpaused state", async function () {
+    const { orderTokenOft, distributor, owner, user, updater, operator } = await distributorFixture();
+    await distributor.connect(owner).pause();
 
-  //     // Set alwaysAllowClaimsFor for user
-  //     await distributor.connect(user).setAlwaysAllowClaimsFor(true);
+    const distributionId = 1;
+    const chainId = 1;
+    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
+      LedgerToken.ORDER,
+      [user.address],
+      ["1000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+    await helpers.time.increaseTo(startTimestamp + 1);
 
-  //     const userBalanceBefore = await orderToken.balanceOf(user.address);
-  //     const tokenTotalSupplyBefore = await orderToken.totalSupply();
+    await expect(distributor.connect(updater).updateRoot(distributionId)).to.be.revertedWithCustomError(distributor, "EnforcedPause");
+    await expect(
+      distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0))
+    ).to.be.revertedWithCustomError(distributor, "EnforcedPause");
 
-  //     // User should be able to claim tokens for another user if alwaysAllowClaimsFor is set
-  //     const tx = await distributor.connect(updater).claimRewardsFor(user.address, orderToken.address, amountsBigNumber[0], tree.getProof(0));
-  //     await expect(tx).to.emit(distributor, "RewardsClaimed").withArgs(anyValue, orderToken.address, user.address, amountsBigNumber[0]);
-
-  //     // Check that the user token claimed amount has been updated
-  //     expect(await distributor.getClaimed(orderToken.address, user.address)).to.be.equal(amountsBigNumber[0]);
-
-  //     // Check that the user has received the tokens
-  //     expect(await orderToken.balanceOf(user.address)).to.be.equal(userBalanceBefore.add(amountsBigNumber[0]));
-
-  //     // Check that the total supply has been updated
-  //     expect(await orderToken.totalSupply()).to.be.equal(tokenTotalSupplyBefore.add(amountsBigNumber[0]));
-
-  //     // Unset alwaysAllowClaimsFor for user
-  //     await distributor.connect(user).setAlwaysAllowClaimsFor(false);
-
-  //     // Check, that updater cannot claim tokens for user after alwaysAllowClaimsFor has been unset
-  //     await expect(distributor.connect(updater).claimRewardsFor(user.address, orderToken.address, amountsBigNumber[0], tree.getProof(0)))
-  //         .to.be.revertedWithCustomError(distributor, "NoPermissionsToClaimForThisUser")
-  //         .withArgs(user.address);
-  // });
-
-  // it("should fail if the root is not active", async function () {
-  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
-  //     await expect(distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0)))
-  //         .to.be.revertedWithCustomError(distributor, "NoActiveMerkleRoot")
-  //         .withArgs(orderToken.address);
-  // });
-
-  // it("should fail if user not in merkle tree", async function () {
-  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
-  //     await expect(distributor.connect(updater).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0))).to.be.revertedWithCustomError(
-  //         distributor,
-  //         "InvalidMerkleProof"
-  //     );
-  // });
-
-  // it("should fail if user proof is not valid", async function () {
-  //     const { orderTokenOft, distributor, user, updater } = await distributorFixture();
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
-  //     await expect(
-  //         distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0].add(1), tree.getProof(0))
-  //     ).to.be.revertedWithCustomError(distributor, "InvalidMerkleProof");
-  // });
-
-  // it("should fail if token cannot be minted", async function () {
-  //     const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
-
-  //     orderToken.connect(owner).revokeRole(await orderToken.MINTER_ROLE(), distributor.address);
-  //     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution([user.address], ["1000000000"], distributor, updater, orderToken);
-  //     await expect(distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0))).to.be.revertedWith(
-  //         /AccessControl: account .* is missing role .*/
-  //     );
-
-  //     orderToken.connect(owner).grantRole(await orderToken.MINTER_ROLE(), distributor.address);
-  //     orderToken.connect(owner).grantRole(await orderToken.MINTER_ROLE(), owner.address);
-  //     orderToken.connect(owner).mint(owner.address, TOTAL_SUPPLY);
-  //     await expect(distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0)))
-  //         .to.be.revertedWithCustomError(distributor, "TokenCannotBeMinted")
-  //         .withArgs(orderToken.address);
-  // });
-
-  // it("check that only owner can pause/unpause", async function () {
-  //     const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
-
-  //     // Only owner should be able to pause/unpause
-  //     await expect(distributor.connect(user).pause()).to.be.revertedWith(/AccessControl: account .* is missing role .*/);
-  //     await expect(distributor.connect(user).unpause()).to.be.revertedWith(/AccessControl: account .* is missing role .*/);
-
-  //     // Owner should be able to pause/unpause
-  //     await distributor.connect(owner).pause();
-  //     await distributor.connect(owner).unpause();
-  // });
-
-  // it("pause should fail functions, that requires unpaused state", async function () {
-  //     const { orderTokenOft, distributor, owner, user, updater, operator } = await distributorFixture();
-  //     await distributor.connect(owner).pause();
-
-  //     const { tree, amountsBigNumber, startTimestamp } = await proposeRootDistribution(
-  //         [user.address],
-  //         ["1000000000"],
-  //         distributor,
-  //         updater,
-  //         orderToken
-  //     );
-  //     await helpers.time.increaseTo(startTimestamp + 1);
-  //     await expect(distributor.connect(updater).updateRoot(orderToken.address)).to.be.revertedWith("Pausable: paused");
-  //     await expect(distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0))).to.be.revertedWith(
-  //         "Pausable: paused"
-  //     );
-  //     await expect(
-  //         distributor.connect(operator).claimRewardsFor(user.address, orderToken.address, amountsBigNumber[0], tree.getProof(0))
-  //     ).to.be.revertedWith("Pausable: paused");
-
-  //     await distributor.connect(owner).unpause();
-  //     await distributor.connect(updater).updateRoot(orderToken.address);
-  //     await distributor.connect(user).claimRewards(orderToken.address, amountsBigNumber[0], tree.getProof(0));
-  //     await distributor.connect(operator).claimRewardsFor(user.address, orderToken.address, amountsBigNumber[0], tree.getProof(0));
-  // });
+    await distributor.connect(owner).unpause();
+    await distributor.connect(updater).updateRoot(distributionId);
+    await distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0));
+  });
 });

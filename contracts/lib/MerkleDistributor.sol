@@ -7,8 +7,26 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 
+/**
+ * @title MerkleDistributor
+ * @author Orderly Network
+ * @notice This contract aimed for the distribution of
+ *         - Trading rewards
+ *         - Market Maker rewards
+ *
+ *         Contract allows to create distributions and propose updated Merkle roots for them.
+ *         Each distribution has it's own token, that can't be changed after creation.
+ *         Several distributions can have the same token.
+ *         Distribution supports two types of tokens: $ORDER and es$ORDER (record based).
+ *         Contract supports distribution of continuously growing rewards. Wor that purpose, it supports root updates for distributions.
+ *         Next root should contain cummulative (not decreasing) amount of rewards for each user from the previous root.
+ *         Contract does not transfer tokens to the users, it only returns the type and amount of tokens that user claimed.
+ *         Contract supposed to be a part of the Ledger contract.
+ *         Parent contract should implement the claimRewards function that will call _claimRewards function from this contract.
+ */
+
 abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounter {
-    /// @dev May propose new/updated Merkle roots for tokens.
+    /// @dev May create distributions and propose updated Merkle roots for them.
     bytes32 public constant ROOT_UPDATER_ROLE = keccak256("ROOT_UPDATER_ROLE");
 
     struct MerkleTree {
@@ -29,10 +47,10 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
 
     /* ========== STATE VARIABLES ========== */
 
-    /// @dev The active Distributions and associated parameters. Mapped on distribution id.
+    /// @dev Mapping of (distribution id) => (active Distribution).
     mapping(uint32 => Distribution) internal activeDistributions;
 
-    /// @dev The proposed Merkle root and associated parameters. Mapped on distribution id.
+    /// @dev Mapping of (distribution id) => (proposed Merkle root).
     mapping(uint32 => MerkleTree) internal proposedRoots;
 
     /// @dev Mapping of (distribution id) => (user address) => (claimed amount).
@@ -40,21 +58,28 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
 
     /* ========== EVENTS ========== */
 
-    /// @notice Emitted when a new distribution is created.
-    event DistributionCreated(uint256 eventId, uint32 distributionId, LedgerToken token, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
+    /// @notice Emitted when a new distribution is created by the ROOT_UPDATER_ROLE from Ledger chain.
+    event DistributionCreated(
+        uint256 indexed eventId,
+        uint32 indexed distributionId,
+        LedgerToken token,
+        bytes32 merkleRoot,
+        uint256 startTimestamp,
+        bytes ipfsCid
+    );
 
-    /// @notice Emitted when a new Merkle root is proposed.
-    event RootProposed(uint256 eventId, uint32 distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
+    /// @notice Emitted when a new Merkle root is proposed by the ROOT_UPDATER_ROLE from Ledger chain.
+    event RootProposed(uint256 indexed eventId, uint32 indexed distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
 
-    /// @notice Emitted when proposed Merkle root becomes active.
-    event RootUpdated(uint256 eventId, uint32 distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
+    /// @notice Emitted when proposed Merkle root becomes active by the ROOT_UPDATER_ROLE from Ledger chain.
+    event RootUpdated(uint256 indexed eventId, uint32 indexed distributionId, bytes32 merkleRoot, uint256 startTimestamp, bytes ipfsCid);
 
-    /// @notice Emitted when a user (or behalf of user) claims rewards.
+    /// @notice Emitted when a user claims rewards from Vault chains.
     event RewardsClaimed(
         uint256 indexed chainedEventId,
         uint256 indexed chainId,
-        uint32 distributionId,
-        address indexed account,
+        uint32 indexed distributionId,
+        address account,
         uint256 amount,
         LedgerToken token
     );
@@ -70,7 +95,6 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     error CannotUpdateRoot();
     error NoActiveMerkleRoot();
     error InvalidMerkleProof();
-    error OFTTransferFailed();
 
     /* ========== MODIFIERS ========== */
     modifier onlyUpdater() {
@@ -81,23 +105,24 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     /* ========== INITIALIZER ========== */
 
     function merkleDistributorInit(address owner) internal onlyInitializing {
-        // _setupRole(ROOT_UPDATER_ROLE, owner);
+        _grantRole(ROOT_UPDATER_ROLE, owner);
     }
 
-    /* ========== PUBLIC FUNCTIONS ========== */
+    /* ========== VIEW FUNCTIONS ========== */
 
     /**
      * @notice Get the active Merkle root for distribution id and associated parameters.
-     *         If there is a proposed root and the start timestamp has passed, it will be the active root.
+     *         If distribution has proposed root and it's start timestamp has passed, proposed root will be returned.
+     *         It allows to reduce probability of collision when user claiming rewards from the old Merkle root.
      *         Because it will be updated at the beginning of the next claimReward call and become active from that moment.
      *         So, user will actually obtain the rewards from the proposed root and have to provide amount and proof for it.
      *
      * @param  _distributionId  The distribution id.
      *
-     * @return  token          The address of the distributed token. If token is address(1), it means that the distribution is record based.
+     * @return  token          The type of the distributed token. Currently only $ORDER token and es$ORDER (record based) are supported.
      * @return  merkleRoot     The Merkle root.
      * @return  startTimestamp Timestamp when this Merkle root become active.
-     * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data.
+     * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data (optional, can be 0x0).
      */
     function getDistribution(
         uint32 _distributionId
@@ -119,7 +144,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     }
 
     /**
-     * @notice Check if the distribution is record based.
+     * @notice Check if the distribution is record based. Currently only es$ORDER token is record based.
      *
      * @param  _distributionId  The distribution id.
      *
@@ -138,14 +163,14 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
      *
      * @return  merkleRoot     The proposed Merkle root.
      * @return  startTimestamp Timestamp when this Merkle root become active.
-     * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data.
+     * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data (optional, can be 0x0).
      */
     function getProposedRoot(uint32 _distributionId) external view returns (bytes32 merkleRoot, uint256 startTimestamp, bytes memory ipfsCid) {
         return (proposedRoots[_distributionId].merkleRoot, proposedRoots[_distributionId].startTimestamp, proposedRoots[_distributionId].ipfsCid);
     }
 
     /**
-     * @notice Get the tokens amount claimed so far by a given user.
+     * @notice Get the tokens amount claimed so far for distribution by a given user.
      *
      * @param  _distributionId  The distribution id.
      * @param  _user  The address of the user.
@@ -157,19 +182,19 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     }
 
     /**
-     * @notice Returns true if there is a proposed root for given token waiting to become active.
-     *         This is the case if the proposed root for given token is not zero.
+     * @notice Returns true if there is a proposed root for given distribution waiting to become active.
+     *         This is the case if the proposed root for given distribution is not zero.
      *
      * @param  _distributionId  The distribution id.
      *
-     * @return Boolean `true` if there is a proposed root for given token waiting to become active, else `false`.
+     * @return Boolean `true` if there is a proposed root for given distribution waiting to become active, else `false`.
      */
     function hasPendingRoot(uint32 _distributionId) public view returns (bool) {
         return proposedRoots[_distributionId].merkleRoot != bytes32(0);
     }
 
     /**
-     * @notice Returns true if there is a proposed root for given token waiting to become active
+     * @notice Returns true if there is a proposed root for given distribution waiting to become active
      *         and the start time has passed.
      *
      * @param  _distributionId  The distribution id.
@@ -180,7 +205,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         return hasPendingRoot(_distributionId) && block.timestamp >= proposedRoots[_distributionId].startTimestamp;
     }
 
-    /* ========== ROOT UPDATES ========== */
+    /* ========== DISTRIBUTION CREATION AND ROOT UPDATES ========== */
 
     /**
      * @notice Create a new distribution with the given token and propose Merkle root for it.
@@ -188,13 +213,13 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
      *         Once created, distribution token can't be changed.
      *
      * @param  _distributionId  The distribution id.
-     * @param  _token           The address of the token.
+     * @param  _token           The type of the token. Currently only $ORDER token and es$ORDER (record based) are supported.
      * @param  _merkleRoot      The Merkle root.
      * @param  _startTimestamp  The timestamp when this Merkle root become active.
-     * @param  _ipfsCid         An IPFS CID pointing to the Merkle tree data.
+     * @param  _ipfsCid         An IPFS CID pointing to the Merkle tree data. (optional, can be 0x0)
      *
      * Reverts if the distribution with the same id is already exists or Merkle root params are invalid.
-     * Reverts if the token is not supported for distribution. Currently only ORDER and ESORDER tokens are supported.
+     * Reverts if the token is not supported for distribution. Currently only $ORDER and es$ORDER tokens are supported.
      */
     function createDistribution(
         uint32 _distributionId,
@@ -206,11 +231,13 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         if (_distributionExists(_distributionId)) revert DistributionAlreadyExists();
         if (_token != LedgerToken.ORDER && _token != LedgerToken.ESORDER) revert TokenIsNotSupportedForDistribution();
 
+        // Creates distribution with empty merkleTree. Proposed root will be set in the next step.
         activeDistributions[_distributionId] = Distribution({
             token: _token,
             merkleTree: MerkleTree({merkleRoot: "", startTimestamp: 1, ipfsCid: ""})
         });
 
+        // Check and propose root for the created distribution. It become active after startTimestamp passed.
         _proposeRoot(_distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
 
         emit DistributionCreated(_getNextChainedEventId(0), _distributionId, _token, _merkleRoot, _startTimestamp, _ipfsCid);
@@ -241,13 +268,13 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     }
 
     /**
-     * @notice Set the active root parameters to the proposed root parameters.
+     * @notice Propagate proposed root to the distribution if it can be updated.
      *         Non-reeentrant guard is disabled because this function is called from claimRewards.
      *
      * @param  _distributionId  The distribution id.
+     *
      *  Reverts if root updates are paused.
      *  Reverts if the proposed root is bytes32(0).
-     *  Reverts if the proposed root epoch is not equal to the next root epoch.
      *  Reverts if the waiting period for the proposed root has not elapsed.
      */
     function updateRoot(uint32 _distributionId) public whenNotPaused {
@@ -270,7 +297,8 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     /**
      * @notice Check Merkle proof and claim the remaining unclaimed rewards for a user.
      *         Will propogate pending Merkle root updates before claiming if startTimestamp for pending root has passed.
-     *         Return token and claimable amount. Caller should transfer the token to the user or stake if token is record based.
+     *         Return the type of token and claimable amount.
+     *         Caller (Ledger contract) should transfer the token to the user or stake if token is record based.
      *
      *  Reverts if there is no active distribution for the _distributionId.
      *  Reverts if no active Merkle root is set for the _distributionId.
@@ -302,7 +330,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
             if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidMerkleProof();
         }
 
-        // Note: If this reverts, then there was an error in the Merkle tree, since the cumulative
+        // Note: If next operation reverts, then there was an error in the Merkle tree, since the cumulative
         // amount for a given user should never decrease over time.
         claimableAmount = _cumulativeAmount - claimedAmounts[_distributionId][_user];
         token = activeDistributions[_distributionId].token;
@@ -316,6 +344,9 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
 
     /* ========== PRIVATE FUNCTIONS ========== */
 
+    /**
+     * @notice Check params and propose root for the distribution.
+     */
     function _proposeRoot(uint32 _distributionId, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid) private {
         if (!_distributionExists(_distributionId)) revert DistributionNotFound();
 
@@ -337,15 +368,6 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         proposedRoots[_distributionId] = MerkleTree({merkleRoot: _merkleRoot, startTimestamp: _startTimestamp, ipfsCid: _ipfsCid});
 
         emit RootProposed(_getNextChainedEventId(0), _distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
-    }
-
-    /**
-     * @dev Converts an address to bytes32.
-     * @param _addr The address to convert.
-     * @return The bytes32 representation of the address.
-     */
-    function _addressToBytes32(address _addr) private pure returns (bytes32) {
-        return bytes32(uint256(uint160(_addr)));
     }
 
     /**
