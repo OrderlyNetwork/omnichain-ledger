@@ -171,7 +171,13 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     function vaultSendToLedger(OCCVaultMessage memory message) internal {
 
         if (message.tokenAmount > 0) {
-            bool success = IERC20(orderTokenOft).transferFrom(msg.sender, address(this), message.tokenAmount);
+            address erc20TokenAddr = IOFT(orderTokenOft).token();
+            bool success = IERC20(erc20TokenAddr).transferFrom(message.sender, address(this), message.tokenAmount);
+
+            if (IOFT(orderTokenOft).approvalRequired()) {
+                erc20TokenAddr.approve(address(orderTokenOft), message.tokenAmount);
+            }
+
             require(success, "TokenTransferFailed");
         }
 
