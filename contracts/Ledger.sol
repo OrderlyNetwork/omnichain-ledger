@@ -13,7 +13,7 @@ import {Staking} from "./lib/Staking.sol";
 import {Vesting} from "./lib/Vesting.sol";
 import {Revenue} from "./lib/Revenue.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
-import {OCCVaultMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
 import {LedgerOCCManager} from "./lib/OCCManager.sol";
 
 // lz imports
@@ -72,36 +72,68 @@ contract Ledger is
         occAdaptor = _occAdaptor;
     }
 
-    /// @notice Receives message from OCCAdapter and processes it
+    /// @notice Receives message from OCCAdapter and dispatch it
     function ledgerRecvFromVault(OCCVaultMessage memory message) internal {
+        // ========== ClaimReward ==========
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
-            _LedgerClaimRewards(
+            _ledgerClaimRewards(
                 claimRewardPayload.distributionId,
                 message.sender,
                 message.srcChainId,
                 claimRewardPayload.cumulativeAmount,
                 claimRewardPayload.merkleProof
             );
-        } else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
-            LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
-            _LedgerRedeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
-        } else if (message.payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest)) {
+        }
+        // ========== Stake ==========
+        else if (message.payloadType == uint8(PayloadDataType.Stake)) {
+            _stake(message.sender, message.srcChainId, message.token, message.tokenAmount);
+        }
+        // ========== CreateOrderUnstakeRequest ==========
+        else if (message.payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest)) {
+            LedgerPayloadTypes.CreateOrderUnstakeRequest memory createOrderUnstakeRequestPayload = abi.decode(
+                message.payload,
+                (LedgerPayloadTypes.CreateOrderUnstakeRequest)
+            );
+            _createOrderUnstakeRequest(message.sender, message.srcChainId, createOrderUnstakeRequestPayload.amount);
+        }
+        // ========== CancelOrderUnstakeRequest ==========
+        else if (message.payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest)) {
+            _cancelOrderUnstakeRequest(message.sender, message.srcChainId);
+        }
+        // ========== WithdrawOrder ==========
+        else if (message.payloadType == uint8(PayloadDataType.WithdrawOrder)) {
+            _ledgerWithdrawOrder(message.sender, message.srcChainId);
+        }
+        // ========== EsOrderUnstakeAndVest ==========
+        else if (message.payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest)) {
             LedgerPayloadTypes.EsOrderUnstakeAndVest memory esOrderUnstakeAndVestPayload = abi.decode(
                 message.payload,
                 (LedgerPayloadTypes.EsOrderUnstakeAndVest)
             );
-            _LedgerEsOrderUnstakeAndVest(message.sender, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
-        } else if (message.payloadType == uint8(PayloadDataType.Stake)) {
-            _stake(message.sender, message.srcChainId, message.token, message.tokenAmount);
-        } else {
+            _ledgerEsOrderUnstakeAndVest(message.sender, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
+        }
+        // ========== RedeemValor ==========
+        else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
+            LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
+            _ledgerRedeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
+        }
+        // ========== ClaimUsdcRevenue ==========
+        else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenue)) {
+            _claimUsdcRevenue(message.sender, message.srcChainId);
+        }
+        // ========== UnsupportedPayloadType ==========
+        else {
             revert UnsupportedPayloadType();
         }
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
 
-    function _LedgerClaimRewards(
+    /// @notice Implement internal reward claiming logic:
+    /// $ORDER rewards are sent to user wallet on the source chain
+    /// $ESORDER rewards are staked to the user
+    function _ledgerClaimRewards(
         uint32 _distributionId,
         address _user,
         uint256 _srcChainId,
@@ -112,7 +144,15 @@ contract Ledger is
 
         if (claimedAmount != 0) {
             if (token == LedgerToken.ORDER) {
-                // TODO: compose message to OCCAdapter to transfer claimableAmount of $ORDER to message.sender
+                OCCLedgerMessage memory message = OCCLedgerMessage({
+                    dstChainId: _srcChainId,
+                    token: LedgerToken.ORDER,
+                    tokenAmount: claimedAmount,
+                    receiver: _user,
+                    payloadType: uint8(PayloadDataType.ClaimRewardBackward),
+                    payload: "0x0"
+                });
+                ledgerSendToVault(message);
             } else if (token == LedgerToken.ESORDER) {
                 _stake(_user, _srcChainId, token, claimedAmount);
             } else {
@@ -121,12 +161,46 @@ contract Ledger is
         }
     }
 
-    function _LedgerRedeemValor(address _user, uint256 _chainId, uint256 _amount) internal {
+    /// @notice Withdrawn $ORDER tokens are sent back to the user wallet on the source chain
+    function _ledgerWithdrawOrder(address _user, uint256 _chainId) internal {
+        uint256 orderAmountForWithdraw = _withdrawOrder(_user, _chainId);
+        if (orderAmountForWithdraw != 0) {
+            OCCLedgerMessage memory message = OCCLedgerMessage({
+                dstChainId: _chainId,
+                token: LedgerToken.ORDER,
+                tokenAmount: orderAmountForWithdraw,
+                receiver: _user,
+                payloadType: uint8(PayloadDataType.WithdrawOrderBackward),
+                payload: "0x0"
+            });
+            ledgerSendToVault(message);
+        }
+    }
+
+    /// @notice Claimed USDC revenue is sent back to the user wallet on the source chain
+    function _ledgerClaimUsdcRevenue(address _user, uint256 _chainId) internal {
+        uint256 usdcRevenueAmount = _claimUsdcRevenue(_user, _chainId);
+        if (usdcRevenueAmount != 0) {
+            OCCLedgerMessage memory message = OCCLedgerMessage({
+                dstChainId: _chainId,
+                token: LedgerToken.USDC,
+                tokenAmount: usdcRevenueAmount,
+                receiver: _user,
+                payloadType: uint8(PayloadDataType.ClaimUsdcRevenueBackward),
+                payload: "0x0"
+            });
+            ledgerSendToVault(message);
+        }
+    }
+
+    /// @notice Before redeeming Valor need to collect pending Valor for the user
+    function _ledgerRedeemValor(address _user, uint256 _chainId, uint256 _amount) internal {
         _updateValorVarsAndCollectUserValor(_user);
         _redeemValor(_user, _chainId, _amount);
     }
 
-    function _LedgerEsOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) internal {
+    /// @notice When $ESORDER unstaked, it should be immediately vested
+    function _ledgerEsOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) internal {
         _esOrderUnstake(_user, _chainId, _amount);
         _createVestingRequest(_user, _chainId, _amount);
     }

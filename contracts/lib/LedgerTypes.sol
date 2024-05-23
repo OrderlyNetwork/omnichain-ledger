@@ -35,10 +35,6 @@ library LedgerPayloadTypes {
         uint256 amount;
     }
 
-    struct CancelOrderUnstakeRequest {
-        uint256 amount;
-    }
-
     struct EsOrderUnstakeAndVest {
         uint256 amount;
     }

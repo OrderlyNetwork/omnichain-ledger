@@ -12,7 +12,17 @@ contract LedgerTest is Ledger {
         uint256 _cumulativeAmount,
         bytes32[] calldata _merkleProof
     ) external {
-        _LedgerClaimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
+        (LedgerToken token, uint256 claimedAmount) = _claimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
+
+        if (claimedAmount != 0) {
+            if (token == LedgerToken.ORDER) {
+                // $ORDER rewards are sent to user wallet on the source chain
+            } else if (token == LedgerToken.ESORDER) {
+                _stake(_user, _srcChainId, token, claimedAmount);
+            } else {
+                revert UnsupportedToken();
+            }
+        }
     }
 
     function setTotalValorAmount(uint256 _amount) external {
@@ -24,7 +34,7 @@ contract LedgerTest is Ledger {
     }
 
     function redeemValor(address _user, uint256 _chainId, uint256 _amount) external {
-        _LedgerRedeemValor(_user, _chainId, _amount);
+        _ledgerRedeemValor(_user, _chainId, _amount);
     }
 
     function claimUsdcRevenue(address _user, uint256 _chainId) external {
@@ -48,7 +58,7 @@ contract LedgerTest is Ledger {
     }
 
     function esOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) external {
-        _LedgerEsOrderUnstakeAndVest(_user, _chainId, _amount);
+        _ledgerEsOrderUnstakeAndVest(_user, _chainId, _amount);
     }
 
     function createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) external {

@@ -57,7 +57,6 @@ abstract contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout 
         }
         bytes memory options =
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
-        
         sendParam = SendParam({
             dstEid: chainId2Eid[message.dstChainId],
             to: bytes32(uint256(uint160(chainId2ProxyLedgerAddr[message.dstChainId]))),
@@ -74,7 +73,7 @@ abstract contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout 
      * @notice Sends a message from ledger to vault
      * @param message The message being sent.
      */
-    function ledgerSendToVault(OCCLedgerMessage calldata message) internal {
+    function ledgerSendToVault(OCCLedgerMessage memory message) internal {
 
         SendParam memory sendParam = buildOCCLedgerMsg(message);
         uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
@@ -153,7 +152,6 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         }
         bytes memory options =
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
-        
         sendParam = SendParam({
             dstEid: chainId2Eid[ledgerChainId],
             to: bytes32(uint256(uint160(ledgerAddr))),
