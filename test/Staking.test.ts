@@ -161,7 +161,9 @@ describe("Staking", function () {
     const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount);
     const unlockTimestamp = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
     // Check the OrderUnstakeRequested event is emitted correctly
-    await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount, unlockTimestamp);
+    await expect(tx1)
+      .to.emit(ledger, "OrderUnstakeRequested")
+      .withArgs(anyValue, chainId, user.address, orderUnstakingAmount, orderUnstakingAmount, unlockTimestamp);
 
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, esOrderStakingAmount);
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
@@ -247,12 +249,20 @@ describe("Staking", function () {
     const orderUnstakingAmount2 = 300;
     await makeInitialStake(ledger, chainId, user, orderStakingAmount, 0);
 
-    await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount1);
+    const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount1);
+    const unlockTimestamp1 = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
+    await expect(tx1)
+      .to.emit(ledger, "OrderUnstakeRequested")
+      .withArgs(anyValue, chainId, user.address, orderUnstakingAmount1, orderUnstakingAmount1, unlockTimestamp1);
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1, 0);
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount1, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
 
     // Repeated order unstake request should increase the amount but reset the timestamp
-    await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount2);
+    const tx2 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount2);
+    const unlockTimestamp2 = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
+    await expect(tx2)
+      .to.emit(ledger, "OrderUnstakeRequested")
+      .withArgs(anyValue, chainId, user.address, orderUnstakingAmount2, orderUnstakingAmount1 + orderUnstakingAmount2, unlockTimestamp2);
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1 - orderUnstakingAmount2, 0);
     await checkUserPendingUnstake(
       ledger,

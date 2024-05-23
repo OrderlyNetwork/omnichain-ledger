@@ -60,6 +60,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         uint256 indexed chainId,
         address indexed staker,
         uint256 amount,
+        uint256 totalUnstakedAmount,
         uint256 unlockTimestamp
     );
 
@@ -154,7 +155,14 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userPendingUnstake[_user].balanceOrder += _amount;
         userPendingUnstake[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
 
-        emit OrderUnstakeRequested(_getNextChainedEventId(_chainId), _chainId, _user, _amount, userPendingUnstake[_user].unlockTimestamp);
+        emit OrderUnstakeRequested(
+            _getNextChainedEventId(_chainId),
+            _chainId,
+            _user,
+            _amount,
+            userPendingUnstake[_user].balanceOrder,
+            userPendingUnstake[_user].unlockTimestamp
+        );
     }
 
     /// @notice Cancel unstaking request for $ORDER tokens and re-stake them
