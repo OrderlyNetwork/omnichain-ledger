@@ -17,6 +17,11 @@ import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contrac
 import {IOAppComposer} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppComposer.sol";
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
+
+/**
+ * @title LedgerOCCManager for handle OCC message between ledger and vault
+ * @dev This contract is used to send OCC message from ledger to vault
+ */
 abstract contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     using OptionsBuilder for bytes;
 
@@ -102,6 +107,10 @@ abstract contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout 
 }
 
 
+/**
+ * @title VaultOCCManager for handle OCC message between vault and ledger
+ * @dev This contract is used to send OCC message from vault to ledger
+ */
 abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     using OptionsBuilder for bytes;
 
