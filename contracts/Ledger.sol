@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {LedgerAccessControl} from "./lib/LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
@@ -18,7 +19,17 @@ import {LedgerOCCManager} from "./lib/OCCManager.sol";
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
-contract Ledger is LedgerAccessControl, LedgerOCCManager, ChainedEventIdCounter, MerkleDistributor, Valor, Staking, Revenue, Vesting {
+contract Ledger is
+    LedgerAccessControl,
+    UUPSUpgradeable,
+    LedgerOCCManager,
+    ChainedEventIdCounter,
+    MerkleDistributor,
+    Valor,
+    Staking,
+    Revenue,
+    Vesting
+{
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -28,6 +39,15 @@ contract Ledger is LedgerAccessControl, LedgerOCCManager, ChainedEventIdCounter,
     error OrderTokenIsZero();
     error OCCAdaptorIsZero();
     error UnsupportedPayloadType();
+
+    function VERSION() external pure virtual returns (string memory) {
+        return "1.0.0";
+    }
+
+    /* ====== UUPS ATHORIZATION ====== */
+
+    /// @notice upgrade the contract
+    function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /* ========== INITIALIZER ========== */
 
@@ -111,10 +131,7 @@ contract Ledger is LedgerAccessControl, LedgerOCCManager, ChainedEventIdCounter,
         _createVestingRequest(_user, _chainId, _amount);
     }
 
-    function lzCompose(address, bytes32, bytes calldata _message, address, bytes calldata /*_extraData*/ )
-        external
-        payable
-    {
+    function lzCompose(address, bytes32, bytes calldata _message, address, bytes calldata /*_extraData*/) external payable {
         bytes memory _composeMsgContent = OFTComposeMsgCodec.composeMsg(_message);
 
         OCCVaultMessage memory message = abi.decode(_composeMsgContent, (OCCVaultMessage));

@@ -67,6 +67,7 @@ const config: HardhatUserConfig = {
         url: "https://api.avax.network/ext/bc/C/rpc",
         blockNumber: 6394745
       },
+      allowUnlimitedContractSize: true,
       live: false,
       saveDeployments: true,
       tags: ["test", "local"]

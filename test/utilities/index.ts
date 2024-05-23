@@ -51,13 +51,11 @@ export async function ledgerFixture() {
   const orderTokenOft = await orderTokenOftCF.deploy(owner.address, TOTAL_SUPPLY, mockEndpointA.address);
   await orderTokenOft.deployed();
 
-  const ledger = await upgrades.deployProxy(ledgerCF, [
-    owner.address,
-    mockEndpointA.address,
-    orderTokenOft.address,
-    VALOR_PER_SECOND,
-    VALOR_MAXIMUM_EMISSION
-  ]);
+  const ledger = await upgrades.deployProxy(
+    ledgerCF,
+    [owner.address, mockEndpointA.address, orderTokenOft.address, VALOR_PER_SECOND, VALOR_MAXIMUM_EMISSION],
+    { kind: "uups" }
+  );
   await ledger.deployed();
 
   await ledger.connect(owner).grantRole(ledger.ROOT_UPDATER_ROLE(), updater.address);
