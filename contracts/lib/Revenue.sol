@@ -24,7 +24,6 @@ import {Valor} from "./Valor.sol";
  */
 abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     uint256 internal constant BATCH_DURATION = 14 days;
-    uint256 internal constant MAX_BATCH_NUMBER = 182;
 
     /// @dev Represents amount per chain
     struct ChainedAmount {
@@ -79,7 +78,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     error RedemptionAmountIsZero();
     error AmountIsGreaterThanCollectedValor();
-    error BatchNumberIsMoreThanMax();
     error BatchIsNotCreatedYet();
     error BatchIsNotFinished();
     error BatchValorToUsdcRateIsNotFixed();
@@ -263,14 +261,12 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Returns the batch by id. Reverts if the batch is not created
     function _getBatch(uint16 _batchId) private view returns (Batch storage) {
-        if (_batchId >= MAX_BATCH_NUMBER) revert BatchNumberIsMoreThanMax();
         if (_batchId >= batches.length) revert BatchIsNotCreatedYet();
         return batches[_batchId];
     }
 
     /// @notice Returns the batch by id. Creates the batch if it is not created yet
     function _getOrCreateBatch(uint16 _batchId) private returns (Batch storage) {
-        if (_batchId >= MAX_BATCH_NUMBER) revert BatchNumberIsMoreThanMax();
         while (_batchId >= batches.length) {
             batches.push();
         }

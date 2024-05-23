@@ -71,9 +71,6 @@ describe("Revenue", function () {
     expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, 0)).to.equal(0);
 
     await expect(ledger.getBatch(1)).to.be.revertedWithCustomError(ledger, "BatchIsNotCreatedYet");
-
-    // Calling for batch more than max should revert
-    await expect(ledger.getBatch(183)).to.be.revertedWithCustomError(ledger, "BatchNumberIsMoreThanMax");
   });
 
   it("user can redeem valor to the current batch", async function () {
