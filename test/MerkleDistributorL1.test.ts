@@ -153,7 +153,7 @@ describe("MerkleDistributorL1", function () {
     const orderToken = await orderTokenCF.connect(owner).deploy(TOTAL_SUPPLY);
     await orderToken.deployed();
 
-    const distributor = await upgrades.deployProxy(distributorCF, [owner.address, orderToken.address]);
+    const distributor = await upgrades.deployProxy(distributorCF, [owner.address, orderToken.address], { kind: "uups" });
     await distributor.deployed();
 
     return { orderToken, distributor, owner, user };

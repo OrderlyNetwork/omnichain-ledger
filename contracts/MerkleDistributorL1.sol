@@ -7,6 +7,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import {EventIdCounter} from "./lib/EventIdCounter.sol";
 
@@ -24,13 +25,7 @@ import {EventIdCounter} from "./lib/EventIdCounter.sol";
  *         Contract is pausible by owner. It allows to pause claiming rewards.
  *         The contract is upgradeable to allow for future changes to the rewards distribution mechanism.
  */
-contract MerkleDistributorL1 is
-    Initializable,
-    OwnableUpgradeable,
-    ReentrancyGuardUpgradeable,
-    PausableUpgradeable,
-    EventIdCounter
-{
+contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, EventIdCounter {
     using SafeERC20 for IERC20;
 
     /// @dev The parameters related to a certain Merkle tree.
@@ -81,6 +76,15 @@ contract MerkleDistributorL1 is
     error DistributionStillActive();
     error InvalidMerkleProof();
 
+    function VERSION() external pure virtual returns (string memory) {
+        return "1.0.0";
+    }
+
+    /* ====== UUPS ATHORIZATION ====== */
+
+    /// @notice upgrade the contract
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
     /* ========== INITIALIZATION ========== */
 
     function initialize(address owner, IERC20 _token) external initializer {
@@ -105,14 +109,9 @@ contract MerkleDistributorL1 is
      * @return  endTimestamp   Timestamp when distribution stops. Zero means no end time.
      * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data.
      */
-    function getActualRoot()
-        external
-        view
-        returns (bytes32 merkleRoot, uint256 startTimestamp, uint256 endTimestamp, bytes memory ipfsCid)
-    {
+    function getActualRoot() external view returns (bytes32 merkleRoot, uint256 startTimestamp, uint256 endTimestamp, bytes memory ipfsCid) {
         if (canUpdateRoot()) {
-            return
-                (proposedRoot.merkleRoot, proposedRoot.startTimestamp, proposedRoot.endTimestamp, proposedRoot.ipfsCid);
+            return (proposedRoot.merkleRoot, proposedRoot.startTimestamp, proposedRoot.endTimestamp, proposedRoot.ipfsCid);
         }
         return (activeRoot.merkleRoot, activeRoot.startTimestamp, activeRoot.endTimestamp, activeRoot.ipfsCid);
     }
@@ -127,11 +126,7 @@ contract MerkleDistributorL1 is
      * @return  endTimestamp   Timestamp when distribution stops. Zero means no end time.
      * @return  ipfsCid        An IPFS CID pointing to the Merkle tree data.
      */
-    function getProposedRoot()
-        external
-        view
-        returns (bytes32 merkleRoot, uint256 startTimestamp, uint256 endTimestamp, bytes memory ipfsCid)
-    {
+    function getProposedRoot() external view returns (bytes32 merkleRoot, uint256 startTimestamp, uint256 endTimestamp, bytes memory ipfsCid) {
         return (proposedRoot.merkleRoot, proposedRoot.startTimestamp, proposedRoot.endTimestamp, proposedRoot.ipfsCid);
     }
 
@@ -182,18 +177,20 @@ contract MerkleDistributorL1 is
      *  Reverts if the proposed endTimestamp is less than or equal to the proposed startTimestamp.
      *  Reverts if the proposed root is already proposed.
      */
-    function proposeRoot(bytes32 _merkleRoot, uint256 _startTimestamp, uint256 _endTimestamp, bytes calldata _ipfsCid)
-        external
-        nonReentrant
-        onlyOwner
-    {
+    function proposeRoot(
+        bytes32 _merkleRoot,
+        uint256 _startTimestamp,
+        uint256 _endTimestamp,
+        bytes calldata _ipfsCid
+    ) external nonReentrant onlyOwner {
         if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
 
         if (_startTimestamp < block.timestamp) revert StartTimestampIsInThePast();
 
         if (_endTimestamp != 0 && _endTimestamp <= _startTimestamp) revert InvalidEndTimestamp();
 
-        if (_merkleRoot == proposedRoot.merkleRoot &&
+        if (
+            _merkleRoot == proposedRoot.merkleRoot &&
             _startTimestamp == proposedRoot.startTimestamp &&
             _endTimestamp == proposedRoot.endTimestamp &&
             keccak256(_ipfsCid) == keccak256(proposedRoot.ipfsCid)
@@ -204,8 +201,7 @@ contract MerkleDistributorL1 is
         }
 
         // Set the proposed root and the start timestamp when proposed root to become active.
-        proposedRoot =
-            MerkleTree({merkleRoot: _merkleRoot, startTimestamp: _startTimestamp, endTimestamp: _endTimestamp, ipfsCid: _ipfsCid});
+        proposedRoot = MerkleTree({merkleRoot: _merkleRoot, startTimestamp: _startTimestamp, endTimestamp: _endTimestamp, ipfsCid: _ipfsCid});
 
         emit RootProposed(_getNextEventId(), _merkleRoot, _startTimestamp, _endTimestamp, _ipfsCid);
     }
@@ -225,13 +221,7 @@ contract MerkleDistributorL1 is
         activeRoot = proposedRoot;
         proposedRoot = MerkleTree({merkleRoot: bytes32(0), startTimestamp: 0, endTimestamp: 0, ipfsCid: ""});
 
-        emit RootUpdated(
-            _getNextEventId(),
-            activeRoot.merkleRoot,
-            activeRoot.startTimestamp,
-            activeRoot.endTimestamp,
-            activeRoot.ipfsCid
-        );
+        emit RootUpdated(_getNextEventId(), activeRoot.merkleRoot, activeRoot.startTimestamp, activeRoot.endTimestamp, activeRoot.ipfsCid);
     }
 
     /* ========== CLAIMING ========== */
@@ -247,11 +237,7 @@ contract MerkleDistributorL1 is
      *  Reverts if no active Merkle root is set.
      *  Reverts if the provided Merkle proof is invalid.
      */
-    function claimRewards(uint256 _cumulativeAmount, bytes32[] calldata _merkleProof)
-        external
-        nonReentrant
-        returns (uint256)
-    {
+    function claimRewards(uint256 _cumulativeAmount, bytes32[] calldata _merkleProof) external nonReentrant returns (uint256) {
         if (canUpdateRoot()) {
             updateRoot();
         }
@@ -280,7 +266,7 @@ contract MerkleDistributorL1 is
             emit RewardsClaimed(_getNextEventId(), _msgSender(), claimableAmount);
         }
 
-        return claimableAmount;        
+        return claimableAmount;
     }
 
     /* ========== OWNER FUNCTIONS ========== */
