@@ -14,7 +14,6 @@ import {LedgerAccessControl} from "./LedgerAccessControl.sol";
  *         Contract is source of truth for total totalValorAmount, totalUsdcInTreasure, valorToUsdcRateScaled
  */
 abstract contract Valor is LedgerAccessControl {
-    uint256 internal constant MAX_VALOR_PER_SECOND = 1 ether;
     uint256 public constant VALOR_TO_USDC_RATE_PRECISION = 1e18;
 
     /// @notice The role, that is allowed to update USDC net fee revenue
@@ -62,12 +61,14 @@ abstract contract Valor is LedgerAccessControl {
     /* ========== INITIALIZER ========== */
 
     function valorInit(address _owner, uint256 _valorPerSecond, uint256 _maximumValorEmission) internal onlyInitializing {
-        if (_valorPerSecond > MAX_VALOR_PER_SECOND) revert ValorPerSecondExceedsMaxValue();
-
         _grantRole(TREASURE_UPDATER_ROLE, _owner);
 
         valorPerSecond = _valorPerSecond;
         maximumValorEmission = _maximumValorEmission;
+    }
+
+    function setValorPerSecond(uint256 _valorPerSecond) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        valorPerSecond = _valorPerSecond;
     }
 
     /**
