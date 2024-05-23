@@ -113,6 +113,26 @@ contract Ledger is
             );
             _ledgerEsOrderUnstakeAndVest(message.sender, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
         }
+        // ========== CancelVestingRequest ==========
+        else if (message.payloadType == uint8(PayloadDataType.CancelVestingRequest)) {
+            LedgerPayloadTypes.CancelVestingRequest memory cancelVestingRequestPayload = abi.decode(
+                message.payload,
+                (LedgerPayloadTypes.CancelVestingRequest)
+            );
+            _cancelVestingRequest(message.sender, message.srcChainId, cancelVestingRequestPayload.requestId);
+        }
+        // ========== CancelAllVestingRequests ==========
+        else if (message.payloadType == uint8(PayloadDataType.CancelAllVestingRequests)) {
+            _cancelAllVestingRequests(message.sender, message.srcChainId);
+        }
+        // ========== ClaimVestingRequest ==========
+        else if (message.payloadType == uint8(PayloadDataType.ClaimVestingRequest)) {
+            LedgerPayloadTypes.ClaimVestingRequest memory claimVestingRequestPayload = abi.decode(
+                message.payload,
+                (LedgerPayloadTypes.ClaimVestingRequest)
+            );
+            _ledgerClaimVestingRequest(message.sender, message.srcChainId, claimVestingRequestPayload.requestId);
+        }
         // ========== RedeemValor ==========
         else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
             LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
@@ -143,21 +163,19 @@ contract Ledger is
         (LedgerToken token, uint256 claimedAmount) = _claimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
 
         if (claimedAmount != 0) {
-            if (token == LedgerToken.ORDER) {
-                OCCLedgerMessage memory message = OCCLedgerMessage({
-                    dstChainId: _srcChainId,
-                    token: LedgerToken.ORDER,
-                    tokenAmount: claimedAmount,
-                    receiver: _user,
-                    payloadType: uint8(PayloadDataType.ClaimRewardBackward),
-                    payload: "0x0"
-                });
-                ledgerSendToVault(message);
-            } else if (token == LedgerToken.ESORDER) {
+            if (token == LedgerToken.ESORDER) {
                 _stake(_user, _srcChainId, token, claimedAmount);
-            } else {
-                revert UnsupportedToken();
             }
+
+            OCCLedgerMessage memory message = OCCLedgerMessage({
+                dstChainId: _srcChainId,
+                token: token,
+                tokenAmount: claimedAmount,
+                receiver: _user,
+                payloadType: uint8(PayloadDataType.ClaimRewardBackward),
+                payload: "0x0"
+            });
+            ledgerSendToVault(message);
         }
     }
 
@@ -187,6 +205,23 @@ contract Ledger is
                 tokenAmount: usdcRevenueAmount,
                 receiver: _user,
                 payloadType: uint8(PayloadDataType.ClaimUsdcRevenueBackward),
+                payload: "0x0"
+            });
+            ledgerSendToVault(message);
+        }
+    }
+
+    /// @notice Claimed ORDER tokens should be sent to the user wallet on the source chain
+    function _ledgerClaimVestingRequest(address _user, uint256 _chainId, uint256 _requestId) internal {
+        uint256 claimedOrderAmount = _claimVestingRequest(_user, _chainId, _requestId);
+
+        if (claimedOrderAmount != 0) {
+            OCCLedgerMessage memory message = OCCLedgerMessage({
+                dstChainId: _chainId,
+                token: LedgerToken.ORDER,
+                tokenAmount: claimedOrderAmount,
+                receiver: _user,
+                payloadType: uint8(PayloadDataType.ClaimVestingRequestBackward),
                 payload: "0x0"
             });
             ledgerSendToVault(message);

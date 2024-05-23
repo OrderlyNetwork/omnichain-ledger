@@ -11,11 +11,15 @@ enum PayloadDataType {
     CancelOrderUnstakeRequest,
     WithdrawOrder,
     EsOrderUnstakeAndVest,
+    CancelVestingRequest,
+    CancelAllVestingRequests,
+    ClaimVestingRequest,
     RedeemValor,
     ClaimUsdcRevenue,
     /* ====== Backward Payloads from ledger side ====== */
     ClaimRewardBackward,
     WithdrawOrderBackward,
+    ClaimVestingRequestBackward,
     ClaimUsdcRevenueBackward
 }
 
@@ -37,6 +41,14 @@ library LedgerPayloadTypes {
 
     struct EsOrderUnstakeAndVest {
         uint256 amount;
+    }
+
+    struct CancelVestingRequest {
+        uint256 requestId;
+    }
+
+    struct ClaimVestingRequest {
+        uint256 requestId;
     }
 
     struct RedeemValor {
