@@ -10,7 +10,7 @@ contract LedgerTest is Ledger {
         address _user,
         uint256 _srcChainId,
         uint256 _cumulativeAmount,
-        bytes32[] memory _merkleProof
+        bytes32[] calldata _merkleProof
     ) external {
         _LedgerClaimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
     }

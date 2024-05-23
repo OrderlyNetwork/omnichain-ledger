@@ -11,6 +11,10 @@ export const ONE_DAY_IN_SECONDS = ONE_HOUR_IN_SECONDS * 24;
 export const ONE_WEEK_IN_SECONDS = ONE_DAY_IN_SECONDS * 7;
 export const ONE_YEAR_IN_SECONDS = ONE_DAY_IN_SECONDS * 365;
 export const HALF_YEAR_IN_SECONDS = ONE_YEAR_IN_SECONDS / 2;
+export const VALOR_MAXIMUM_EMISSION = fullTokens(1_000_000_000);
+export const VALOR_EMISSION_DURATION = 200 * 14 * ONE_DAY_IN_SECONDS;
+export const VALOR_PER_SECOND = VALOR_MAXIMUM_EMISSION.div(VALOR_EMISSION_DURATION);
+export const VALOR_PER_DAY = VALOR_PER_SECOND.mul(ONE_DAY_IN_SECONDS);
 
 // Defaults to e18 using amount * 10^18
 export function fullTokens(amount: BigNumberish, decimals = 18): BigNumber {
@@ -47,14 +51,12 @@ export async function ledgerFixture() {
   const orderTokenOft = await orderTokenOftCF.deploy(owner.address, TOTAL_SUPPLY, mockEndpointA.address);
   await orderTokenOft.deployed();
 
-  const valorPerSecond = 1;
-  const maximumValorEmission = 1000000;
   const ledger = await upgrades.deployProxy(ledgerCF, [
     owner.address,
     mockEndpointA.address,
     orderTokenOft.address,
-    valorPerSecond,
-    maximumValorEmission
+    VALOR_PER_SECOND,
+    VALOR_MAXIMUM_EMISSION
   ]);
   await ledger.deployed();
 
