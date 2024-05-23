@@ -32,7 +32,7 @@ describe("Revenue", function () {
         valorToUsdcRateScaled
       );
 
-    const batchEndTime = (await ledger.getBatchEndTime(batchId)).toNumber();
+    const batchEndTime = (await ledger.getBatchInfo(batchId))["batchEndTime"].toNumber();
     if (batchEndTime > (await helpers.time.latest())) {
       await helpers.time.increaseTo(batchEndTime + 1);
     }
@@ -41,36 +41,36 @@ describe("Revenue", function () {
     await ledger.connect(owner).fixBatchValorToUsdcRate(batchId);
     // Then owner can prepare the batch to be claimed
     await ledger.connect(owner).batchPreparedToClaim(batchId);
-    const batch = await ledger.getBatch(batchId);
-    expect(batch["claimable"]).to.equal(true);
-    expect(batch["fixedValorToUsdcRateScaled"]).to.equal(valorToUsdcRateScaled);
+    const batchInfo = await ledger.getBatchInfo(batchId);
+    expect(batchInfo["claimable"]).to.equal(true);
+    expect(batchInfo["fixedValorToUsdcRateScaled"]).to.equal(valorToUsdcRateScaled);
     const totalValorAmountAfter = Number(await ledger.totalValorAmount());
-    expect(totalValorAmountAfter).to.equal(totalValorAmountBefore - batch["redeemedValorAmount"]);
+    expect(totalValorAmountAfter).to.equal(totalValorAmountBefore - batchInfo["redeemedValorAmount"]);
   }
 
   it("check revenue initial state", async function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
 
     expect(await ledger.getCurrentBatchId()).to.equal(0);
-    const batch0StartTime = await ledger.getBatchStartTime(0);
-    const batch0EndTime = await ledger.getBatchEndTime(0);
+    const batch0Info = await ledger.getBatchInfo(0);
+    const batch0StartTime = batch0Info["batchStartTime"];
+    const batch0EndTime = batch0Info["batchEndTime"];
     expect(batch0EndTime - batch0StartTime).to.equal(60 * 60 * 24 * 14);
-    const batch1StartTime = await ledger.getBatchStartTime(1);
+    const batch1Info = await ledger.getBatchInfo(1);
+    const batch1StartTime = batch1Info["batchStartTime"];
     expect(batch1StartTime - batch0EndTime).to.equal(0);
 
-    expect(await ledger.isBatchFinished(0)).to.equal(false);
-
-    const batch0 = await ledger.getBatch(0);
+    const batch0 = await ledger.getBatchInfo(0);
     expect(batch0["claimable"]).to.equal(false);
     expect(batch0["redeemedValorAmount"]).to.equal(0);
     expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(0);
-    expect(batch0["chainedValorAmount"]).to.deep.equal([]);
+
+    const batch0ChainedValorAmount = await ledger.getBatchChainedValorAmount(0);
+    expect(batch0ChainedValorAmount).to.deep.equal([]);
 
     expect(await ledger.getUsdcAmountForBatch(0)).to.deep.equal([]);
 
     expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, 0)).to.equal(0);
-
-    await expect(ledger.getBatch(1)).to.be.revertedWithCustomError(ledger, "BatchIsNotCreatedYet");
   });
 
   it("user can redeem valor to the current batch", async function () {
@@ -93,7 +93,7 @@ describe("Revenue", function () {
     expect(await ledger.getCurrentBatchId()).to.equal(0);
     expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, chainId)).to.equal(1000);
 
-    const batch0EndTime = (await ledger.getBatchEndTime(0)).toNumber();
+    const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"].toNumber();
     await helpers.time.increaseTo(batch0EndTime + 1);
 
     await ledger.connect(user).redeemValor(user.address, chainId, 1000);
@@ -122,18 +122,15 @@ describe("Revenue", function () {
     await expect(tx).to.emit(ledger, "DailyUsdcNetFeeRevenueUpdated").withArgs(anyValue, 1000, 1000, 200, 5000000000000000000n);
 
     // Move time to the end of the batch
-    const batch0EndTime = (await ledger.getBatchEndTime(0)).toNumber();
+    const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"].toNumber();
     await helpers.time.increaseTo(batch0EndTime + 1);
-
-    // Now batch is finished and owner can fix the batch price
-    expect(await ledger.isBatchFinished(0)).to.be.equal(true);
 
     // Owner can't make the batch claimable if the batch valor to USDC rate is not set
     await expect(ledger.connect(owner).batchPreparedToClaim(0)).to.be.revertedWithCustomError(ledger, "BatchValorToUsdcRateIsNotFixed");
 
     await ledger.connect(owner).fixBatchValorToUsdcRate(0);
 
-    const batch0 = await ledger.getBatch(0);
+    const batch0 = await ledger.getBatchInfo(0);
     expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(5000000000000000000n);
     expect(batch0["claimable"]).to.equal(false);
   });
@@ -179,13 +176,15 @@ describe("Revenue", function () {
     expect(await ledger.collectedValor(user.address)).to.equal(userTotalValorAmount - redeemValorAmountForBatch0);
 
     await prepareBatchForClaiming(ledger, owner, 0);
-    const userUsdcForBatch0 = (BigInt(redeemValorAmountForBatch0) * BigInt((await ledger.getBatch(0))["fixedValorToUsdcRateScaled"])) / BigInt(1e18);
+    const userUsdcForBatch0 =
+      (BigInt(redeemValorAmountForBatch0) * BigInt((await ledger.getBatchInfo(0))["fixedValorToUsdcRateScaled"])) / BigInt(1e18);
 
     await ledger.connect(user).redeemValor(user.address, chainId, redeemValorAmountForBatch1);
     expect(await ledger.collectedValor(user.address)).to.equal(userTotalValorAmount - redeemValorAmountForBatch0 - redeemValorAmountForBatch1);
 
     await prepareBatchForClaiming(ledger, owner, 1);
-    const userUsdcForBatch1 = (BigInt(redeemValorAmountForBatch1) * BigInt((await ledger.getBatch(1))["fixedValorToUsdcRateScaled"])) / BigInt(1e18);
+    const userUsdcForBatch1 =
+      (BigInt(redeemValorAmountForBatch1) * BigInt((await ledger.getBatchInfo(1))["fixedValorToUsdcRateScaled"])) / BigInt(1e18);
 
     expect(await ledger.collectedValor(user.address)).to.equal(0);
 
@@ -233,7 +232,7 @@ describe("Revenue", function () {
     expect(await ledger.nuberOfUsersBatchedReremprionRequests(user.address)).to.equal(1);
 
     // Batch 1 comes
-    helpers.time.increaseTo((await ledger.getBatchEndTime(0)).toNumber() + 1);
+    helpers.time.increaseTo((await ledger.getBatchInfo(0))["batchEndTime"].toNumber() + 1);
     // User redeem valor to the current batch (1)
     await ledger.connect(user).redeemValor(user.address, 0, 1000);
     // As batch 0 is not claimable yet, it shouldn't be collected, so user should have 2 BatchedReremprionRequest
@@ -243,7 +242,7 @@ describe("Revenue", function () {
     await prepareBatchForClaiming(ledger, owner, 0);
 
     // Let's move to batch 2
-    helpers.time.increaseTo((await ledger.getBatchEndTime(1)).toNumber() + 1);
+    helpers.time.increaseTo((await ledger.getBatchInfo(1))["batchEndTime"].toNumber() + 1);
     // User redeem valor to the current batch (2)
     await ledger.connect(user).redeemValor(user.address, 0, 1000);
     // But as batch 0 is claimable, it should be collected during redeeming valor to batch 2

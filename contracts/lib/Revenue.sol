@@ -103,29 +103,26 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return uint16((currentTimestamp - startTimestamp) / BATCH_DURATION);
     }
 
-    /// @notice Calculate and returns the start timestamp of the batch
-    function getBatchStartTime(uint16 _batchId) public view returns (uint256) {
-        return startTimestamp + _batchId * BATCH_DURATION;
-    }
-
-    /// @notice Calculate and returns the end timestamp of the batch
-    function getBatchEndTime(uint16 _batchId) public view returns (uint256) {
-        return getBatchStartTime(_batchId) + BATCH_DURATION;
-    }
-
-    /// @notice Returns true if the batch is finished
-    function isBatchFinished(uint16 _batchId) public view returns (bool) {
-        return block.timestamp >= getBatchEndTime(_batchId);
-    }
-
-    /// @notice Returns true if the batch is claimable
-    function isBatchClaimable(uint16 _batchId) public view returns (bool) {
-        return _getBatch(_batchId).claimable;
-    }
-
     /// @notice Returns the batch structure by id without chained valor amount
-    function getBatch(uint16 _batchId) public view returns (Batch memory) {
-        return _getBatch(_batchId);
+    function getBatchInfo(
+        uint16 _batchId
+    )
+        public
+        view
+        returns (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled)
+    {
+        batchStartTime = startTimestamp + _batchId * BATCH_DURATION;
+        batchEndTime = batchStartTime + BATCH_DURATION;
+        if (_batchId < batches.length) {
+            Batch storage batch = _getBatch(_batchId);
+            claimable = batch.claimable;
+            redeemedValorAmount = batch.redeemedValorAmount;
+            fixedValorToUsdcRateScaled = batch.fixedValorToUsdcRateScaled;
+        } else {
+            claimable = false;
+            redeemedValorAmount = 0;
+            fixedValorToUsdcRateScaled = 0;
+        }
     }
 
     /// @notice Returns the amount of valor that user can redeem for the chain
@@ -154,27 +151,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
             }
         }
         return 0;
-    }
-
-    /// @notice Returns the amounts of redeeming valor, pending in two days and USDC available now for the chain
-    /// Probably redundant function, because for now all this data can be calculated by the CeFi
-    function getUserBudgetForChain(
-        address _user,
-        uint256 _chainId
-    ) public view returns (uint256 redeemingValor, uint256 pendingInTwoDays, uint256 usdcAvailableNow) {
-        usdcAvailableNow = userRevenue[_user].chainedUsdcRevenue[_chainId];
-        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
-            uint16 batchId = userRevenue[_user].requests[i].batchId;
-            uint256 redeemedValorForChain = _getRedeemedValorAmountForChain(userRevenue[_user].requests[i], _chainId);
-            Batch storage batch = _getBatch(batchId);
-            if (batch.claimable) {
-                usdcAvailableNow += redeemedValorForChain * batch.fixedValorToUsdcRateScaled;
-            } else if (batch.fixedValorToUsdcRateScaled != 0) {
-                pendingInTwoDays += redeemedValorForChain * batch.fixedValorToUsdcRateScaled;
-            } else {
-                redeemingValor += redeemedValorForChain;
-            }
-        }
     }
 
     /* ========== ADMIN FUNCTIONS ========== */
@@ -299,16 +275,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         _chainedAmounts.push();
         _chainedAmounts[idx].chainId = _chainId;
         return _chainedAmounts[idx];
-    }
-
-    /// @notice Returns the amount of valor that user redeemed for the chain in the request or 0 if not found
-    function _getRedeemedValorAmountForChain(BatchedReremprionRequest storage request, uint256 _chainId) private view returns (uint256) {
-        for (uint256 i = 0; i < request.chainedValorAmount.length; i++) {
-            if (request.chainedValorAmount[i].chainId == _chainId) {
-                return request.chainedValorAmount[i].amount;
-            }
-        }
-        return 0;
     }
 
     /**
