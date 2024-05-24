@@ -67,6 +67,7 @@ abstract contract Valor is LedgerAccessControl {
         maximumValorEmission = _maximumValorEmission;
     }
 
+    /// @notice Allow the owner to update the valorPerSecond
     function setValorPerSecond(uint256 _valorPerSecond) external onlyRole(DEFAULT_ADMIN_ROLE) {
         valorPerSecond = _valorPerSecond;
     }

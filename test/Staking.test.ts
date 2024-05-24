@@ -161,9 +161,9 @@ describe("Staking", function () {
     const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount);
     const unlockTimestamp = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
     // Check the OrderUnstakeRequested event is emitted correctly
-    await expect(tx1)
-      .to.emit(ledger, "OrderUnstakeRequested")
-      .withArgs(anyValue, chainId, user.address, orderUnstakingAmount, orderUnstakingAmount, unlockTimestamp);
+    await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+
+    await expect(tx1).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount, unlockTimestamp);
 
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, esOrderStakingAmount);
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
@@ -182,6 +182,7 @@ describe("Staking", function () {
     const tx2 = await ledger.connect(user).withdrawOrder(user.address, chainId);
     // Check the OrderWithdrawn event is emitted correctly
     await expect(tx2).to.emit(ledger, "OrderWithdrawn").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+    await expect(tx2).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount, unlockTimestamp);
   });
 
   it("user can cancel order unstake request", async function () {
@@ -199,12 +200,14 @@ describe("Staking", function () {
     );
 
     await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount);
+    const unlockTimestamp = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, 0);
 
     // User can cancel order unstake request
     const tx = await ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId);
     // Check the OrderUnstakeCancelled event is emitted correctly
     await expect(tx).to.emit(ledger, "OrderUnstakeCancelled").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
+    await expect(tx).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount, unlockTimestamp);
     await checkUserStakingBalance(ledger, user, orderStakingAmount, 0);
     await checkUserPendingUnstake(ledger, user, 0, 0);
 
@@ -251,18 +254,18 @@ describe("Staking", function () {
 
     const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount1);
     const unlockTimestamp1 = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
-    await expect(tx1)
-      .to.emit(ledger, "OrderUnstakeRequested")
-      .withArgs(anyValue, chainId, user.address, orderUnstakingAmount1, orderUnstakingAmount1, unlockTimestamp1);
+    await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount1);
+    await expect(tx1).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount1, unlockTimestamp1);
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1, 0);
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount1, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
 
     // Repeated order unstake request should increase the amount but reset the timestamp
     const tx2 = await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderUnstakingAmount2);
     const unlockTimestamp2 = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
+    await expect(tx2).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, chainId, user.address, orderUnstakingAmount2);
     await expect(tx2)
-      .to.emit(ledger, "OrderUnstakeRequested")
-      .withArgs(anyValue, chainId, user.address, orderUnstakingAmount2, orderUnstakingAmount1 + orderUnstakingAmount2, unlockTimestamp2);
+      .to.emit(ledger, "OrderUnstakeAmount")
+      .withArgs(user.address, orderUnstakingAmount1 + orderUnstakingAmount2, unlockTimestamp2);
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1 - orderUnstakingAmount2, 0);
     await checkUserPendingUnstake(
       ledger,
