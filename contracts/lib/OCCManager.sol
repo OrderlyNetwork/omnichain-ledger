@@ -118,6 +118,9 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     /// @dev the address of the ledger
     address public ledgerAddr;
 
+    /// @dev usdc address
+    address public usdc;
+
     /**
      * @notice set the ledger chain id and ledger address
      * @param _ledgerChainId the ledger chain id
@@ -175,7 +178,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
             bool success = IERC20(erc20TokenAddr).transferFrom(message.sender, address(this), message.tokenAmount);
 
             if (IOFT(orderTokenOft).approvalRequired()) {
-                erc20TokenAddr.approve(address(orderTokenOft), message.tokenAmount);
+                IERC20(erc20TokenAddr).approve(address(orderTokenOft), message.tokenAmount);
             }
 
             require(success, "TokenTransferFailed");

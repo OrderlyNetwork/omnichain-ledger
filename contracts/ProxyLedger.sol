@@ -21,16 +21,16 @@ import { LedgerPayloadTypes, PayloadDataType } from "./lib/LedgerTypes.sol";
  */
 contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
 
-    /// @notice constructor to set the OCCAdapter address
-    constructor() {
-        _disableInitializers();
-    }
+    event ClaimRewardTokenTransferred(address indexed user, uint256 amount);
+    event WithdrawOrderTokenTransferred(address indexed user, uint256 amount);
+    event ClaimUsdcRevenueTransferred(address indexed user, uint256 amount);
 
     /* ====== initializer ====== */
 
     /// @notice initialize the contract
-    function initialize(address _oft, address usdc, address _owner) external initializer {
+    function initialize(address _oft, address _usdc, address _owner) external initializer {
         orderTokenOft = _oft;
+        usdc = _usdc;
         ledgerAccessControlInit(_owner);
     }
 
@@ -67,7 +67,6 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     /**
      * @notice claim reward from the ledger
      * @param distributionId the distribution id
-     * @param user the user to claim reward
      * @param cumulativeAmount the cumulative amount to claim
      * @param merkleProof the merkle proof
      * @param isEsOrder whether the claim is for esOrder
@@ -113,7 +112,6 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     /**
      * @notice stake the amount to the ledger
      * @param amount the amount to stake
-     * @param sender the sender of the stake
      * @param isEsOrder whether the stake is for esOrder
      */
     function stake(uint256 amount, bool isEsOrder) external payable {
@@ -151,7 +149,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         require(payloadType >= 2 && payloadType <= 7, "UnsupportedPayloadType");
         return OCCVaultMessage({
             srcChainId: 0,
-            token: 0,
+            token: LedgerToken.PLACEHOLDER,
             tokenAmount: 0,
             sender: user,
             payloadType: payloadType,
@@ -202,16 +200,25 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
 
             require(success, "TokenTransferFailed");
 
+            emit ClaimRewardTokenTransferred(message.receiver, message.tokenAmount);
+
         } else if (message.payloadType == uint8(PayloadDataType.WithdrawOrderBackward)) {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimRewardBackward");
 
             (bool success) = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
 
-            require(success, "TokenTransferFailed");
+            require(success, "OrderTokenTransferFailed");
+
+            emit WithdrawOrderTokenTransferred(message.receiver, message.tokenAmount);
 
         } else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
-            // TODO
+            require(message.token == LedgerToken.USDC && message.tokenAmount > 0, "InvalidClaimUsdcRevenueBackward");
+            (bool success) = IERC20(usdc).transfer(message.receiver, message.tokenAmount);
+
+            require(success, "USDCTokenTransferFailed");
+
+            emit ClaimUsdcRevenueTransferred(message.receiver, message.tokenAmount);
         } else {
             revert("UnsupportedPayloadType");
         }
