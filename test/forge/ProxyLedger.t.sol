@@ -87,7 +87,8 @@ contract LedgerProxyTest is TestHelperOz5 {
         usdc.mint(address(proxyA), 100 ether);
 
         ledgerB = new Ledger();
-        ledgerB.initialize(address(this), address(ledgerB), bOFT, 1 ether, 100 ether);
+        address placeholderAddr = address(ledgerB);
+        ledgerB.initialize(address(this), placeholderAddr, placeholderAddr, bOFT, 1 ether, 100 ether);
 
 
         proxyA.setMyChainId(aEid);
