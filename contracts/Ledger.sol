@@ -54,6 +54,7 @@ contract Ledger is
     function initialize(
         address _owner,
         address _occAdaptor,
+        address _orderCollector,
         IOFT _orderTokenOft,
         uint256 _valorPerSecond,
         uint256 _maximumValorEmission
@@ -63,7 +64,7 @@ contract Ledger is
         valorInit(_owner, _valorPerSecond, _maximumValorEmission);
         stakingInit(_owner);
         revenueInit(_owner, block.timestamp);
-        vestingInit(VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _owner);
+        vestingInit(VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _orderCollector);
 
         if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
         if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
@@ -119,11 +120,13 @@ contract Ledger is
                 message.payload,
                 (LedgerPayloadTypes.CancelVestingRequest)
             );
-            _cancelVestingRequest(message.sender, message.srcChainId, cancelVestingRequestPayload.requestId);
+            uint256 esOrderAmountToReStake = _cancelVestingRequest(message.sender, message.srcChainId, cancelVestingRequestPayload.requestId);
+            _stake(message.sender, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
         }
         // ========== CancelAllVestingRequests ==========
         else if (message.payloadType == uint8(PayloadDataType.CancelAllVestingRequests)) {
-            _cancelAllVestingRequests(message.sender, message.srcChainId);
+            uint256 esOrderAmountToReStake = _cancelAllVestingRequests(message.sender, message.srcChainId);
+            _stake(message.sender, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
         }
         // ========== ClaimVestingRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.ClaimVestingRequest)) {
@@ -213,7 +216,7 @@ contract Ledger is
 
     /// @notice Claimed ORDER tokens should be sent to the user wallet on the source chain
     function _ledgerClaimVestingRequest(address _user, uint256 _chainId, uint256 _requestId) internal {
-        uint256 claimedOrderAmount = _claimVestingRequest(_user, _chainId, _requestId);
+        (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) = _claimVestingRequest(_user, _chainId, _requestId);
 
         if (claimedOrderAmount != 0) {
             OCCLedgerMessage memory message = OCCLedgerMessage({
@@ -225,6 +228,10 @@ contract Ledger is
                 payload: "0x0"
             });
             ledgerSendToVault(message);
+        }
+
+        if (unclaimedOrderAmount != 0) {
+            IERC20(orderTokenOft).safeTransfer(orderCollector, unclaimedOrderAmount);
         }
     }
 

@@ -73,8 +73,12 @@ contract LedgerTest is Ledger {
         esOrderAmountToStakeBack = _cancelAllVestingRequests(_user, _chainId);
     }
 
-    function claimVestingRequest(address _user, uint256 _chainId, uint256 _requestId) external returns (uint256 claimedOrderAmount) {
-        claimedOrderAmount = _claimVestingRequest(_user, _chainId, _requestId);
+    function claimVestingRequest(
+        address _user,
+        uint256 _chainId,
+        uint256 _requestId
+    ) external returns (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) {
+        (claimedOrderAmount, unclaimedOrderAmount) = _claimVestingRequest(_user, _chainId, _requestId);
     }
 
     function nuberOfUsersBatchedReremprionRequests(address _user) external view returns (uint256) {

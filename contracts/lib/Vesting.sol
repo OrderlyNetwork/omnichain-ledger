@@ -6,6 +6,19 @@ import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./ChainedEventIdCounter.sol";
 import {Staking} from "./Staking.sol";
 
+/**
+ * @title Vesting
+ * @author Orderly Network
+ * @notice Vesting es$ORDER to $ORDER tokens
+ * Full vesting period is 90 days and it is divided into two parts:
+ * 1. Lock period - 15 days
+ * 2. Linear period - 75 days
+ * During lock period user can not withdraw vested $ORDER tokens
+ * During linear period vested $ORDER tokens amount linearly increase from 50% to 100%
+ * User can create multiple vesting requests
+ * User can cancel vesting request and stake back es$ORDER tokens
+ * Unvested amount of $ORDER tokens will be collected by orderCollector
+ */
 abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     uint256 internal constant VESTING_LOCK_PERIOD = 15 days;
     uint256 internal constant VESTING_LINEAR_PERIOD = 75 days;
@@ -94,6 +107,8 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     /* ========== USER FUNCTIONS ========== */
 
     /// @notice Create vesting request for user
+    /// This call suppose to be called from Ledger contract only as part of es$ORDER unstake and vest!
+    /// It does not check if user has enough es$ORDERs - it should be checked in Ledger contract as part of es$ORDER unstake.
     function _createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) internal whenNotPaused nonReentrant {
         if (_amountEsorder == 0) revert VestingAmountIsZero();
 
@@ -130,6 +145,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     }
 
     /// @notice Cancel all vesting requests for user
+    /// Caller should stake back es$ORDER tokens
     function _cancelAllVestingRequests(
         address _user,
         uint256 _chainId
@@ -152,12 +168,13 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         address _user,
         uint256 _chainId,
         uint256 _requestId
-    ) internal whenNotPaused nonReentrant returns (uint256 claimedOrderAmount) {
+    ) internal whenNotPaused nonReentrant returns (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) {
         VestingRequest storage vestingRequest = _findVestingRequest(_user, _requestId);
 
         if (block.timestamp < vestingRequest.unlockTimestamp) revert VestingLockPeriodNotPassed();
 
         claimedOrderAmount = _calculateVestingOrderAmount(vestingRequest);
+        unclaimedOrderAmount = vestingRequest.esOrderAmount - claimedOrderAmount;
 
         emit VestingClaimed(
             _getNextChainedEventId(_chainId),

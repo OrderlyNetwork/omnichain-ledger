@@ -34,7 +34,7 @@ export async function ledgerFixture() {
   const ledgerCF = await ethers.getContractFactory("LedgerTest");
   const orderTokenOftCF = await ethers.getContractFactory("OrderTokenOFT");
 
-  const [owner, user, updater, operator] = await ethers.getSigners();
+  const [owner, user, updater, operator, orderCollector] = await ethers.getSigners();
 
   // The EndpointV2Mock contract comes from @layerzerolabs/test-devtools-evm-hardhat package
   // and its artifacts are connected as external artifacts to this project
@@ -53,7 +53,7 @@ export async function ledgerFixture() {
 
   const ledger = await upgrades.deployProxy(
     ledgerCF,
-    [owner.address, mockEndpointA.address, orderTokenOft.address, VALOR_PER_SECOND, VALOR_MAXIMUM_EMISSION],
+    [owner.address, mockEndpointA.address, orderCollector.address, orderTokenOft.address, VALOR_PER_SECOND, VALOR_MAXIMUM_EMISSION],
     { kind: "uups" }
   );
   await ledger.deployed();
