@@ -19,7 +19,7 @@ import {LedgerOCCManager} from "./lib/OCCManager.sol";
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
-contract Ledger is
+contract OmnichainLedgerV1 is
     LedgerAccessControl,
     UUPSUpgradeable,
     LedgerOCCManager,

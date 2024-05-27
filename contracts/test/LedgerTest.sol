@@ -2,9 +2,9 @@
 pragma solidity 0.8.22;
 
 import {LedgerToken} from "../lib/OCCTypes.sol";
-import {Ledger} from "../Ledger.sol";
+import {OmnichainLedgerV1} from "../OmnichainLedgerV1.sol";
 
-contract LedgerTest is Ledger {
+contract LedgerTest is OmnichainLedgerV1 {
     function claimRewards(
         uint32 _distributionId,
         address _user,
