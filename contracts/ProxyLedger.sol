@@ -146,7 +146,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      */
     function buildOCCMessage(uint256 amount, address user, uint8 payloadType) internal pure returns (OCCVaultMessage memory) {
         // require correct payloadType
-        require(payloadType >= 2 && payloadType <= 7, "UnsupportedPayloadType");
+        require(payloadType >= 2 && payloadType <= 10, "UnsupportedPayloadType");
         return OCCVaultMessage({
             srcChainId: 0,
             token: LedgerToken.PLACEHOLDER,

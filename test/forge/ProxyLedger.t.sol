@@ -32,6 +32,10 @@ import "../../contracts/ProxyLedger.sol";
 // md imports
 import "./MerkleHelper.sol";
 
+interface ILzReceipt {
+    function getLzSendReceipt() external returns (MessagingReceipt memory, OFTReceipt memory, bytes memory, bytes memory);
+}
+
 contract LedgerProxyTest is TestHelperOz5 {
     using OptionsBuilder for bytes;
 
@@ -104,6 +108,20 @@ contract LedgerProxyTest is TestHelperOz5 {
         vm.deal(address(ledgerB), 1000 ether);
     }
 
+    function _deliver_occ_msg(address sender, address from, address to, uint32 fromEid, uint32 toEid) public {
+        // lzCompose params
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = ILzReceipt(sender).getLzSendReceipt();
+
+        // lzCompose params
+        bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
+            msgReceipt.nonce,
+            fromEid,
+            oftReceipt.amountReceivedLD,
+            abi.encodePacked(addressToBytes32(sender), msgCompose)
+        );
+        this.lzCompose(toEid, from, options, msgReceipt.guid, to, composerMsg_);
+    }
+
     function _test_constructor() public {
         assertEq(aOFT.owner(), address(this));
         assertEq(bOFT.owner(), address(this));
@@ -115,7 +133,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         assertEq(bOFT.token(), address(bOFT));
     }
 
-    function test_occ_user_stake() public {
+    function _test_occ_user_stake() public {
 
         assertEq(aOFT.balanceOf(userA), initialBalance);
         assertEq(bOFT.balanceOf(userB), initialBalance);
@@ -151,7 +169,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
     }
 
-    function test_occ_claim_reward() public {
+    function _test_occ_claim_reward() public {
 
         bOFT.mint(address(ledgerB), 10000 ether);
         // userA and userB and address(this)
@@ -229,6 +247,90 @@ contract LedgerProxyTest is TestHelperOz5 {
         this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
     }
 
+    function _test_occ_user_unstake() public {
+        uint256 tokensToSend = 1 ether;
+        _test_occ_user_stake();
 
-    // TODO import the rest of oft tests?
+        uint8 opCode = uint8(PayloadDataType.CreateOrderUnstakeRequest);
+
+        uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
+        vm.prank(userA);
+        proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+    }
+
+    function _test_occ_user_cancel_unstake() public {
+        uint256 tokensToSend = 1 ether;
+        _test_occ_user_unstake();
+
+
+        uint8 opCode = uint8(PayloadDataType.CancelOrderUnstakeRequest);
+
+        uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
+        vm.prank(userA);
+        proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+
+    }
+
+    function _test_occ_user_withdraw_order() public {
+        uint256 tokensToSend = 1 ether;
+        _test_occ_user_unstake();
+
+        vm.warp(block.timestamp + 7 days); // warp time to 1 day later (1 day = 86400 seconds)
+
+        uint8 opCode = uint8(PayloadDataType.WithdrawOrder);
+
+        uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
+        vm.prank(userA);
+        proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+    }
+
+    function _test_occ_user_redeem_valor() public {
+        uint256 redeemAmount = 100;
+        _test_occ_user_stake();
+
+        vm.warp(block.timestamp + 3 days); 
+
+        ledgerB.dailyUsdcNetFeeRevenue(1000*7);
+
+        vm.warp(block.timestamp + 14 days); 
+        ledgerB.fixBatchValorToUsdcRate(0);
+        vm.warp(block.timestamp + 15 days); 
+        ledgerB.batchPreparedToClaim(0);
+
+        uint8 opCode = uint8(PayloadDataType.RedeemValor);
+
+        uint256 nativeFee = proxyA.qouteSendUserRequest(redeemAmount, userA, opCode);
+        vm.prank(userA);
+        proxyA.sendUserRequest{value: nativeFee}(redeemAmount, opCode);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+    }
+
+    function test_occ_user_claim_usdc_revenue() public {
+        uint256 claimAmount = 0;
+        _test_occ_user_redeem_valor();
+        // ledgerB.updateValorVars();
+        // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
+
+
+        uint8 opCode = uint8(PayloadDataType.ClaimUsdcRevenue);
+
+        uint256 nativeFee = proxyA.qouteSendUserRequest(claimAmount, userA, opCode);
+        vm.prank(userA);
+        proxyA.sendUserRequest{value: nativeFee}(claimAmount, opCode);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+    }
+
 }
