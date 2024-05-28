@@ -9,6 +9,7 @@ import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, le
 
 describe("LedgerMerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
+  const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
 
   function prepareMerkleTree(addresses: string[], amounts: string[]) {
     const values = addresses.map((address, index) => {
@@ -42,7 +43,6 @@ describe("LedgerMerkleDistributor", function () {
     if (addresses.length < 1) throw new Error("addresses must have at least one element");
     const { tree, amountsBigNumber } = prepareMerkleTree(addresses, amounts);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     await distributor.connect(updater).createDistribution(distributionId, token, tree.root, startTimestamp, ipfsCid);
     return { tree, amountsBigNumber, startTimestamp, ipfsCid };
   }
@@ -169,7 +169,6 @@ describe("LedgerMerkleDistributor", function () {
     const { distributor, orderTokenOft, owner, user, updater } = await distributorFixture();
     const { tree } = prepareMerkleTree([user.address], [INITIAL_SUPPLY_STR]);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     const distributionId = 1;
 
     // Root cannot be proposed if distribution is not created
@@ -342,6 +341,9 @@ describe("LedgerMerkleDistributor", function () {
       updater,
       distributionId
     );
+
+    // console.log("tree.root: ", tree.root);
+    // console.log("tree.getProof(0): ", tree.getProof(0));
 
     await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
 
@@ -574,5 +576,85 @@ describe("LedgerMerkleDistributor", function () {
     await distributor.connect(owner).unpause();
     await distributor.connect(updater).updateRoot(distributionId);
     await distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0));
+  });
+
+  it("check CeFi root and proof", async function () {
+    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const root = "0x7cc9e9b301dbb1b6f4e5486c38277b2a53d8716a2586f193344d8f09723916e5";
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
+    await helpers.time.increaseTo(startTimestamp + 1);
+
+    const claimerAddress = "0xd4d22e9cdf2fe12da8efbe21239828f785973734";
+    const proof1 = [
+      "0xf4352bcc88837a60b4579aa50ab1c3dce24abd6f1717b0b836bdd23d5f9a1998",
+      "0x81854ff102c50d770aaec297d3dc6ce5f3114ec077f458561f96314a88f08a66",
+      "0x7c7350e7a16ff9f7b25a0da66cf705d644aace4ca3c8f1468327949f8aa230ef"
+    ];
+
+    const proof2 = [
+      "0x7c7350e7a16ff9f7b25a0da66cf705d644aace4ca3c8f1468327949f8aa230ef",
+      "0x81854ff102c50d770aaec297d3dc6ce5f3114ec077f458561f96314a88f08a66",
+      "0xf4352bcc88837a60b4579aa50ab1c3dce24abd6f1717b0b836bdd23d5f9a1998"
+    ];
+
+    const claimingAmount = BigNumber.from("0");
+
+    expect(await distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proof2)).to.not.be.reverted;
+  });
+
+  it("check pre-calculated root and proof", async function () {
+    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const root = "0x53bc4e0e5fee341a5efadc8dee7f9a3b2473fdf5669d6dc76cd2d1b878bf981d";
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
+    await helpers.time.increaseTo(startTimestamp + 1);
+
+    const claimerAddress = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    const proof = [
+      "0xdf6354b3971c117049c8a858663ea0872246715112135016ff08060d47340e87",
+      "0x3fb58b77d5c08c8c376180d594601f68ae957d65750a0895151c9a160969a4e6",
+      "0x09bc5fd4df3d0b9f5e9010589ee848f55b665ea32e4a7a05e7a053c82707060a"
+    ];
+
+    const claimingAmount = BigNumber.from("1000000000000000000");
+
+    expect(await distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proof)).to.not.be.reverted;
+  });
+
+  it("check claiming for multiple addresses", async function () {
+    const { orderTokenOft, distributor, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(
+      LedgerToken.ORDER,
+      [
+        user.address,
+        updater.address,
+        user.address,
+        updater.address,
+        user.address,
+        updater.address,
+        user.address,
+        updater.address,
+        user.address,
+        updater.address
+      ],
+      ["1000000000", "2000000000", "3000000000", "4000000000", "5000000000", "6000000000", "7000000000", "8000000000", "9000000000", "10000000000"],
+      distributor,
+      updater,
+      distributionId
+    );
+
+    // console.log("tree.root: ", tree.root);
+    // console.log("tree.getProof(0): ", tree.getProof(0));
+
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
+    await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, updater, amountsBigNumber[1], tree.getProof(1));
   });
 });
