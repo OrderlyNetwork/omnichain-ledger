@@ -10,6 +10,9 @@ import "hardhat-contract-sizer";
 import type { HardhatUserConfig } from "hardhat/config";
 import { task } from "hardhat/config";
 
+import "./scripts/tasks/deploy_to";
+import { getHardhatNetworkConfig, getHardhatApiKey, getHardhatEtherscanConfig } from "orderly-network-config";
+
 task("accounts", "Prints the list of accounts", async (_args, hre) => {
   const accounts = await hre.ethers.getSigners();
   accounts.forEach(async account => console.info(account.address));
@@ -34,7 +37,7 @@ const config: HardhatUserConfig = {
     deployer: {
       default: 0
     },
-    dev: {
+    owner: {
       default: 0
     },
     user: {
@@ -48,7 +51,7 @@ const config: HardhatUserConfig = {
   paths: {
     artifacts: "artifacts",
     cache: "cache",
-    deploy: "deploy",
+    deploy: "scripts/deploy",
     deployments: "deployments",
     imports: "imports",
     sources: "contracts",
@@ -72,105 +75,34 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["test", "local"]
     },
-    goerli: {
-      url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    arbitrumSepolia: {
+      url: `https://sepolia-rollup.arbitrum.io/rpc`,
       accounts,
-      chainId: 5,
+      chainId: 421614,
       live: true,
       saveDeployments: true,
       tags: ["staging"],
-      gasPrice: 5000000000,
-      gasMultiplier: 2
+      gasPrice: 10000000000
     },
-    avalanche: {
-      url: "https://api.avax.network/ext/bc/C/rpc",
-      accounts,
-      chainId: 43114,
-      live: true,
-      saveDeployments: true,
-      gasPrice: 225000000000
-    },
-    fuji: {
-      url: "https://api.avax-test.network/ext/bc/C/rpc",
-      accounts,
-      chainId: 43113,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
-      gas: 15e6,
-      gasMultiplier: 2
-    },
-    orderly: {
-      // url: "https://testnet-fuji-rpc-1.orderly.network/ext/bc/fVgSf4ruGhwvEMd8z6dRwsH6XgRaq31wxN4tRhZPN6rWYhjVt/rpc",
-      url: "https://testnet-fuji-rpc-2.orderly.network/ext/bc/fVgSf4ruGhwvEMd8z6dRwsH6XgRaq31wxN4tRhZPN6rWYhjVt/rpc",
-      accounts,
-      chainId: 986532,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
-      gas: 8e6,
-      gasMultiplier: 2
-    },
-    arbitrumGoerli: {
-      // url: "https://arbitrum-goerli.infura.io/v3/27e4e66741de4789a7de52b16dc0d4a5",
-      url: "https://arbitrum-goerli.publicnode.com",
-      accounts,
-      chainId: 421613,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
-      gasPrice: 200000000
-    },
-    orderlySepolia: {
-      url: "https://l2-orderly-l2-4460-sepolia-8tc3sd7dvy.t.conduit.xyz",
-      accounts,
-      chainId: 4460,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
-      gasPrice: 200000000
-    }
+    orderlySepolia: getHardhatNetworkConfig("orderlySepolia"),
+    optimismSepolia: getHardhatNetworkConfig("optimismSepolia"),
+    polygonMumbai: getHardhatNetworkConfig("polygonMumbai"),
+    polygon: getHardhatNetworkConfig("polygon")
   },
   etherscan: {
     apiKey: {
-      fuji: "avascan",
-      orderly: "avascan",
-      arbitrumGoerli: process.env.ARBISCAN_API_KEY || "",
-      orderlySepolia: process.env.SEPOLIA_API_KEY || ""
+      arbitrumSepolia: getHardhatApiKey("arbitrumSepolia"),
+      orderlySepolia: getHardhatApiKey("orderlySepolia"),
+      optimismSepolia: getHardhatApiKey("optimismSepolia"),
+      polygonMumbai: getHardhatApiKey("polygonMumbai"),
+      polygon: getHardhatApiKey("polygon")
     },
     customChains: [
-      {
-        network: "fuji",
-        chainId: 43113,
-        urls: {
-          apiURL: "https://api.avascan.info/v2/network/testnet/evm/43113/etherscan",
-          browserURL: "https://testnet.avascan.info/blockchain/c"
-        }
-      },
-      {
-        network: "orderly",
-        chainId: 986532,
-        urls: {
-          apiURL: "https://api.avascan.info/v2/network/testnet/evm/986532/etherscan",
-          browserURL: "https://testnet.avascan.info/blockchain/orderly"
-        }
-      },
-      {
-        network: "arbitrumGoerli",
-        chainId: 421613,
-        urls: {
-          apiURL: "https://api-goerli.arbiscan.io/api",
-          browserURL: "https://testnet.arbiscan.io"
-        }
-      },
-      {
-        network: "orderlySepolia",
-        chainId: 4460,
-        urls: {
-          apiURL: "https://testnet-explorer.orderly.org/api",
-          browserURL: "https://testnet-explorer.orderly.org/"
-        }
-      }
+      getHardhatEtherscanConfig("arbitrumSepolia"),
+      getHardhatEtherscanConfig("orderlySepolia"),
+      getHardhatEtherscanConfig("optimismSepolia"),
+      getHardhatEtherscanConfig("polygonMumbai"),
+      getHardhatEtherscanConfig("polygon")
     ]
   },
   external: {

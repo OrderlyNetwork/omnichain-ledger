@@ -19,7 +19,7 @@ import {LedgerOCCManager} from "./lib/OCCManager.sol";
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
-contract Ledger is
+contract OmnichainLedgerV1 is
     LedgerAccessControl,
     UUPSUpgradeable,
     LedgerOCCManager,
@@ -36,9 +36,9 @@ contract Ledger is
     address public occAdaptor;
 
     /* ========== ERRORS ========== */
-    error OrderTokenIsZero();
-    error OCCAdaptorIsZero();
     error UnsupportedPayloadType();
+
+    /* ========== VERSION ========== */
 
     function VERSION() external pure virtual returns (string memory) {
         return "1.0.0";
@@ -66,12 +66,21 @@ contract Ledger is
         revenueInit(_owner, block.timestamp);
         vestingInit(VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _orderCollector);
 
-        if (address(_orderTokenOft) == address(0)) revert OrderTokenIsZero();
-        if (_occAdaptor == address(0)) revert OCCAdaptorIsZero();
-
         orderTokenOft = address(_orderTokenOft);
         occAdaptor = _occAdaptor;
     }
+
+    /* ========== OWNER FUNCTIONS ========== */
+
+    function setOccAdaptor(address _occAdaptor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        occAdaptor = _occAdaptor;
+    }
+
+    function setOrderTokenOft(IOFT _orderTokenOft) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        orderTokenOft = address(_orderTokenOft);
+    }
+
+    /* ========== INTERNAL FUNCTIONS ========== */
 
     /// @notice Receives message from OCCAdapter and dispatch it
     function ledgerRecvFromVault(OCCVaultMessage memory message) internal {

@@ -75,7 +75,6 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     error VestingLockPeriodIsZero();
     error VestingLinearPeriodIsZero();
-    error OrderCollectorIsZero();
     error VestingAmountIsZero();
     error VestingPeriodIsOutOfRange();
     error UserDontHaveVestingRequest(address _user, uint256 _requestId);
@@ -86,7 +85,6 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     function vestingInit(uint256 _vestingLockPeriod, uint256 _vestingLinearPeriod, address _orderCollector) internal onlyInitializing {
         if (_vestingLockPeriod == 0) revert VestingLockPeriodIsZero();
         if (_vestingLinearPeriod == 0) revert VestingLinearPeriodIsZero();
-        if (_orderCollector == address(0)) revert OrderCollectorIsZero();
 
         vestingLockPeriod = _vestingLockPeriod;
         vestingLinearPeriod = _vestingLinearPeriod;
@@ -102,6 +100,12 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     function getUserVestingRequests(address _user) public view returns (VestingRequest[] memory) {
         return userVestingInfos[_user].requests;
+    }
+
+    /* ========== OWNER FUNCTIONS ========== */
+
+    function setOrderCollector(address _orderCollector) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        orderCollector = _orderCollector;
     }
 
     /* ========== USER FUNCTIONS ========== */

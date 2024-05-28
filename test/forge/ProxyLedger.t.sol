@@ -2,28 +2,28 @@
 pragma solidity ^0.8.20;
 
 // Mock imports
-import { OFTMock } from "./mocks/OFTMock.sol";
-import { ERC20Mock } from "./mocks/ERC20Mock.sol";
-import { OFTComposerMock } from "./mocks/OFTComposerMock.sol";
+import {OFTMock} from "./mocks/OFTMock.sol";
+import {ERC20Mock} from "./mocks/ERC20Mock.sol";
+import {OFTComposerMock} from "./mocks/OFTComposerMock.sol";
 
 // OApp imports
-import { IOAppOptionsType3, EnforcedOptionParam } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OAppOptionsType3.sol";
-import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+import {IOAppOptionsType3, EnforcedOptionParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OAppOptionsType3.sol";
+import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
 // OFT imports
-import { IOFT, SendParam, OFTReceipt } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
-import { MessagingFee, MessagingReceipt } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFTCore.sol";
-import { OFTMsgCodec } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTMsgCodec.sol";
-import { OFTComposeMsgCodec } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
+import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
+import {MessagingFee, MessagingReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/OFTCore.sol";
+import {OFTMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTMsgCodec.sol";
+import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
 // OZ imports
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 // Forge imports
 import "forge-std/console.sol";
 
 // DevTools imports
-import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
+import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // OCCAdapter imports
 import "../../contracts/test/LedgerTest.sol";
@@ -61,17 +61,11 @@ contract LedgerProxyTest is TestHelperOz5 {
         super.setUp();
         setUpEndpoints(2, LibraryType.UltraLightNode);
 
-        aOFT = OFTMock(
-            _deployOApp(type(OFTMock).creationCode, abi.encode("aOFT", "aOFT", address(endpoints[aEid]), address(this)))
-        );
+        aOFT = OFTMock(_deployOApp(type(OFTMock).creationCode, abi.encode("aOFT", "aOFT", address(endpoints[aEid]), address(this))));
 
-        bOFT = OFTMock(
-            _deployOApp(type(OFTMock).creationCode, abi.encode("bOFT", "bOFT", address(endpoints[bEid]), address(this)))
-        );
+        bOFT = OFTMock(_deployOApp(type(OFTMock).creationCode, abi.encode("bOFT", "bOFT", address(endpoints[bEid]), address(this))));
 
-        usdc = OFTMock(
-            _deployOApp(type(OFTMock).creationCode, abi.encode("usdc", "usdc", address(endpoints[aEid]), address(this)))
-        );
+        usdc = OFTMock(_deployOApp(type(OFTMock).creationCode, abi.encode("usdc", "usdc", address(endpoints[aEid]), address(this))));
 
         // config and wire the ofts
         address[] memory ofts = new address[](2);
@@ -94,7 +88,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         address placeholderAddr = address(ledgerB);
         ledgerB.initialize(address(this), placeholderAddr, placeholderAddr, bOFT, 1 ether, 100 ether);
 
-
         proxyA.setMyChainId(aEid);
 
         ledgerB.setMyChainId(bEid);
@@ -110,7 +103,8 @@ contract LedgerProxyTest is TestHelperOz5 {
 
     function _deliver_occ_msg(address sender, address from, address to, uint32 fromEid, uint32 toEid) public {
         // lzCompose params
-        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = ILzReceipt(sender).getLzSendReceipt();
+        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = ILzReceipt(sender)
+            .getLzSendReceipt();
 
         // lzCompose params
         bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
@@ -134,7 +128,6 @@ contract LedgerProxyTest is TestHelperOz5 {
     }
 
     function _test_occ_user_stake() public {
-
         assertEq(aOFT.balanceOf(userA), initialBalance);
         assertEq(bOFT.balanceOf(userB), initialBalance);
 
@@ -170,7 +163,6 @@ contract LedgerProxyTest is TestHelperOz5 {
     }
 
     function _test_occ_claim_reward() public {
-
         bOFT.mint(address(ledgerB), 10000 ether);
         // userA and userB and address(this)
         address[] memory users = new address[](3);
@@ -202,7 +194,6 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(userA, amounts[0]))));
         MerkleTreeHelper.verifyProof(tree.root, leaf, merkleProof);
-
 
         uint256 nativeFee = proxyA.qouteClaimReward(distributionId, userA, cumulativeAmount, merkleProof, false);
         vm.prank(userA);
@@ -265,7 +256,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         uint256 tokensToSend = 1 ether;
         _test_occ_user_unstake();
 
-
         uint8 opCode = uint8(PayloadDataType.CancelOrderUnstakeRequest);
 
         uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
@@ -274,7 +264,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
-
     }
 
     function _test_occ_user_withdraw_order() public {
@@ -299,7 +288,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         ledgerB.setTotalValorAmount(5000);
         _test_occ_user_stake();
 
-
         console.log("block.timestamp: ");
         console.log(block.timestamp);
         console.log("batch_id: ");
@@ -312,7 +300,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         console.log("block.timestamp: ");
         console.log(block.timestamp);
-        // vm.warp(block.timestamp + 14 days); 
+        // vm.warp(block.timestamp + 14 days);
         console.log("ledgerB.getCurrentBatchId(): ");
         console.log(ledgerB.getCurrentBatchId());
 
@@ -338,8 +326,8 @@ contract LedgerProxyTest is TestHelperOz5 {
         // ledgerB.updateValorVars();
         // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
 
-
-        (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled) = ledgerB.getBatchInfo(1);
+        (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled) = ledgerB
+            .getBatchInfo(1);
 
         console.log("batchStartTime: ");
         console.log(batchStartTime);
@@ -352,7 +340,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         console.log("fixedValorToUsdcRateScaled: ");
         console.log(fixedValorToUsdcRateScaled);
 
-
         uint8 opCode = uint8(PayloadDataType.ClaimUsdcRevenue);
 
         uint256 nativeFee = proxyA.qouteSendUserRequest(claimAmount, userA, opCode);
@@ -362,5 +349,4 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
     }
-
 }

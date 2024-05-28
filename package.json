@@ -21,6 +21,7 @@
     "test:deploy": "RUN_TEST=true yarn hardhat node",
     "test:all": "yarn test && yarn test:forge && yarn test:deploy",
     "test:coverage": "hardhat coverage && hardhat compile --force",
+    "deploy-to": "hardhat deploy-to --network",
     "solhint": "solhint 'contracts/**/*.sol' --fix",
     "myth": "myth analyze contracts/**/*.sol --solc-json remapping-myth.json --execution-timeout 30",
     "slither": "slither .",
