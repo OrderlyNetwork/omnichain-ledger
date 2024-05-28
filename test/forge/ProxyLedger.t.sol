@@ -26,7 +26,7 @@ import "forge-std/console.sol";
 import { TestHelperOz5 } from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // OCCAdapter imports
-import "../../contracts/Ledger.sol";
+import "../../contracts/test/LedgerTest.sol";
 import "../../contracts/ProxyLedger.sol";
 
 // md imports
@@ -48,7 +48,7 @@ contract LedgerProxyTest is TestHelperOz5 {
     OFTMock usdc;
 
     ProxyLedger proxyA;
-    Ledger ledgerB;
+    LedgerTest ledgerB;
 
     address public userA = address(0x1);
     address public userB = address(0x2);
@@ -90,7 +90,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA = ProxyLedger(payable(proxyAddr));
         usdc.mint(address(proxyA), 100 ether);
 
-        ledgerB = new Ledger();
+        ledgerB = new LedgerTest();
         address placeholderAddr = address(ledgerB);
         ledgerB.initialize(address(this), placeholderAddr, placeholderAddr, bOFT, 1 ether, 100 ether);
 
@@ -295,16 +295,32 @@ contract LedgerProxyTest is TestHelperOz5 {
 
     function _test_occ_user_redeem_valor() public {
         uint256 redeemAmount = 100;
+        vm.warp(block.timestamp + 15 days); // warp time to 1 day later (1 day = 86400 seconds
+        ledgerB.setTotalValorAmount(5000);
         _test_occ_user_stake();
 
-        vm.warp(block.timestamp + 3 days); 
 
-        ledgerB.dailyUsdcNetFeeRevenue(1000*7);
+        console.log("block.timestamp: ");
+        console.log(block.timestamp);
+        console.log("batch_id: ");
+        console.log(ledgerB.getCurrentBatchId());
 
-        vm.warp(block.timestamp + 14 days); 
-        ledgerB.fixBatchValorToUsdcRate(0);
-        vm.warp(block.timestamp + 15 days); 
-        ledgerB.batchPreparedToClaim(0);
+        for (uint i = 0; i < 13; i++) {
+            vm.warp(block.timestamp + 1 days); // warp time to 1 day later (1 day = 86400 seconds)
+            ledgerB.dailyUsdcNetFeeRevenue(1000);
+        }
+
+        console.log("block.timestamp: ");
+        console.log(block.timestamp);
+        // vm.warp(block.timestamp + 14 days); 
+        console.log("ledgerB.getCurrentBatchId(): ");
+        console.log(ledgerB.getCurrentBatchId());
+
+        ledgerB.setCollectedValor(userA, 2000);
+        ledgerB.redeemValor(userA, aEid, 100);
+
+        ledgerB.fixBatchValorToUsdcRate(1);
+        ledgerB.batchPreparedToClaim(1);
 
         uint8 opCode = uint8(PayloadDataType.RedeemValor);
 
@@ -321,6 +337,20 @@ contract LedgerProxyTest is TestHelperOz5 {
         _test_occ_user_redeem_valor();
         // ledgerB.updateValorVars();
         // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
+
+
+        (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled) = ledgerB.getBatchInfo(1);
+
+        console.log("batchStartTime: ");
+        console.log(batchStartTime);
+        console.log("batchEndTime: ");
+        console.log(batchEndTime);
+        console.log("claimable: ");
+        console.log(claimable);
+        console.log("redeemedValorAmount: ");
+        console.log(redeemedValorAmount);
+        console.log("fixedValorToUsdcRateScaled: ");
+        console.log(fixedValorToUsdcRateScaled);
 
 
         uint8 opCode = uint8(PayloadDataType.ClaimUsdcRevenue);
