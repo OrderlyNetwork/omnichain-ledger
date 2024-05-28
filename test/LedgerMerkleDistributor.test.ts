@@ -163,6 +163,8 @@ describe("LedgerMerkleDistributor", function () {
     expect((await distributor.getDistribution(distributionId)).merkleRoot).to.be.equal(emptyRoot);
     expect((await distributor.getProposedRoot(distributionId)).merkleRoot).to.be.equal(emptyRoot);
     expect(await distributor.getClaimed(distributionId, user.address)).to.be.equal(0);
+
+    expect(await distributor.getClaimed(distributionId, user.address)).to.be.equal(0);
   });
 
   it("should allow to propose a new root", async function () {
