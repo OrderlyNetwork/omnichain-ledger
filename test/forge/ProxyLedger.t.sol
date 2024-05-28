@@ -208,42 +208,11 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmount, merkleProof, false);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        // lzCompose params
-        (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = proxyA.getLzSendReceipt();
-
-        // lzCompose params
-        uint32 dstEid_ = bEid;
-        address from_ = address(bOFT);
-        bytes memory options_ = options;
-        bytes32 guid_ = msgReceipt.guid;
-        address to_ = address(ledgerOCCManager);
-        bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
-            msgReceipt.nonce,
-            aEid,
-            oftReceipt.amountReceivedLD,
-            abi.encodePacked(addressToBytes32(address(proxyA)), msgCompose)
-        );
-        this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
 
         verifyPackets(aEid, addressToBytes32(address(aOFT)));
 
-        // lzCompose params
-        (msgReceipt, oftReceipt, msgCompose, options) = ledgerOCCManager.getLzSendReceipt();
-
-        // lzCompose params
-        dstEid_ = aEid;
-        from_ = address(aOFT);
-        options_ = options;
-        guid_ = msgReceipt.guid;
-        to_ = address(proxyA);
-        composerMsg_ = OFTComposeMsgCodec.encode(
-            msgReceipt.nonce,
-            bEid,
-            oftReceipt.amountReceivedLD,
-            abi.encodePacked(addressToBytes32(address(ledgerOCCManager)), msgCompose)
-        );
-
-        this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
+        _deliver_occ_msg(address(ledgerOCCManager), address(aOFT), address(proxyA), bEid, aEid);
     }
 
     function test_occ_user_unstake() public {
@@ -289,6 +258,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
+
+        verifyPackets(aEid, addressToBytes32(address(aOFT)));
+        _deliver_occ_msg(address(ledgerOCCManager), address(aOFT), address(proxyA), bEid, aEid);
     }
 
     function test_occ_user_redeem_valor() public {
@@ -356,5 +328,8 @@ contract LedgerProxyTest is TestHelperOz5 {
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
+
+        verifyPackets(aEid, addressToBytes32(address(aOFT)));
+        _deliver_occ_msg(address(ledgerOCCManager), address(aOFT), address(proxyA), bEid, aEid);
     }
 }
