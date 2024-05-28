@@ -14,7 +14,7 @@ import {Vesting} from "./lib/Vesting.sol";
 import {Revenue} from "./lib/Revenue.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
 import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
-import {LedgerOCCManager} from "./lib/OCCManager.sol";
+import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
@@ -22,7 +22,6 @@ import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/li
 contract OmnichainLedgerV1 is
     LedgerAccessControl,
     UUPSUpgradeable,
-    LedgerOCCManager,
     ChainedEventIdCounter,
     MerkleDistributor,
     Valor,
@@ -34,11 +33,16 @@ contract OmnichainLedgerV1 is
 
     /* ========== STATE VARIABLES ========== */
     address public occAdaptor;
+    address public orderTokenOft;
 
     /* ========== ERRORS ========== */
     error UnsupportedPayloadType();
 
-    /* ========== VERSION ========== */
+    /* ========== MODIFIERS ========== */
+    modifier onlyOCCAdaptor() {
+        require(msg.sender == occAdaptor, "OnlyOCCAdaptor");
+        _;
+    }
 
     function VERSION() external pure virtual returns (string memory) {
         return "1.0.0";
@@ -83,7 +87,7 @@ contract OmnichainLedgerV1 is
     /* ========== INTERNAL FUNCTIONS ========== */
 
     /// @notice Receives message from OCCAdapter and dispatch it
-    function ledgerRecvFromVault(OCCVaultMessage memory message) internal {
+    function ledgerRecvFromVault(OCCVaultMessage memory message) external onlyOCCAdaptor {
         // ========== ClaimReward ==========
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
@@ -187,7 +191,7 @@ contract OmnichainLedgerV1 is
                 payloadType: uint8(PayloadDataType.ClaimRewardBackward),
                 payload: "0x0"
             });
-            ledgerSendToVault(message);
+            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
         }
     }
 
@@ -203,7 +207,7 @@ contract OmnichainLedgerV1 is
                 payloadType: uint8(PayloadDataType.WithdrawOrderBackward),
                 payload: "0x0"
             });
-            ledgerSendToVault(message);
+            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
         }
     }
 
@@ -219,7 +223,7 @@ contract OmnichainLedgerV1 is
                 payloadType: uint8(PayloadDataType.ClaimUsdcRevenueBackward),
                 payload: "0x0"
             });
-            ledgerSendToVault(message);
+            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
         }
     }
 
@@ -236,7 +240,7 @@ contract OmnichainLedgerV1 is
                 payloadType: uint8(PayloadDataType.ClaimVestingRequestBackward),
                 payload: "0x0"
             });
-            ledgerSendToVault(message);
+            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
         }
 
         if (unclaimedOrderAmount != 0) {
@@ -256,12 +260,4 @@ contract OmnichainLedgerV1 is
         _createVestingRequest(_user, _chainId, _amount);
     }
 
-    function lzCompose(address, bytes32, bytes calldata _message, address, bytes calldata /*_extraData*/) external payable {
-        bytes memory _composeMsgContent = OFTComposeMsgCodec.composeMsg(_message);
-
-        OCCVaultMessage memory message = abi.decode(_composeMsgContent, (OCCVaultMessage));
-        ledgerRecvFromVault(message);
-
-        // revert("TestOnly: end of lzCompose");
-    }
 }

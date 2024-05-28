@@ -28,7 +28,7 @@ import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/
 // OCCAdapter imports
 import "../../contracts/test/LedgerTest.sol";
 import "../../contracts/ProxyLedger.sol";
-
+import "../../contracts/lib/LedgerOCCManager.sol";
 // md imports
 import "./MerkleHelper.sol";
 
@@ -49,6 +49,8 @@ contract LedgerProxyTest is TestHelperOz5 {
 
     ProxyLedger proxyA;
     LedgerTest ledgerB;
+
+    LedgerOCCManager ledgerOCCManager;
 
     address public userA = address(0x1);
     address public userB = address(0x2);
@@ -84,21 +86,25 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA = ProxyLedger(payable(proxyAddr));
         usdc.mint(address(proxyA), 100 ether);
 
+        ledgerOCCManager = new LedgerOCCManager();
+        ledgerOCCManager.initilize(address(bOFT), address(this));
         ledgerB = new LedgerTest();
         address placeholderAddr = address(ledgerB);
-        ledgerB.initialize(address(this), placeholderAddr, placeholderAddr, bOFT, 1 ether, 100 ether);
+        ledgerB.initialize(address(this), address(ledgerOCCManager), placeholderAddr, bOFT, 1 ether, 100 ether);
+
+        ledgerOCCManager.setLedgerAddr(address(ledgerB));
 
         proxyA.setMyChainId(aEid);
 
-        ledgerB.setMyChainId(bEid);
+        ledgerOCCManager.setMyChainId(bEid);
 
-        proxyA.setLedgerInfo(bEid, address(ledgerB));
+        proxyA.setLedgerInfo(bEid, address(ledgerOCCManager));
         proxyA.setChainId2Eid(bEid, bEid);
 
-        ledgerB.setChainId2Eid(aEid, aEid);
-        ledgerB.setChainId2ProxyLedgerAddr(aEid, address(proxyA));
+        ledgerOCCManager.setChainId2Eid(aEid, aEid);
+        ledgerOCCManager.setChainId2ProxyLedgerAddr(aEid, address(proxyA));
 
-        vm.deal(address(ledgerB), 1000 ether);
+        vm.deal(address(ledgerOCCManager), 1000 ether);
     }
 
     function _deliver_occ_msg(address sender, address from, address to, uint32 fromEid, uint32 toEid) public {
@@ -116,7 +122,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         this.lzCompose(toEid, from, options, msgReceipt.guid, to, composerMsg_);
     }
 
-    function _test_constructor() public {
+    function test_constructor() public {
         assertEq(aOFT.owner(), address(this));
         assertEq(bOFT.owner(), address(this));
 
@@ -127,7 +133,8 @@ contract LedgerProxyTest is TestHelperOz5 {
         assertEq(bOFT.token(), address(bOFT));
     }
 
-    function _test_occ_user_stake() public {
+    function test_occ_user_stake() public {
+
         assertEq(aOFT.balanceOf(userA), initialBalance);
         assertEq(bOFT.balanceOf(userB), initialBalance);
 
@@ -142,7 +149,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         assertEq(aOFT.balanceOf(userA), initialBalance - tokensToSend);
-        assertEq(bOFT.balanceOf(address(ledgerB)), tokensToSend);
+        assertEq(bOFT.balanceOf(address(ledgerOCCManager)), tokensToSend);
 
         // lzCompose params
         (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt, bytes memory msgCompose, bytes memory options) = proxyA.getLzSendReceipt();
@@ -152,7 +159,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         address from_ = address(bOFT);
         bytes memory options_ = options;
         bytes32 guid_ = msgReceipt.guid;
-        address to_ = address(ledgerB);
+        address to_ = address(ledgerOCCManager);
         bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
             msgReceipt.nonce,
             aEid,
@@ -162,8 +169,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
     }
 
-    function _test_occ_claim_reward() public {
-        bOFT.mint(address(ledgerB), 10000 ether);
+    function test_occ_claim_reward() public {
+
+        bOFT.mint(address(ledgerOCCManager), 10000 ether);
         // userA and userB and address(this)
         address[] memory users = new address[](3);
         users[0] = userA;
@@ -208,7 +216,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         address from_ = address(bOFT);
         bytes memory options_ = options;
         bytes32 guid_ = msgReceipt.guid;
-        address to_ = address(ledgerB);
+        address to_ = address(ledgerOCCManager);
         bytes memory composerMsg_ = OFTComposeMsgCodec.encode(
             msgReceipt.nonce,
             aEid,
@@ -220,7 +228,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         verifyPackets(aEid, addressToBytes32(address(aOFT)));
 
         // lzCompose params
-        (msgReceipt, oftReceipt, msgCompose, options) = ledgerB.getLzSendReceipt();
+        (msgReceipt, oftReceipt, msgCompose, options) = ledgerOCCManager.getLzSendReceipt();
 
         // lzCompose params
         dstEid_ = aEid;
@@ -232,15 +240,15 @@ contract LedgerProxyTest is TestHelperOz5 {
             msgReceipt.nonce,
             bEid,
             oftReceipt.amountReceivedLD,
-            abi.encodePacked(addressToBytes32(address(ledgerB)), msgCompose)
+            abi.encodePacked(addressToBytes32(address(ledgerOCCManager)), msgCompose)
         );
 
         this.lzCompose(dstEid_, from_, options_, guid_, to_, composerMsg_);
     }
 
-    function _test_occ_user_unstake() public {
+    function test_occ_user_unstake() public {
         uint256 tokensToSend = 1 ether;
-        _test_occ_user_stake();
+        test_occ_user_stake();
 
         uint8 opCode = uint8(PayloadDataType.CreateOrderUnstakeRequest);
 
@@ -249,12 +257,12 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
     }
 
-    function _test_occ_user_cancel_unstake() public {
+    function test_occ_user_cancel_unstake() public {
         uint256 tokensToSend = 1 ether;
-        _test_occ_user_unstake();
+        test_occ_user_unstake();
 
         uint8 opCode = uint8(PayloadDataType.CancelOrderUnstakeRequest);
 
@@ -263,12 +271,13 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
+
     }
 
-    function _test_occ_user_withdraw_order() public {
+    function test_occ_user_withdraw_order() public {
         uint256 tokensToSend = 1 ether;
-        _test_occ_user_unstake();
+        test_occ_user_unstake();
 
         vm.warp(block.timestamp + 7 days); // warp time to 1 day later (1 day = 86400 seconds)
 
@@ -279,14 +288,14 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
     }
 
-    function _test_occ_user_redeem_valor() public {
+    function test_occ_user_redeem_valor() public {
         uint256 redeemAmount = 100;
         vm.warp(block.timestamp + 15 days); // warp time to 1 day later (1 day = 86400 seconds
         ledgerB.setTotalValorAmount(5000);
-        _test_occ_user_stake();
+        test_occ_user_stake();
 
         console.log("block.timestamp: ");
         console.log(block.timestamp);
@@ -317,12 +326,12 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA.sendUserRequest{value: nativeFee}(redeemAmount, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
     }
 
     function test_occ_user_claim_usdc_revenue() public {
         uint256 claimAmount = 0;
-        _test_occ_user_redeem_valor();
+        test_occ_user_redeem_valor();
         // ledgerB.updateValorVars();
         // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
 
@@ -347,6 +356,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         proxyA.sendUserRequest{value: nativeFee}(claimAmount, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
-        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerB), aEid, bEid);
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
     }
 }
