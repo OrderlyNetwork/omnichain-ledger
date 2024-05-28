@@ -30,7 +30,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     /// @notice initialize the contract
     function initialize(address _oft, address _usdc, address _owner) external initializer {
         orderTokenOft = _oft;
-        usdc = _usdc;
+        usdcAddr = _usdc;
         ledgerAccessControlInit(_owner);
     }
 
@@ -214,7 +214,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
 
         } else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             require(message.token == LedgerToken.USDC && message.tokenAmount > 0, "InvalidClaimUsdcRevenueBackward");
-            (bool success) = IERC20(usdc).transfer(message.receiver, message.tokenAmount);
+            (bool success) = IERC20(usdcAddr).transfer(message.receiver, message.tokenAmount);
 
             require(success, "USDCTokenTransferFailed");
 
