@@ -250,4 +250,33 @@ describe("Revenue", function () {
     // batch 1, that is finished but not claimed yet, and batch 2, that is current
     expect(await ledger.nuberOfUsersBatchedReremprionRequests(user.address)).to.equal(2);
   });
+
+  it("owner should be able to fix batch price if nobody redeemed valor", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+
+    await ledger.connect(owner).setTotalValorAmount(2000);
+    await ledger.connect(owner).dailyUsdcNetFeeRevenue(1000);
+
+    // Batch 0 is created authomatically
+    const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"].toNumber();
+    await helpers.time.increaseTo(batch0EndTime + 1);
+
+    await ledger.connect(owner).fixBatchValorToUsdcRate(0);
+    await ledger.connect(owner).batchPreparedToClaim(0);
+
+    const batch0 = await ledger.getBatchInfo(0);
+    expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(500000000000000000n);
+    expect(batch0["claimable"]).to.equal(true);
+
+    // Let's move to batch 1
+    const batch1EndTime = (await ledger.getBatchInfo(1))["batchEndTime"].toNumber();
+    await helpers.time.increaseTo(batch1EndTime + 1);
+
+    await ledger.connect(owner).fixBatchValorToUsdcRate(1);
+    await ledger.connect(owner).batchPreparedToClaim(1);
+
+    const batch1 = await ledger.getBatchInfo(1);
+    expect(batch1["fixedValorToUsdcRateScaled"]).to.equal(500000000000000000n);
+    expect(batch1["claimable"]).to.equal(true);
+  });
 });

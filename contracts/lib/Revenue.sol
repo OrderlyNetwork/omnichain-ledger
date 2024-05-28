@@ -161,7 +161,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     ///         batch.fixedValorToUsdcRateScaled will be set to current valorToUsdcRateScaled
     function fixBatchValorToUsdcRate(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
-        Batch storage batch = _getBatch(_batchId);
+        // If nobody redeemed valor in the batch, batch will not be created at this moment, let's create it
+        Batch storage batch = _getOrCreateBatch(_batchId);
         if (batch.fixedValorToUsdcRateScaled == 0) {
             batch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
         }
