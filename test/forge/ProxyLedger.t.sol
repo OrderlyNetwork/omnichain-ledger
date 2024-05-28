@@ -293,7 +293,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
     function test_occ_user_redeem_valor() public {
         uint256 redeemAmount = 100;
-        vm.warp(block.timestamp + 15 days); // warp time to 1 day later (1 day = 86400 seconds
+        vm.warp(block.timestamp + 14 days); // warp time to 1 day later (1 day = 86400 seconds
         ledgerB.setTotalValorAmount(5000);
         test_occ_user_stake();
 
@@ -313,11 +313,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         console.log("ledgerB.getCurrentBatchId(): ");
         console.log(ledgerB.getCurrentBatchId());
 
-        ledgerB.setCollectedValor(userA, 2000);
-        ledgerB.redeemValor(userA, aEid, 100);
-
-        ledgerB.fixBatchValorToUsdcRate(1);
-        ledgerB.batchPreparedToClaim(1);
+        // ledgerB.setCollectedValor(userA, 2000);
 
         uint8 opCode = uint8(PayloadDataType.RedeemValor);
 
@@ -334,6 +330,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         test_occ_user_redeem_valor();
         // ledgerB.updateValorVars();
         // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
+        vm.warp(block.timestamp + 2 days); 
+        ledgerB.fixBatchValorToUsdcRate(1);
+        ledgerB.batchPreparedToClaim(1);
 
         (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled) = ledgerB
             .getBatchInfo(1);
