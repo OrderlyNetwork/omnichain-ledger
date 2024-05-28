@@ -168,10 +168,10 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         totalStakedAmount += pendingOrderAmount;
 
         emit OrderUnstakeCancelled(_getNextChainedEventId(_chainId), _chainId, _user, pendingOrderAmount);
-        emit OrderUnstakeAmount(_user, pendingOrderAmount, userPendingUnstake[_user].unlockTimestamp);
 
         userPendingUnstake[_user].balanceOrder = 0;
         userPendingUnstake[_user].unlockTimestamp = 0;
+        emit OrderUnstakeAmount(_user, 0, 0);
     }
 
     /// @notice Withdraw unstaked $ORDER tokens. Contract does not tansfer tokens to user, it just returns amount of tokens to Ledger
@@ -183,10 +183,10 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         orderAmountForWithdraw = userPendingUnstake[_user].balanceOrder;
         if (orderAmountForWithdraw > 0) {
             emit OrderWithdrawn(_getNextChainedEventId(_chainId), _chainId, _user, orderAmountForWithdraw);
-            emit OrderUnstakeAmount(_user, orderAmountForWithdraw, userPendingUnstake[_user].unlockTimestamp);
 
             userPendingUnstake[_user].balanceOrder = 0;
             userPendingUnstake[_user].unlockTimestamp = 0;
+            emit OrderUnstakeAmount(_user, 0, 0);
         }
     }
 

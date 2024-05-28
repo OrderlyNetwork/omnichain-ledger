@@ -182,7 +182,7 @@ describe("Staking", function () {
     const tx2 = await ledger.connect(user).withdrawOrder(user.address, chainId);
     // Check the OrderWithdrawn event is emitted correctly
     await expect(tx2).to.emit(ledger, "OrderWithdrawn").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
-    await expect(tx2).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount, unlockTimestamp);
+    await expect(tx2).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, 0, 0);
   });
 
   it("user can cancel order unstake request", async function () {
@@ -207,7 +207,7 @@ describe("Staking", function () {
     const tx = await ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId);
     // Check the OrderUnstakeCancelled event is emitted correctly
     await expect(tx).to.emit(ledger, "OrderUnstakeCancelled").withArgs(anyValue, chainId, user.address, orderUnstakingAmount);
-    await expect(tx).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount, unlockTimestamp);
+    await expect(tx).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, 0, 0);
     await checkUserStakingBalance(ledger, user, orderStakingAmount, 0);
     await checkUserPendingUnstake(ledger, user, 0, 0);
 
