@@ -156,7 +156,8 @@ contract OmnichainLedgerV1 is
         }
         // ========== ClaimUsdcRevenue ==========
         else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenue)) {
-            _claimUsdcRevenue(message.sender, message.srcChainId);
+            // _claimUsdcRevenue(message.sender, message.srcChainId);
+            _ledgerClaimUsdcRevenue(message.sender, message.srcChainId);
         }
         // ========== UnsupportedPayloadType ==========
         else {

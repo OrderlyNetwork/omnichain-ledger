@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 // project imports
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
-import {OCCVaultMessage, OCCLedgerMessage} from "./OCCTypes.sol";
+import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./OCCTypes.sol";
 
 // oz imports
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -77,13 +77,16 @@ contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         if (_oftGas == 0) {
             _oftGas = 2000000;
         }
+        
+        uint256 amount = message.token == LedgerToken.ORDER ? message.tokenAmount : 0;
+
         bytes memory options =
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
         sendParam = SendParam({
             dstEid: chainId2Eid[message.dstChainId],
             to: bytes32(uint256(uint160(chainId2ProxyLedgerAddr[message.dstChainId]))),
-            amountLD: message.tokenAmount,
-            minAmountLD: message.tokenAmount,
+            amountLD: amount,
+            minAmountLD: amount,
             extraOptions: options,
             composeMsg: abi.encode(message),
             oftCmd: bytes("")
