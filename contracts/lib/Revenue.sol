@@ -213,7 +213,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         // Update redeemed valor amount for current batch and chain
         _getOrCreateChainedAmount(batches[currentBatchId].chainedValorAmount, _chainId).amount += _amount;
 
-        emit ValorRedeemed(_getNextChainedEventId(0), _chainId, _user, currentBatchId, _amount);
+        emit ValorRedeemed(_getNextChainedEventId(_chainId), _chainId, _user, currentBatchId, _amount);
     }
 
     /**
