@@ -1,7 +1,12 @@
+import BN from "bn.js";
+import { concat, BytesLike, hexlify as toHex } from "@ethersproject/bytes";
 import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
+import { keccak256 } from "ethereum-cryptography/keccak";
+import { hexToBytes, bytesToHex } from "ethereum-cryptography/utils";
+import { defaultAbiCoder } from "@ethersproject/abi";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -10,6 +15,11 @@ import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, le
 describe("LedgerMerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
   const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
+
+  function compare(a: BytesLike, b: BytesLike): number {
+    const diff = BigInt(toHex(a)) - BigInt(toHex(b));
+    return diff > 0 ? 1 : diff < 0 ? -1 : 0;
+  }
 
   function prepareMerkleTree(addresses: string[], amounts: string[]) {
     const values = addresses.map((address, index) => {
@@ -603,7 +613,7 @@ describe("LedgerMerkleDistributor", function () {
 
     const claimingAmount = BigNumber.from("0");
 
-    expect(await distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proof2)).to.not.be.reverted;
+    await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proof2)).to.be.reverted;
   });
 
   it("check pre-calculated root and proof", async function () {
@@ -656,5 +666,37 @@ describe("LedgerMerkleDistributor", function () {
 
     await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, user, amountsBigNumber[0], tree.getProof(0));
     await claimUserRewardsAndCheckResults(distributor, distributionId, LedgerToken.ORDER, updater, amountsBigNumber[1], tree.getProof(1));
+  });
+
+  it("check leaf calculation", async function () {
+    const address = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
+    const amount = new BN("10000000000000000000");
+
+    const leafHash =
+      "0x" + bytesToHex(keccak256(keccak256(hexToBytes(defaultAbiCoder.encode(["address", "uint256"], [address, amount.toString()])))));
+    expect(leafHash).to.be.equal("0x3cf24d4ee0659da84e4b7e3691f5ca0e7d0953c4d3d846157b2505645b757dcf");
+  });
+
+  it("check node hash calculation", async function () {
+    const hash1String = "0x6041be6862f1a78c25324286b09860e73f19c463a350fda03e2202cbdef54ee4";
+    const hash1Bytes = hexToBytes(hash1String);
+    const hash2String = "0x3cf24d4ee0659da84e4b7e3691f5ca0e7d0953c4d3d846157b2505645b757dcf";
+    const hash2Bytes = hexToBytes(hash2String);
+
+    const nodeHash1String = bytesToHex(keccak256(concat([hash1String, hash2String].sort(compare))));
+    // console.log("nodeHash1String: ", nodeHash1String);
+    expect(nodeHash1String).to.be.equal("ab98ef8951c536e1e386b139670674cb37c5dff89d72072aed9a32b8476ee00f");
+
+    const nodeHash2String = bytesToHex(keccak256(concat([hash2String, hash1String].sort(compare))));
+    expect(nodeHash2String).to.be.equal("ab98ef8951c536e1e386b139670674cb37c5dff89d72072aed9a32b8476ee00f");
+    // console.log("nodeHash2String: ", nodeHash2String);
+
+    const nodeHash1Bytes = bytesToHex(keccak256(concat([hash1Bytes, hash2Bytes].sort(compare))));
+    expect(nodeHash1Bytes).to.be.equal("ab98ef8951c536e1e386b139670674cb37c5dff89d72072aed9a32b8476ee00f");
+    // console.log("nodeHash1Bytes: ", nodeHash1Bytes);
+
+    const nodeHash2Bytes = bytesToHex(keccak256(concat([hash2Bytes, hash1Bytes].sort(compare))));
+    expect(nodeHash2Bytes).to.be.equal("ab98ef8951c536e1e386b139670674cb37c5dff89d72072aed9a32b8476ee00f");
+    // console.log("nodeHash2Bytes: ", nodeHash2Bytes);
   });
 });
