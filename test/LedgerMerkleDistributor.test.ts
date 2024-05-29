@@ -1,4 +1,5 @@
 import BN from "bn.js";
+import fs from "fs";
 import { concat, BytesLike, hexlify as toHex } from "@ethersproject/bytes";
 import { ethers } from "hardhat";
 import { BigNumber, Contract } from "ethers";
@@ -588,34 +589,6 @@ describe("LedgerMerkleDistributor", function () {
     await distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0));
   });
 
-  it("check CeFi root and proof", async function () {
-    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
-    const distributionId = 1;
-    const chainId = 1;
-    const root = "0x7cc9e9b301dbb1b6f4e5486c38277b2a53d8716a2586f193344d8f09723916e5";
-    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
-
-    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
-    await helpers.time.increaseTo(startTimestamp + 1);
-
-    const claimerAddress = "0xd4d22e9cdf2fe12da8efbe21239828f785973734";
-    const proof1 = [
-      "0xf4352bcc88837a60b4579aa50ab1c3dce24abd6f1717b0b836bdd23d5f9a1998",
-      "0x81854ff102c50d770aaec297d3dc6ce5f3114ec077f458561f96314a88f08a66",
-      "0x7c7350e7a16ff9f7b25a0da66cf705d644aace4ca3c8f1468327949f8aa230ef"
-    ];
-
-    const proof2 = [
-      "0x7c7350e7a16ff9f7b25a0da66cf705d644aace4ca3c8f1468327949f8aa230ef",
-      "0x81854ff102c50d770aaec297d3dc6ce5f3114ec077f458561f96314a88f08a66",
-      "0xf4352bcc88837a60b4579aa50ab1c3dce24abd6f1717b0b836bdd23d5f9a1998"
-    ];
-
-    const claimingAmount = BigNumber.from("0");
-
-    await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proof2)).to.be.reverted;
-  });
-
   it("check pre-calculated root and proof", async function () {
     const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
     const distributionId = 1;
@@ -698,5 +671,63 @@ describe("LedgerMerkleDistributor", function () {
     const nodeHash2Bytes = bytesToHex(keccak256(concat([hash2Bytes, hash1Bytes].sort(compare))));
     expect(nodeHash2Bytes).to.be.equal("ab98ef8951c536e1e386b139670674cb37c5dff89d72072aed9a32b8476ee00f");
     // console.log("nodeHash2Bytes: ", nodeHash2Bytes);
+  });
+
+  it("check CeFi root and proof first", async function () {
+    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
+    const distributionId = 1;
+    const chainId = 1;
+    const root = "0xed0356e9e77a42df396b19f4ae34c0551e77646876d6d1ad33eb0c6142c84721";
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
+    await helpers.time.increaseTo(startTimestamp + 1);
+
+    const claimerAddress1 = "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f";
+    const claimingAmount1 = BigNumber.from("9000000000000000000");
+    const proof1 = [
+      "0xd8b413ffc6023e4aea407df01bac0abcfac6b349db16bb6b2d49e6fa9f834040",
+      "0x0ad03fee1ce220098eecf119709aa8533e99532019819fb117a0b01a0212472c",
+      "0xcf7d0d4c8b5c18c3788e473dc0cdc256c5f2b01c8eca797ea19ceded9a184c49"
+    ];
+    await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress1, chainId, claimingAmount1, proof1)).to.not.be.reverted;
+
+    const claimerAddress2 = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    const claimingAmount2 = BigNumber.from("1000000000000000000");
+    const proof2 = [
+      "0xdf6354b3971c117049c8a858663ea0872246715112135016ff08060d47340e87",
+      "0x0ad03fee1ce220098eecf119709aa8533e99532019819fb117a0b01a0212472c",
+      "0xcf7d0d4c8b5c18c3788e473dc0cdc256c5f2b01c8eca797ea19ceded9a184c49"
+    ];
+    await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress2, chainId, claimingAmount2, proof2)).to.not.be.reverted;
+
+    const claimerAddress3 = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc";
+    const claimingAmount3 = BigNumber.from("6000000000000000000");
+    const proof3 = [
+      "0xae04af11dc3968a94f29f8d0b4f11c1890c2483a239c5a333545fc73d953bb1d",
+      "0x93544216020fd51b6fcaaa9a88420f01d90f6298a4c39c1d20b02653b578eb60",
+      "0xcf7d0d4c8b5c18c3788e473dc0cdc256c5f2b01c8eca797ea19ceded9a184c49"
+    ];
+    await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress3, chainId, claimingAmount3, proof3)).to.not.be.reverted;
+  });
+
+  it("check CeFi root and proof second", async function () {
+    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
+
+    const distributionId = 1;
+    const chainId = 1;
+    const cefi_merkle_proofs = JSON.parse(fs.readFileSync("./test/cefi_merkle_proofs.json", "utf8"));
+    const root = cefi_merkle_proofs["root"];
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
+    await helpers.time.increaseTo(startTimestamp + 1);
+
+    for (const proof of cefi_merkle_proofs["proofs"]) {
+      const claimerAddress = proof["leafValue"]["address"];
+      const claimingAmount = BigNumber.from(proof["leafValue"]["amount"]);
+      const proofArray = proof["neighbourHashHierarchy"];
+      await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proofArray)).to.not.be.reverted;
+    }
   });
 });
