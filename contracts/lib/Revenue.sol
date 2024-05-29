@@ -20,7 +20,7 @@ import {Valor} from "./Valor.sol";
  *         User can claim all USDC revenue for claimable batches at once
  *
  * @dev    To reduse complexity, user's revenue requests for batches that are claimable are collects to chainedUsdcRevenue at the user's record
- *         So, each moment user shouldn't have more than 2 BatchedReremprionRequest: finished but not prepared yet and current
+ *         So, each moment user shouldn't have more than 2 BatchedRedemptionRequest: finished but not prepared yet and current
  */
 abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     uint256 internal constant BATCH_DURATION = 14 days;
@@ -48,14 +48,14 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /// @notice The timestamp when the first batch starts
     uint256 public startTimestamp;
 
-    struct BatchedReremprionRequest {
+    struct BatchedRedemptionRequest {
         uint16 batchId;
         ChainedAmount[] chainedValorAmount;
     }
 
     struct UserRevenueRecord {
         mapping(uint256 => uint256) chainedUsdcRevenue;
-        BatchedReremprionRequest[] requests;
+        BatchedRedemptionRequest[] requests;
     }
 
     mapping(address => UserRevenueRecord) internal userRevenue;
@@ -207,7 +207,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         // Update or create redemption request for the user for current batch
         uint16 currentBatchId = getCurrentBatchId();
         _getOrCreateBatch(currentBatchId).redeemedValorAmount += _amount;
-        BatchedReremprionRequest storage request = _getOrCreateBatchedRedemptionRequest(_user, currentBatchId);
+        BatchedRedemptionRequest storage request = _getOrCreateBatchedRedemptionRequest(_user, currentBatchId);
         _getOrCreateChainedAmount(request.chainedValorAmount, _chainId).amount += _amount;
 
         // Update redeemed valor amount for current batch and chain
@@ -251,7 +251,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /// @notice Returns the redemption request for the user for the batch. Creates the request if it is not created yet
-    function _getOrCreateBatchedRedemptionRequest(address _user, uint16 _batchId) private returns (BatchedReremprionRequest storage) {
+    function _getOrCreateBatchedRedemptionRequest(address _user, uint16 _batchId) private returns (BatchedRedemptionRequest storage) {
         for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
             if (userRevenue[_user].requests[i].batchId == _batchId) {
                 return userRevenue[_user].requests[i];
@@ -287,7 +287,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      */
     function _collectUserRevenueForClaimableBatch(address _user) private {
         for (uint256 requestIndex = 0; requestIndex < userRevenue[_user].requests.length; requestIndex++) {
-            BatchedReremprionRequest storage request = userRevenue[_user].requests[requestIndex];
+            BatchedRedemptionRequest storage request = userRevenue[_user].requests[requestIndex];
             if (batches[request.batchId].claimable) {
                 // Ok, we found request for claimable batch, let's collect USDC revenue for it
                 for (uint256 chainIndex = 0; chainIndex < request.chainedValorAmount.length; chainIndex++) {

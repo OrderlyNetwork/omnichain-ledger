@@ -81,7 +81,7 @@ contract LedgerTest is OmnichainLedgerV1 {
         (claimedOrderAmount, unclaimedOrderAmount) = _claimVestingRequest(_user, _chainId, _requestId);
     }
 
-    function nuberOfUsersBatchedReremprionRequests(address _user) external view returns (uint256) {
+    function nuberOfUsersBatchedRedemptionRequests(address _user) external view returns (uint256) {
         return userRevenue[_user].requests.length;
     }
 }

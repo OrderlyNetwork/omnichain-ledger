@@ -14,7 +14,7 @@ import {LedgerAccessControl} from "./LedgerAccessControl.sol";
  *         Contract is source of truth for total totalValorAmount, totalUsdcInTreasure, valorToUsdcRateScaled
  */
 abstract contract Valor is LedgerAccessControl {
-    uint256 public constant VALOR_TO_USDC_RATE_PRECISION = 1e18;
+    uint256 public constant VALOR_TO_USDC_RATE_PRECISION = 1e27;
 
     /// @notice The role, that is allowed to update USDC net fee revenue
     bytes32 public constant TREASURE_UPDATER_ROLE = keccak256("TREASURE_UPDATER_ROLE");
