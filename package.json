@@ -70,6 +70,7 @@
     "orderly-network-config": "https://gitlab.com/orderlynetwork/orderly-v2/network_config.git",
     "orderly-omnichain-occ": "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#dev",
     "prettier": "^3.0.0",
+    "solc": "^0.8.26",
     "solhint": "^3.4.1",
     "solidity-bytes-utils": "^0.8.2",
     "solidity-coverage": "^0.8.0",

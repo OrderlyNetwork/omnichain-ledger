@@ -11,6 +11,9 @@ import type { HardhatUserConfig } from "hardhat/config";
 import { task } from "hardhat/config";
 
 import "./scripts/tasks/deploy_to";
+// import "./scripts/tasks/verify_local";
+import "./scripts/tasks/verify_etherscan";
+import "./scripts/tasks/verify_hardhat";
 import { getHardhatNetworkConfig, getHardhatApiKey, getHardhatEtherscanConfig } from "orderly-network-config";
 
 task("accounts", "Prints the list of accounts", async (_args, hre) => {
