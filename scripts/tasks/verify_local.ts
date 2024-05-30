@@ -30,14 +30,14 @@ task("local-verify", "Verifies that the local deployment files correspond to the
     const output = JSON.parse(compiled);
     for (const [key, value] of targets) {
       const compiledContract = output.contracts[key][value];
-      const onChainCode = hre.ethers.utils.getBytes(await hre.ethers.provider.getCode(deployment.address));
+      const onChainCode = hre.ethers.getBytes(await hre.ethers.provider.getCode(deployment.address));
       for (const references of Object.values<{ start: number; length: number }[]>(compiledContract.evm.deployedBytecode.immutableReferences)) {
         for (const { start, length } of references) {
           onChainCode.fill(0, start, start + length);
         }
       }
-      const onchainBytecodeHash = hre.ethers.utils.keccak256(onChainCode);
-      const localBytecodeHash = hre.ethers.utils.keccak256(`0x${compiledContract.evm.deployedBytecode.object}`);
+      const onchainBytecodeHash = hre.ethers.keccak256(onChainCode);
+      const localBytecodeHash = hre.ethers.keccak256(`0x${compiledContract.evm.deployedBytecode.object}`);
       const verifySuccess = onchainBytecodeHash === localBytecodeHash ? "SUCCESS" : "FAILURE";
       console.log(`Local verification status for ${value}: ${verifySuccess}`);
     }

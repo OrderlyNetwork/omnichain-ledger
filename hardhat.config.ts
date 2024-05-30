@@ -10,7 +10,7 @@ import { task } from "hardhat/config";
 
 import "./scripts/tasks/deploy_to";
 import "./scripts/tasks/upgrade_ledger";
-// import "./scripts/tasks/verify_local";
+import "./scripts/tasks/verify_local";
 import "./scripts/tasks/verify_etherscan";
 import "./scripts/tasks/verify_hardhat";
 import { getHardhatNetworkConfig, getHardhatApiKey, getHardhatEtherscanConfig } from "orderly-network-config";
@@ -94,7 +94,7 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       arbitrumSepolia: getHardhatApiKey("arbitrumSepolia"),
-      orderlySepolia: getHardhatApiKey("orderlySepolia"),
+      orderlySepolia: getHardhatApiKey("orderlySepolia") || "orderlySepolia",
       optimismSepolia: getHardhatApiKey("optimismSepolia"),
       polygonMumbai: getHardhatApiKey("polygonMumbai"),
       polygon: getHardhatApiKey("polygon")
