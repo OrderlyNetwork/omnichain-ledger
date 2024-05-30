@@ -10,7 +10,7 @@ export async function deployContract(hre: HardhatRuntimeEnvironment, name: strin
     from: deployer,
     log: true,
     autoMine: hre.network.tags.test,
-    deterministicDeployment: hre.ethers.utils.formatBytes32String(process.env.DETERMINISTIC_DEPLOYMENT_SALT || "deterministicDeploymentSalt")
+    deterministicDeployment: hre.ethers.encodeBytes32String(process.env.DETERMINISTIC_DEPLOYMENT_SALT || "deterministicDeploymentSalt")
   };
 
   let contract;

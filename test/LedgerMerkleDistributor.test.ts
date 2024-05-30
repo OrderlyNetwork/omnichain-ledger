@@ -1,8 +1,6 @@
-import BN from "bn.js";
 import fs from "fs";
 import { concat, BytesLike, hexlify as toHex } from "@ethersproject/bytes";
-import { ethers } from "hardhat";
-import { BigNumber, Contract } from "ethers";
+import { Contract } from "ethers";
 import { expect } from "chai";
 import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
 import { keccak256 } from "ethereum-cryptography/keccak";
@@ -33,7 +31,7 @@ describe("LedgerMerkleDistributor", function () {
 
     // Map amounts to get list og BigNumber
     const amountsBigNumber = amounts.map(amount => {
-      return ethers.BigNumber.from(amount);
+      return BigInt(amount);
     });
     return { tree, amountsBigNumber };
   }
@@ -102,9 +100,9 @@ describe("LedgerMerkleDistributor", function () {
     distributionId: number,
     token: LedgerToken,
     user: SignerWithAddress,
-    rewardAmount: BigNumber,
+    rewardAmount: BigInt,
     proof: string[],
-    expectedClaimedAmount?: BigNumber
+    expectedClaimedAmount?: BigInt
   ) {
     const userTotalStakingBalanceBefore = await distributor.userTotalStakingBalance(user.address);
 
@@ -118,7 +116,7 @@ describe("LedgerMerkleDistributor", function () {
     const userTotalStakingBalanceAfter = await distributor.userTotalStakingBalance(user.address);
     if (token === LedgerToken.ESORDER) {
       // Check that claimed amount has been staked
-      expect(userTotalStakingBalanceAfter).to.be.equal(userTotalStakingBalanceBefore.add(rewardAmount));
+      expect(userTotalStakingBalanceAfter).to.be.equal(userTotalStakingBalanceBefore + rewardAmount);
     } else if (token === LedgerToken.ORDER) {
       // Check that claimed amount has not been staked
       expect(userTotalStakingBalanceAfter).to.be.equal(userTotalStakingBalanceBefore);
@@ -205,7 +203,7 @@ describe("LedgerMerkleDistributor", function () {
 
     expect(await distributor.hasPendingRoot(distributionId)).to.be.equal(true);
 
-    const { tree: newTree } = prepareMerkleTree([user.address], [INITIAL_SUPPLY.add(1).toString()]);
+    const { tree: newTree } = prepareMerkleTree([user.address], [(BigInt(INITIAL_SUPPLY) + BigInt(1)).toString()]);
     const newStartTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
     const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
     await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, newStartTimestamp, newIpfsCid))
@@ -439,7 +437,7 @@ describe("LedgerMerkleDistributor", function () {
       user,
       amountsBigNumber2[0],
       tree2.getProof([user.address, amountsBigNumber2[0].toString()]),
-      amountsBigNumber2[0].sub(amountsBigNumber1[0])
+      amountsBigNumber2[0] - amountsBigNumber1[0]
     );
   });
 
@@ -547,7 +545,7 @@ describe("LedgerMerkleDistributor", function () {
       distributionId
     );
     await expect(
-      distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0].add(1), tree.getProof(0))
+      distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0] + BigInt(1), tree.getProof(0))
     ).to.be.revertedWithCustomError(distributor, "InvalidMerkleProof");
   });
 
@@ -606,7 +604,7 @@ describe("LedgerMerkleDistributor", function () {
       "0x09bc5fd4df3d0b9f5e9010589ee848f55b665ea32e4a7a05e7a053c82707060a"
     ];
 
-    const claimingAmount = BigNumber.from("1000000000000000000");
+    const claimingAmount = BigInt("1000000000000000000");
 
     expect(await distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proof)).to.not.be.reverted;
   });
@@ -643,7 +641,7 @@ describe("LedgerMerkleDistributor", function () {
 
   it("check leaf calculation", async function () {
     const address = "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720";
-    const amount = new BN("10000000000000000000");
+    const amount = BigInt("10000000000000000000");
 
     const leafHash =
       "0x" + bytesToHex(keccak256(keccak256(hexToBytes(defaultAbiCoder.encode(["address", "uint256"], [address, amount.toString()])))));
@@ -684,7 +682,7 @@ describe("LedgerMerkleDistributor", function () {
     await helpers.time.increaseTo(startTimestamp + 1);
 
     const claimerAddress1 = "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f";
-    const claimingAmount1 = BigNumber.from("9000000000000000000");
+    const claimingAmount1 = BigInt("9000000000000000000");
     const proof1 = [
       "0xd8b413ffc6023e4aea407df01bac0abcfac6b349db16bb6b2d49e6fa9f834040",
       "0x0ad03fee1ce220098eecf119709aa8533e99532019819fb117a0b01a0212472c",
@@ -693,7 +691,7 @@ describe("LedgerMerkleDistributor", function () {
     await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress1, chainId, claimingAmount1, proof1)).to.not.be.reverted;
 
     const claimerAddress2 = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-    const claimingAmount2 = BigNumber.from("1000000000000000000");
+    const claimingAmount2 = BigInt("1000000000000000000");
     const proof2 = [
       "0xdf6354b3971c117049c8a858663ea0872246715112135016ff08060d47340e87",
       "0x0ad03fee1ce220098eecf119709aa8533e99532019819fb117a0b01a0212472c",
@@ -702,7 +700,7 @@ describe("LedgerMerkleDistributor", function () {
     await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress2, chainId, claimingAmount2, proof2)).to.not.be.reverted;
 
     const claimerAddress3 = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc";
-    const claimingAmount3 = BigNumber.from("6000000000000000000");
+    const claimingAmount3 = BigInt("6000000000000000000");
     const proof3 = [
       "0xae04af11dc3968a94f29f8d0b4f11c1890c2483a239c5a333545fc73d953bb1d",
       "0x93544216020fd51b6fcaaa9a88420f01d90f6298a4c39c1d20b02653b578eb60",
@@ -725,7 +723,7 @@ describe("LedgerMerkleDistributor", function () {
 
     for (const proof of cefi_merkle_proofs["proofs"]) {
       const claimerAddress = proof["leafValue"]["address"];
-      const claimingAmount = BigNumber.from(proof["leafValue"]["amount"]);
+      const claimingAmount = BigInt(proof["leafValue"]["amount"]);
       const proofArray = proof["neighbourHashHierarchy"];
       await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proofArray)).to.not.be.reverted;
     }

@@ -1,6 +1,4 @@
 import "@nomicfoundation/hardhat-toolbox";
-import "@nomiclabs/hardhat-ethers";
-import "@nomiclabs/hardhat-etherscan";
 import "@openzeppelin/hardhat-upgrades";
 import "@typechain/hardhat";
 import "dotenv/config";
@@ -11,6 +9,7 @@ import type { HardhatUserConfig } from "hardhat/config";
 import { task } from "hardhat/config";
 
 import "./scripts/tasks/deploy_to";
+import "./scripts/tasks/upgrade_ledger";
 // import "./scripts/tasks/verify_local";
 import "./scripts/tasks/verify_etherscan";
 import "./scripts/tasks/verify_hardhat";
@@ -49,7 +48,7 @@ const config: HardhatUserConfig = {
   },
   typechain: {
     outDir: "types",
-    target: "ethers-v5"
+    target: "ethers-v6"
   },
   paths: {
     artifacts: "artifacts",

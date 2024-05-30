@@ -44,7 +44,7 @@ describe("Staking", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
     expect(await ledger.totalStakedAmount()).to.equal(0);
-    expect(await helpers.time.latest()).closeTo((await ledger.lastValorUpdateTimestamp()).toNumber(), 2);
+    expect(await helpers.time.latest()).closeTo(await ledger.lastValorUpdateTimestamp(), 2);
     expect(await ledger.accValorPerShareScaled()).to.equal(0);
     expect(await ledger.unstakeLockPeriod()).to.equal(60 * 60 * 24 * 7);
     expect(await ledger.userTotalStakingBalance(user.address)).to.equal(0);
@@ -84,7 +84,7 @@ describe("Staking", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
     const chainId = 0;
-    const precision = VALOR_PER_SECOND.mul(2);
+    const precision = VALOR_PER_SECOND * BigInt(2);
     await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 1000);
     await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ORDER, 1000);
 
@@ -92,16 +92,16 @@ describe("Staking", function () {
     // Our test valor emission is 1 valor per second.
     // Two users staked equal amount in total, so they should receive the same amount of valor.
     // But they can be a bit greater due to a bit of time pass before checking the valor.
-    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY.div(2), precision);
-    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY.div(2), precision);
+    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
 
     await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, 1000);
 
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
     // Unstake request should stop valor emission for user, but not for others
-    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY.div(2), precision);
+    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
     // So, owner should receive all valor emission for the day.
-    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY.div(2).add(VALOR_PER_DAY), precision);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY / BigInt(2) + VALOR_PER_DAY, precision);
 
     //Cancel unstake request should resume valor emission
     await ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId);
@@ -109,14 +109,14 @@ describe("Staking", function () {
 
     // Dayly valor emission should be again divided between two users
     expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY, precision);
-    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY.mul(2), precision);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY * BigInt(2), precision);
   });
 
   it("users share valor emission according to their stake", async function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
     const chainId = 0;
-    const precision = VALOR_PER_SECOND.mul(3);
+    const precision = VALOR_PER_SECOND * BigInt(3);
     // $ORDER and es$ORDER should be counted as well
     await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 500);
     await ledger.connect(user).stake(user.address, chainId, LedgerToken.ESORDER, 500);
@@ -127,9 +127,9 @@ describe("Staking", function () {
     // Our test valor emission is 1 valor per second.
     // Three users staked equal amount in total, so they should receive the same amount of valor.
     // But they can be a bit greater due to a bit of time pass before checking the valor.
-    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY.div(3), precision);
-    expect(await ledger.getUserValor(updater.address)).to.closeTo(VALOR_PER_DAY.div(3), precision);
-    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY.div(3), precision);
+    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY / BigInt(3), precision);
+    expect(await ledger.getUserValor(updater.address)).to.closeTo(VALOR_PER_DAY / BigInt(3), precision);
+    expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY / BigInt(3), precision);
   });
 
   it("user can make unstake request for orders", async function () {

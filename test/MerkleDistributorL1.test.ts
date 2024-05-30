@@ -22,7 +22,7 @@ describe("MerkleDistributorL1", function () {
 
     // Map amounts to get list og BigNumber
     const amountsBigNumber = amounts.map(amount => {
-      return ethers.BigNumber.from(amount);
+      return BigInt(amount);
     });
     return { tree, amountsBigNumber };
   }
@@ -47,12 +47,12 @@ describe("MerkleDistributorL1", function () {
     await distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid);
 
     // Calculate total amount of tokens to be distributed
-    let totalAmount = BigNumber.from(0);
+    let totalAmount = BigInt(0);
     amountsBigNumber.forEach(amount => {
-      totalAmount = totalAmount.add(amount);
+      totalAmount = totalAmount + amount;
     });
 
-    await tokenContract.connect(owner).transfer(distributor.address, totalAmount);
+    await tokenContract.connect(owner).transfer(await distributor.getAddress(), totalAmount);
     return { tree, amountsBigNumber, startTimestamp, endTimestamp, ipfsCid };
   }
 
@@ -83,7 +83,8 @@ describe("MerkleDistributorL1", function () {
     proof: string[],
     expectedClaimedAmount?: BigNumber
   ) {
-    const distributorBalanceBefore = await tokenContract.balanceOf(distributor.address);
+    const distributorAddress = await distributor.getAddress();
+    const distributorBalanceBefore = await tokenContract.balanceOf(distributorAddress);
     const userBalanceBefore = await tokenContract.balanceOf(user.address);
 
     // User should be able to claim tokens
@@ -96,13 +97,13 @@ describe("MerkleDistributorL1", function () {
     expect(await distributor.getClaimed(user.address)).to.be.equal(rewardAmount);
 
     // Check that the distributor has transferred the tokens
-    expect(await tokenContract.balanceOf(distributor.address)).to.be.equal(
-      distributorBalanceBefore.sub(expectedClaimedAmount ? expectedClaimedAmount : rewardAmount)
+    expect(await tokenContract.balanceOf(distributorAddress)).to.be.equal(
+      distributorBalanceBefore - BigInt(expectedClaimedAmount ? expectedClaimedAmount : rewardAmount)
     );
 
     // Check that the user has received the tokens
     expect(await tokenContract.balanceOf(user.address)).to.be.equal(
-      userBalanceBefore.add(expectedClaimedAmount ? expectedClaimedAmount : rewardAmount)
+      userBalanceBefore + BigInt(expectedClaimedAmount ? expectedClaimedAmount : rewardAmount)
     );
   }
 
@@ -151,10 +152,8 @@ describe("MerkleDistributorL1", function () {
     const [owner, user] = await ethers.getSigners();
 
     const orderToken = await orderTokenCF.connect(owner).deploy(TOTAL_SUPPLY);
-    await orderToken.deployed();
 
-    const distributor = await upgrades.deployProxy(distributorCF, [owner.address, orderToken.address], { kind: "uups" });
-    await distributor.deployed();
+    const distributor = await upgrades.deployProxy(distributorCF, [owner.address, await orderToken.getAddress()], { kind: "uups" });
 
     return { orderToken, distributor, owner, user };
   }
@@ -305,10 +304,11 @@ describe("MerkleDistributorL1", function () {
   it("repeat claim should transfer nothing", async function () {
     const { orderToken, distributor, owner, user } = await distributorFixture();
     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
+    const distributorAddress = await distributor.getAddress();
 
     await claimUserRewardsAndCheckResults(orderToken, distributor, user, amountsBigNumber[0], tree.getProof(0));
 
-    const distributorBalanceBefore = await orderToken.balanceOf(distributor.address);
+    const distributorBalanceBefore = await orderToken.balanceOf(distributorAddress);
     const userBalanceBefore = await orderToken.balanceOf(user.address);
 
     // Repeat claim should transfer nothing and not emit events
@@ -319,7 +319,7 @@ describe("MerkleDistributorL1", function () {
     expect(await distributor.getClaimed(user.address)).to.be.equal(amountsBigNumber[0]);
 
     // Check that the distributor balance has not changed
-    expect(await orderToken.balanceOf(distributor.address)).to.be.equal(distributorBalanceBefore);
+    expect(await orderToken.balanceOf(distributorAddress)).to.be.equal(distributorBalanceBefore);
 
     // Check that the user balance has not changed
     expect(await orderToken.balanceOf(user.address)).to.be.equal(userBalanceBefore);
@@ -370,7 +370,7 @@ describe("MerkleDistributorL1", function () {
       user,
       amountsBigNumber2[0],
       tree2.getProof(0),
-      amountsBigNumber2[0].sub(amountsBigNumber1[0])
+      amountsBigNumber2[0] - BigInt(amountsBigNumber1[0])
     );
   });
 
@@ -399,7 +399,7 @@ describe("MerkleDistributorL1", function () {
     expect(await distributor.getClaimed(user.address)).to.be.equal(amountsBigNumber2[0]);
 
     // Check that the user has received the tokens
-    expect(await orderToken.balanceOf(user.address)).to.be.equal(userBalanceBefore.add(amountsBigNumber2[0]));
+    expect(await orderToken.balanceOf(user.address)).to.be.equal(userBalanceBefore + BigInt(amountsBigNumber2[0]));
   });
 
   it("should fail if the root is not active", async function () {
@@ -423,7 +423,7 @@ describe("MerkleDistributorL1", function () {
   it("should fail if user proof is not valid", async function () {
     const { orderToken, distributor, owner, user } = await distributorFixture();
     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
-    await expect(distributor.connect(user).claimRewards(amountsBigNumber[0].add(1), tree.getProof(0))).to.be.revertedWithCustomError(
+    await expect(distributor.connect(user).claimRewards(amountsBigNumber[0] + BigInt(1), tree.getProof(0))).to.be.revertedWithCustomError(
       distributor,
       "InvalidMerkleProof"
     );
@@ -493,11 +493,13 @@ describe("MerkleDistributorL1", function () {
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const endTimestamp = 0;
     const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
+    const distributorAddress = await distributor.getAddress();
+
     await distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid);
-    await orderToken.connect(owner).transfer(distributor.address, amountsBigNumber[0]);
+    await orderToken.connect(owner).transfer(distributorAddress, amountsBigNumber[0]);
     await helpers.time.increaseTo(startTimestamp + 1);
 
-    const distributorBalanceBefore = await orderToken.balanceOf(distributor.address);
+    const distributorBalanceBefore = await orderToken.balanceOf(distributorAddress);
     const userBalanceBefore = await orderToken.balanceOf(user.address);
 
     await distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0));
@@ -506,7 +508,7 @@ describe("MerkleDistributorL1", function () {
     expect(await distributor.getClaimed(user.address)).to.be.equal(amountsBigNumber[0]);
 
     // Check that the distributor has transferred the tokens
-    expect(await orderToken.balanceOf(distributor.address)).to.be.equal(distributorBalanceBefore.sub(amountsBigNumber[0]));
+    expect(await orderToken.balanceOf(distributorAddress)).to.be.equal(distributorBalanceBefore - amountsBigNumber[0]);
 
     // Check that withdraw impossible if endTimestamp is zero
     await expect(distributor.connect(owner).withdraw()).to.be.revertedWithCustomError(distributor, "DistributionStillActive");
@@ -524,26 +526,27 @@ describe("MerkleDistributorL1", function () {
 
   it("can not withdraw if endTimestamp has not passed", async function () {
     const { orderToken, distributor, owner, user } = await distributorFixture();
-    orderToken.connect(owner).transfer(distributor.address, "10000000000");
+    orderToken.connect(owner).transfer(await distributor.getAddress(), "10000000000");
     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
     await expect(distributor.connect(owner).withdraw()).to.be.revertedWithCustomError(distributor, "DistributionStillActive");
   });
 
   it("can withdraw if endTimestamp has passed", async function () {
     const { orderToken, distributor, owner, user } = await distributorFixture();
-    orderToken.connect(owner).transfer(distributor.address, "10000000000");
+    const distributorAddress = await distributor.getAddress();
+    orderToken.connect(owner).transfer(distributorAddress, "10000000000");
     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
     await helpers.time.increaseTo((await helpers.time.latest()) + ONE_DAY_IN_SECONDS * 2);
 
-    const distributorBalanceBefore = await orderToken.balanceOf(distributor.address);
+    const distributorBalanceBefore = await orderToken.balanceOf(distributorAddress);
     const ownerBalanceBefore = await orderToken.balanceOf(owner.address);
 
     await distributor.connect(owner).withdraw();
 
     // Check that the distributor has transferred the tokens
-    expect(await orderToken.balanceOf(distributor.address)).to.be.equal(0);
+    expect(await orderToken.balanceOf(distributorAddress)).to.be.equal(0);
 
     // Check that the owner has received the tokens
-    expect(await orderToken.balanceOf(owner.address)).to.be.equal(ownerBalanceBefore.add(distributorBalanceBefore));
+    expect(await orderToken.balanceOf(owner.address)).to.be.equal(ownerBalanceBefore + distributorBalanceBefore);
   });
 });

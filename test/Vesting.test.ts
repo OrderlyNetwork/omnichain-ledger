@@ -69,8 +69,8 @@ describe("Vesting", function () {
 
     const chainId = 0;
     const vestingAmount = 1000;
-    ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
-    ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
+    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
+    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
 
     // Both requests can be calculated, so, they are created
     expect(await ledger.connect(user).calculateVestingOrderAmount(user.address, 0)).to.be.equal(0);
