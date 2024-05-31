@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { deployments, ethers, upgrades } from "hardhat";
 import { BigNumberish, ContractFactory } from "ethers";
 
@@ -70,55 +68,4 @@ export async function ledgerFixture() {
   // console.log("ledger: ", ledger.address);
 
   return { ledger, orderTokenOft, owner, user, updater, operator };
-}
-
-type Proof = {
-  leafSelfHash: string;
-  neighbourHashHierarchy: string[];
-  leafValue: {
-    address: string;
-    amount: string;
-    token: string;
-    extraInfo: string;
-  };
-};
-
-function parseToJSON(data: string): { proofs: Proof[]; root: string } {
-  const proofPattern = /proof\d+==========MerkleProofBO\((.*?)\)/g;
-  const rootPattern = /root==========(\w+)/;
-  const proofsData = [...data.matchAll(proofPattern)].map(match => match[1]);
-  const root = rootPattern.exec(data)![1];
-  const proofs: Proof[] = proofsData.map(proofData => {
-    const [leafSelfHash, neighbourHashHierarchy, leafValue] = proofData.split(", ");
-    const [address, amount, token, extraInfo] = leafValue.replace("MerkleLeafValueBO(", "").replace(")", "").split(", ");
-    console.log("address: %s, amount: %s, token: %s, extraInfo: %s", address, amount, token, extraInfo);
-    return {
-      leafSelfHash: leafSelfHash.split("=")[1],
-      neighbourHashHierarchy: neighbourHashHierarchy.split("=")[1].replace("[", "").replace("]", "").split(", "),
-      leafValue: {
-        address: address.split("=")[1],
-        amount: amount.split("=")[1],
-        token: token.split("=")[1],
-        extraInfo: extraInfo.split("=")[1]
-      }
-    };
-  });
-  return { proofs, root };
-}
-
-export async function readFileContentAsJson(filePath: fs.PathOrFileDescriptor): Promise<any> {
-  // Define the path to the file
-  //   const filePath = path.join(__dirname, fileName);
-
-  console.log("filePath: ", filePath);
-  // Read the file content
-  const fileContent = fs.readFileSync(filePath, "utf-8");
-
-  // Convert the file content to JSON
-  const jsonData = parseToJSON(fileContent);
-
-  console.log(JSON.stringify(jsonData, null, 2));
-
-  //   return jsonData;
-  return jsonData;
 }

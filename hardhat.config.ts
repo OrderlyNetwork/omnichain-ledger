@@ -108,6 +108,9 @@ const config: HardhatUserConfig = {
     deployments: {
       hardhat: ["external"]
     }
+  },
+  mocha: {
+    // timeout: 100000000
   }
 };
 

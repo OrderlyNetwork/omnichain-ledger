@@ -1,5 +1,4 @@
 import fs from "fs";
-import path from "path";
 import { concat, BytesLike, hexlify as toHex } from "@ethersproject/bytes";
 import { Contract } from "ethers";
 import { expect } from "chai";
@@ -10,7 +9,8 @@ import { defaultAbiCoder } from "@ethersproject/abi";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture, readFileContentAsJson } from "./utilities/index";
+import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture } from "./utilities/index";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("LedgerMerkleDistributor", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -159,6 +159,42 @@ describe("LedgerMerkleDistributor", function () {
     expect(proposedMerkleRoot).to.be.equal(tree.root);
     expect(startTimestamp).to.be.equal(startTimestamp);
     expect(proposedIpfsCid).to.be.equal(ipfsCid);
+  }
+
+  async function checkCeFiProofsFromFile(
+    distributor: Contract,
+    updater: HardhatEthersSigner,
+    user: HardhatEthersSigner,
+    distributionId: number,
+    cefiProofsFileName: string
+  ) {
+    const chainId = 1;
+    const cefi_merkle_proofs = JSON.parse(fs.readFileSync(cefiProofsFileName, "utf8"));
+    const root = cefi_merkle_proofs["root"];
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+
+    // console.log("root: ", root);
+
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
+    await helpers.time.increaseTo(startTimestamp + 1);
+
+    let i = 0;
+    for (const proof of cefi_merkle_proofs["proofs"]) {
+      const claimerAddress = proof["leafValue"]["address"];
+      const claimerAddressStr = proof["leafValue"]["amount"];
+      const claimingAmountBigInt = BigInt(claimerAddressStr);
+      const proofArray = proof["neighbourHashHierarchy"];
+
+      //   console.log("claimerAddress: ", claimerAddress);
+      //   console.log("claimingAmountBigInt: ", claimingAmountBigInt);
+      //   console.log("proofArray: ", proofArray);
+
+      await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmountBigInt, proofArray)).to.not.be
+        .reverted;
+      if (i++ > 100) {
+        break;
+      }
+    }
   }
 
   async function distributorFixture() {
@@ -717,55 +753,11 @@ describe("LedgerMerkleDistributor", function () {
     await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress3, chainId, claimingAmount3, proof3)).to.not.be.reverted;
   });
 
-  it("check CeFi root and proof second", async function () {
+  it("check CeFi root and proof from files", async function () {
     const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
 
-    const distributionId = 1;
-    const chainId = 1;
-    const cefi_merkle_proofs = JSON.parse(fs.readFileSync("./test/cefi_merkle_proofs.json", "utf8"));
-    const root = cefi_merkle_proofs["root"];
-    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
-
-    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
-    await helpers.time.increaseTo(startTimestamp + 1);
-
-    for (const proof of cefi_merkle_proofs["proofs"]) {
-      const claimerAddress = proof["leafValue"]["address"];
-      const claimingAmount = BigInt(proof["leafValue"]["amount"]);
-      const proofArray = proof["neighbourHashHierarchy"];
-      await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proofArray)).to.not.be.reverted;
-    }
-  });
-
-  it("check CeFi root and proof 11 leafs", async function () {
-    const { orderTokenOft, distributor, owner, user, updater } = await distributorFixture();
-
-    const distributionId = 1;
-    const chainId = 1;
-    const cefi_merkle_proofs = JSON.parse(fs.readFileSync("./test/cefi_merkle_proofs_11_leafs_2.json", "utf8"));
-    const root = cefi_merkle_proofs["root"];
-    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
-
-    console.log("root: ", root);
-
-    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, root, startTimestamp, ipfsCid);
-    await helpers.time.increaseTo(startTimestamp + 1);
-
-    for (const proof of cefi_merkle_proofs["proofs"]) {
-      const claimerAddress = proof["leafValue"]["address"];
-      const claimingAmount = BigInt(proof["leafValue"]["amount"]);
-      const proofArray = proof["neighbourHashHierarchy"];
-      console.log("claimerAddress: ", claimerAddress);
-      console.log("claimingAmount: ", claimingAmount);
-      console.log("proofArray: ", proofArray);
-
-      await expect(distributor.connect(user).claimRewards(distributionId, claimerAddress, chainId, claimingAmount, proofArray)).to.not.be.reverted;
-      //   .to.be.revertedWithCustomError(distributor, "InvalidMerkleProof");
-    }
-  });
-
-  it("read CeFi file format", async function () {
-    const json_data = readFileContentAsJson(path.join(__dirname, "cefi_merkle_proofs_11_leafs.txt"));
-    console.log("json_data: ", json_data);
+    await checkCeFiProofsFromFile(distributor, updater, user, 1, "./test/cefi_merkle_proofs_6_leafs.json");
+    await checkCeFiProofsFromFile(distributor, updater, user, 2, "./test/cefi_merkle_proofs_11_leafs.json");
+    await checkCeFiProofsFromFile(distributor, updater, user, 3, "./test/cefi_merkle_proofs_20k_leafs.json");
   });
 });
