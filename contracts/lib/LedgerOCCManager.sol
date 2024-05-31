@@ -8,6 +8,8 @@ import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./OCCTypes.sol";
 
 // oz imports
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 // lz imports
 import {OApp, MessagingFee, Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
@@ -25,8 +27,9 @@ interface ILedgerReceiver {
  * @title LedgerOCCManager for handle OCC message between ledger and vault
  * @dev This contract is used to send OCC message from ledger to vault
  */
-contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
+contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatalayout, UUPSUpgradeable {
     using OptionsBuilder for bytes;
+    using OFTComposeMsgCodec for bytes;
 
     /// @dev ledger address
     address public ledgerAddr;
@@ -40,7 +43,9 @@ contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         _;
     }
 
-    function initilize(address _oft, address _owner) external initializer {
+    function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+
+    function initialize(address _oft, address _owner) external initializer {
         ledgerAccessControlInit(_owner);
 
         orderTokenOft = _oft;
@@ -129,9 +134,44 @@ contract LedgerOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         return IOFT(orderTokenOft).quoteSend(sendParam, false).nativeFee;
     }
 
+    /**
+     *
+     * @param _endpoint The the caller of function lzCompose() on the relayer contract, it should be the endpoint
+     * @param _localSender The composeMsg sender on local network, it should be the oft/adapter contract
+     * @param _eid The eid to identify the network from where the composeMsg sent
+     * @param _remoteSender The address to identiy the sender on the remote network
+     */
+    function _authorizeComposeMsgSender(
+        address _endpoint,
+        address _localSender,
+        uint32 _eid,
+        address _remoteSender
+    ) internal view returns (bool) {
+        address remoteLedgerProxy = chainId2ProxyLedgerAddr[eid2ChainId[_eid]];
+        return (
+            lzEndpoint == _endpoint &&
+            _localSender == orderTokenOft &&
+            _remoteSender == remoteLedgerProxy
+        );
+    }
 
-    function lzCompose(address, bytes32, bytes calldata _message, address, bytes calldata /*_extraData*/) external payable {
-        bytes memory _composeMsgContent = OFTComposeMsgCodec.composeMsg(_message);
+
+
+    function lzCompose(
+        address _from,
+        bytes32 /*_guid*/,
+        bytes calldata _message,
+        address /*executor*/,
+        bytes calldata /*_extraData*/ 
+    ) external payable {
+        uint32 srcEid = _message.srcEid();
+        address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
+        require(
+            _authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender),
+            "OrderlyBox: composeMsg sender check failed"
+        );
+
+        bytes memory _composeMsgContent = _message.composeMsg();
 
         OCCVaultMessage memory message = abi.decode(_composeMsgContent, (OCCVaultMessage));
         ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(message);

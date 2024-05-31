@@ -1,0 +1,22 @@
+{
+  "dev": {
+    "ledger": {
+      "impl": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
+      "proxy": "0x076C82f00DD5B4F51663bcD910c46fddD2395cec"
+    },
+    "ledger_occ_manager": {
+      "impl": "0xd5379cB5921C2afb62CD1059dC3c8514cD265cB0",
+      "proxy": "0xfAFdb7fe1dF34f68F855781Bd0989CE92cE1e19a"
+    },
+    "ledger_proxy": {
+      "arbsepolia": {
+        "impl": "0x68b804f05537ce582268f7039a456e5f9e2f009c",
+        "proxy": "0xc47736159951CC2EE0aDc6Da68cBee9E0be479C3"
+      },
+      "opsepolia": {
+        "impl": "0xE1bD0BDD60B966E1c0bE89D16504357C60c21Ac0",
+        "proxy": "0xF77f660aBa06A131561BE3eB207C7CfE972C0aeD"
+      }
+    }
+  }
+}

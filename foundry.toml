@@ -20,6 +20,8 @@ ast = true
 build_info = true
 extra_output = ["storageLayout"]
 
+fs_permissions = [{ access = "read-write", path = "./"}]
+
 remappings = [
     # Due to a misconfiguration of solidity-bytes-utils, an outdated version
     # of forge-std is being dragged in

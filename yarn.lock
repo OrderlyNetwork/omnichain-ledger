@@ -564,20 +564,20 @@
     p-memoize "~4.0.4"
     zod "^3.22.4"
 
-"@layerzerolabs/devtools-evm@~0.3.8":
-  version "0.3.8"
-  resolved "https://registry.yarnpkg.com/@layerzerolabs/devtools-evm/-/devtools-evm-0.3.8.tgz#85cff22c5910d27bab2b68c2321f2afedea492db"
-  integrity sha512-/HQGVQ5QAPhQ4YmXK49zOw1q0n1NxRNnQnBINpvbkn5Pq33oW1+PpecG6jVqQoCW88m9Uf4sqoB4huMUIFefIA==
+"@layerzerolabs/devtools-evm@~0.3.9":
+  version "0.3.9"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/devtools-evm/-/devtools-evm-0.3.9.tgz#44320d41a6c3a651613f09533d005bd67bd5865a"
+  integrity sha512-otVX7lnbdlgUv41oVOm7+nlZjvvlHYp6FGjZD1G3RKUZrdfRWOpKNlQI/fMO2Oe/OA7eJlu9PLaA6ELIXhFjzA==
   dependencies:
     "@safe-global/api-kit" "^1.3.0"
     "@safe-global/protocol-kit" "^1.3.0"
     ethers "5.7.2"
     p-memoize "~4.0.4"
 
-"@layerzerolabs/devtools@~0.3.12":
-  version "0.3.12"
-  resolved "https://registry.yarnpkg.com/@layerzerolabs/devtools/-/devtools-0.3.12.tgz#63207117f907f0d0350f6f0074b0c7bec4048b34"
-  integrity sha512-9tNKmQsfaanSR3TCMQaFTZa8RjoCLf+fYNuvqPT79QA9emvm1D0rv2HFZMjnP1Ft6FrcWB72+FuLUaE+79fsgA==
+"@layerzerolabs/devtools@~0.3.13":
+  version "0.3.13"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/devtools/-/devtools-0.3.13.tgz#06c425b3971be2ab3562304f29499a3e77a559c9"
+  integrity sha512-lm0NiFJmTzHS48XLLEwyC+lA0rNUQVWRpSaALqiKcRrxGosnzk+Rb7XvLnd5Cb9SXkMyBunliLssFvuJP7GrFA==
   dependencies:
     exponential-backoff "~3.1.1"
     js-yaml "~4.1.0"
@@ -726,17 +726,17 @@
   integrity sha512-Ucg11Sn3Zy7IWjDfl2RMNSZUbMkllxsd+hHc72uKVMZ64I7jEfI1j1hUbZE47g/k9cc4OH+nd7lVhLbX9A+19Q==
 
 "@layerzerolabs/toolbox-hardhat@~0.2.25":
-  version "0.2.25"
-  resolved "https://registry.yarnpkg.com/@layerzerolabs/toolbox-hardhat/-/toolbox-hardhat-0.2.25.tgz#14923ac3c47af30f9af496d6e9550576aa96aa9d"
-  integrity sha512-fAsUDUcHm2njx6aEzA9OUh4mX11aA16qQLlFw6UhjYIZNEo+IXCX+rRpV5qdtec4+BIMg2qzRqUm+7G+IfbIRw==
+  version "0.2.26"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/toolbox-hardhat/-/toolbox-hardhat-0.2.26.tgz#10dc6c7ae990d67232a7e30ca5dfa88d1818861b"
+  integrity sha512-MJrPZ9TAOhO2mLfdOBPWXcUvpyNNxsQThNb4lp2zJbcFPFblx6tHys6T1z9/1BaRlvA9Tc4+hZThrHud3eJN8Q==
   dependencies:
     "@ethersproject/abi" "^5.7.0"
     "@ethersproject/address" "~5.7.0"
     "@ethersproject/bytes" "^5.7.0"
     "@ethersproject/contracts" "^5.7.0"
     "@ethersproject/hash" "^5.7.0"
-    "@layerzerolabs/devtools" "~0.3.12"
-    "@layerzerolabs/devtools-evm" "~0.3.8"
+    "@layerzerolabs/devtools" "~0.3.13"
+    "@layerzerolabs/devtools-evm" "~0.3.9"
     "@layerzerolabs/devtools-evm-hardhat" "~0.3.16"
     "@layerzerolabs/io-devtools" "~0.1.9"
     "@layerzerolabs/lz-definitions" "~2.3.3"
@@ -1534,7 +1534,7 @@
   dependencies:
     "@types/node" "*"
 
-"@types/glob@^7.1.1":
+"@types/glob@^7.1.1", "@types/glob@~7.2.0":
   version "7.2.0"
   resolved "https://registry.yarnpkg.com/@types/glob/-/glob-7.2.0.tgz#bc1b5bf3aa92f25bd5dd39f35c57361bdce5b2eb"
   integrity sha512-ZUxbzKl0IfJILTS6t7ip5fQQM/J3TJYubDm3nMbgubNNYS62eXeUpoLUC8/7fJNiFYHTrGPQn7hspDUzIHX3UA==
@@ -1630,6 +1630,14 @@
   resolved "https://registry.yarnpkg.com/@types/secp256k1/-/secp256k1-4.0.6.tgz#d60ba2349a51c2cbc5e816dcd831a42029d376bf"
   integrity sha512-hHxJU6PAEUn0TP4S/ZOzuTUvJWuZ6eIKeNKb5RBpODvSl6hp1Wrw4s7ATY50rklRCScUDpHzVA/DQdSjJ3UoYQ==
   dependencies:
+    "@types/node" "*"
+
+"@types/shelljs@^0.8.15":
+  version "0.8.15"
+  resolved "https://registry.yarnpkg.com/@types/shelljs/-/shelljs-0.8.15.tgz#22c6ab9dfe05cec57d8e6cb1a95ea173aee9fcac"
+  integrity sha512-vzmnCHl6hViPu9GNLQJ+DZFd6BQI2DBTUeOvYHqkWQLMfKAAQYMb/xAmZkTogZI/vqXHCWkqDRymDI5p0QTi5Q==
+  dependencies:
+    "@types/glob" "~7.2.0"
     "@types/node" "*"
 
 "@types/tinycolor2@^1.4.0":
@@ -3184,9 +3192,9 @@ ee-first@1.1.1:
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
 electron-to-chromium@^1.4.668:
-  version "1.4.786"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.786.tgz#974d7eeac61c5ffa285dc55555d06b97b05f6831"
-  integrity sha512-i/A2UB0sxYViMN0M2zIotQFRIOt1jLuVXudACHBDiJ5gGuAUzf/crZxwlBTdA0O52Hy4CNtTzS7AKRAacs/08Q==
+  version "1.4.787"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.787.tgz#3eedd0a3b8be2b9e96e21675d399786ad90b99ed"
+  integrity sha512-d0EFmtLPjctczO3LogReyM2pbBiiZbnsKnGF+cdZhsYzHm/A0GV7W94kqzLD8SN4O3f3iHlgLUChqghgyznvCQ==
 
 elliptic@6.5.4:
   version "6.5.4"
@@ -5792,7 +5800,7 @@ minimatch@^9.0.4:
   dependencies:
     brace-expansion "^2.0.1"
 
-minimist@^1.2.0, minimist@^1.2.5, minimist@^1.2.6, minimist@^1.2.7:
+minimist@^1.2.0, minimist@^1.2.5, minimist@^1.2.6, minimist@^1.2.7, minimist@^1.2.8:
   version "1.2.8"
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.8.tgz#c1a464e7693302e082a075cee0c057741ac4772c"
   integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
@@ -6170,19 +6178,15 @@ optionator@^0.9.3:
     type-check "^0.4.0"
     word-wrap "^1.2.5"
 
-"orderly-network-config@https://gitlab.com/orderlynetwork/orderly-v2/network_config.git":
+"orderly-network-config@git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git":
   version "1.0.0"
-  resolved "https://gitlab.com/orderlynetwork/orderly-v2/network_config.git#f3cebfdd004c737bbdf922a45085cf99f4c3aa42"
+  resolved "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git#f3cebfdd004c737bbdf922a45085cf99f4c3aa42"
   dependencies:
     cross-env "^7.0.3"
     ethers "^6.11.1"
     jsdom "^24.0.0"
     jsdom-global "^3.0.2"
     ts-node "^10.9.2"
-
-"orderly-omnichain-occ@https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#dev":
-  version "0.0.1"
-  resolved "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#1373830a062183e1e3869055af64c459919ad618"
 
 ordinal@^1.0.3:
   version "1.0.3"
@@ -7922,9 +7926,9 @@ type-is@~1.6.18:
     mime-types "~2.1.24"
 
 type@^2.7.2:
-  version "2.7.2"
-  resolved "https://registry.yarnpkg.com/type/-/type-2.7.2.tgz#2376a15a3a28b1efa0f5350dcf72d24df6ef98d0"
-  integrity sha512-dzlvlNlt6AXU7EBSfpAscydQ7gXB+pPGsPnfJnZpiNJBDj7IaJzQlBZYGdEi4R9HmPdBv2XmWJ6YUtoTa7lmCw==
+  version "2.7.3"
+  resolved "https://registry.yarnpkg.com/type/-/type-2.7.3.tgz#436981652129285cc3ba94f392886c2637ea0486"
+  integrity sha512-8j+1QmAbPvLZow5Qpi6NCaN8FB60p/6x8/vfNqOk/hC+HuvFZhL4+WfekuhQLiqFZXOgQdrs3B+XxEmCc6b3FQ==
 
 typechain@^8.1.0:
   version "8.3.2"

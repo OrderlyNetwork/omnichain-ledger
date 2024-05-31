@@ -21,6 +21,8 @@ import { LedgerPayloadTypes, PayloadDataType } from "./lib/LedgerTypes.sol";
  */
 contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
 
+    using OFTComposeMsgCodec for bytes;
+
     event ClaimRewardTokenTransferred(address indexed user, uint256 amount);
     event WithdrawOrderTokenTransferred(address indexed user, uint256 amount);
     event ClaimUsdcRevenueTransferred(address indexed user, uint256 amount);
@@ -179,12 +181,40 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         return estimateCCFeeFromVaultToLedger(occMsg);
     }
 
+    /**
+     *
+     * @param _endpoint The the caller of function lzCompose() on the relayer contract, it should be the endpoint
+     * @param _localSender The composeMsg sender on local network, it should be the oft/adapter contract
+     * @param _eid The eid to identify the network from where the composeMsg sent
+     * @param _remoteSender The address to identiy the sender on the remote network
+     */
+    function _authorizeComposeMsgSender(
+        address _endpoint,
+        address _localSender,
+        uint32 _eid,
+        address _remoteSender
+    ) internal view returns (bool) {
+        return (
+            lzEndpoint == _endpoint &&
+            _localSender == orderTokenOft &&
+            _remoteSender == ledgerAddr &&
+            eid2ChainId[_eid] == ledgerChainId
+        );
+    }
+
     /* ====== Receive Message From Ledger ====== */
 
-    function lzCompose(address, bytes32, bytes calldata _message, address, bytes calldata /*_extraData*/ )
+    function lzCompose(address from, bytes32 /*guid*/, bytes calldata _message, address /*executor*/, bytes calldata /*_extraData*/ )
         external
         payable
     {
+        uint32 srcEid = _message.srcEid();
+        address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
+        require(
+            _authorizeComposeMsgSender(msg.sender, from, srcEid, remoteSender),
+            "OrderlyBox: composeMsg sender check failed"
+        );
+
         bytes memory _composeMsgContent = OFTComposeMsgCodec.composeMsg(_message);
 
         OCCLedgerMessage memory message = abi.decode(_composeMsgContent, (OCCLedgerMessage));

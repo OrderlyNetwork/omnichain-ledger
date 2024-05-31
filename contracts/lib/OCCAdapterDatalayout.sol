@@ -44,6 +44,12 @@ abstract contract OCCAdapterDatalayout is LzTestData, LedgerAccessControl {
 
     uint128 public defaultOftGas;
 
+    /// @dev lzEndpoint is the address of the LayerZero endpoint
+    address public lzEndpoint;
+
+    /// @dev eid2ChainId is a mapping from endpoint ID to chain ID
+    mapping(uint32 => uint256) public eid2ChainId;
+
     /* ====== set functions for orderly ====== */
 
     function setMyChainId(uint256 _myChainId) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -52,8 +58,13 @@ abstract contract OCCAdapterDatalayout is LzTestData, LedgerAccessControl {
 
     /* ====== set functions for Layerzero ====== */
 
+    function setLzEndpoint(address _lzEndpoint) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        lzEndpoint = _lzEndpoint;
+    }
+
     function setChainId2Eid(uint256 chainId, uint32 eid) external onlyRole(DEFAULT_ADMIN_ROLE) {
         chainId2Eid[chainId] = eid;
+        eid2ChainId[eid] = chainId;
     }
 
     function setPayloadType2DstGas(uint8 payloadType, uint128 dstGas) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -63,6 +74,7 @@ abstract contract OCCAdapterDatalayout is LzTestData, LedgerAccessControl {
     function setDefaultOftGas(uint128 _defaultOftGas) external onlyRole(DEFAULT_ADMIN_ROLE) {
         defaultOftGas = _defaultOftGas;
     }
+
 
     /// @dev for upgradeable gap
     uint256[50] private __gap;
