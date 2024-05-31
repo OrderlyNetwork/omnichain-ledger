@@ -11,6 +11,19 @@ describe("MerkleDistributorL1", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
   const someRoot = "0x53bc4e0e5fee341a5efadc8dee7f9a3b2473fdf5669d6dc76cd2d1b878bf981d";
 
+  //   function generateMerkleTreeForNLeafs(n: number) {
+  //     const addresses = [];
+  //     const amounts = [];
+  //     for (let i = 0; i < n; i++) {
+  //       const randomAddress = ethers.utils.getAddress(ethers.utils.hexlify(ethers.utils.randomBytes(20)));
+  //       addresses.push(randomAddress);
+  //       const randomAmount = Math.floor(Math.random() * 1e27) + 1;
+  //       amounts.push(randomAmount.toString());
+  //     }
+  //     const tree = prepareMerkleTree(addresses, amounts);
+  //     return { addresses, amounts, tree };
+  //   }
+
   function prepareMerkleTree(addresses: string[], amounts: string[]) {
     const values = addresses.map((address, index) => {
       return [address, amounts[index]];
@@ -549,4 +562,14 @@ describe("MerkleDistributorL1", function () {
     // Check that the owner has received the tokens
     expect(await orderToken.balanceOf(owner.address)).to.be.equal(ownerBalanceBefore + distributorBalanceBefore);
   });
+
+  //   it("check different number of leafs", async function () {
+  //     const { orderToken, distributor, owner, user } = await distributorFixture();
+  //     const { addresses, amountsBigNumber, tree } = generateMerkleTreeForNLeafs(10);
+  //     await proposeAndUpdateRootDistribution(orderToken, addresses, amountsBigNumber, distributor, owner);
+
+  //     for (let i = 0; i < addresses.length; i++) {
+  //       await claimUserRewardsAndCheckResults(orderToken, distributor, user, tree.amountsBigNumber[i], tree.tree.getProof(i));
+  //     }
+  //   });
 });
