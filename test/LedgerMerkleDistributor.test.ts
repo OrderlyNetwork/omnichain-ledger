@@ -181,8 +181,8 @@ describe("LedgerMerkleDistributor", function () {
     let i = 0;
     for (const proof of cefi_merkle_proofs["proofs"]) {
       const claimerAddress = proof["leafValue"]["address"];
-      const claimerAddressStr = proof["leafValue"]["amount"];
-      const claimingAmountBigInt = BigInt(claimerAddressStr);
+      const claimingAmountStr = proof["leafValue"]["amount"];
+      const claimingAmountBigInt = BigInt(claimingAmountStr);
       const proofArray = proof["neighbourHashHierarchy"];
 
       //   console.log("claimerAddress: ", claimerAddress);

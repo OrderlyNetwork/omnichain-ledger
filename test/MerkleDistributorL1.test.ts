@@ -1,3 +1,4 @@
+import fs from "fs";
 import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
@@ -6,23 +7,12 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY } from "./utilities/index";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("MerkleDistributorL1", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
   const someRoot = "0x53bc4e0e5fee341a5efadc8dee7f9a3b2473fdf5669d6dc76cd2d1b878bf981d";
-
-  //   function generateMerkleTreeForNLeafs(n: number) {
-  //     const addresses = [];
-  //     const amounts = [];
-  //     for (let i = 0; i < n; i++) {
-  //       const randomAddress = ethers.utils.getAddress(ethers.utils.hexlify(ethers.utils.randomBytes(20)));
-  //       addresses.push(randomAddress);
-  //       const randomAmount = Math.floor(Math.random() * 1e27) + 1;
-  //       amounts.push(randomAmount.toString());
-  //     }
-  //     const tree = prepareMerkleTree(addresses, amounts);
-  //     return { addresses, amounts, tree };
-  //   }
+  const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
 
   function prepareMerkleTree(addresses: string[], amounts: string[]) {
     const values = addresses.map((address, index) => {
@@ -56,7 +46,6 @@ describe("MerkleDistributorL1", function () {
     const { tree, amountsBigNumber } = prepareMerkleTree(addresses, amounts);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const endTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     await distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid);
 
     // Calculate total amount of tokens to be distributed
@@ -183,7 +172,6 @@ describe("MerkleDistributorL1", function () {
     const { tree } = prepareMerkleTree([user.address], [INITIAL_SUPPLY_STR]);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const endTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
 
     // User should not be able to propose a root as he has not been granted the ROOT_UPDATER_ROLE
     await expect(distributor.connect(user).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWithCustomError(
@@ -474,7 +462,6 @@ describe("MerkleDistributorL1", function () {
     const { distributor, owner } = await distributorFixture();
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const endTimestamp = startTimestamp - 1;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     await expect(distributor.connect(owner).proposeRoot(someRoot, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWithCustomError(
       distributor,
       "InvalidEndTimestamp"
@@ -485,7 +472,6 @@ describe("MerkleDistributorL1", function () {
     const { distributor, owner } = await distributorFixture();
     const startTimestamp = (await helpers.time.latest()) - 1;
     const endTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     await expect(distributor.connect(owner).proposeRoot(someRoot, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWithCustomError(
       distributor,
       "StartTimestampIsInThePast"
@@ -496,7 +482,6 @@ describe("MerkleDistributorL1", function () {
     const { distributor, owner } = await distributorFixture();
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const endTimestamp = 0;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     await distributor.connect(owner).proposeRoot(someRoot, startTimestamp, endTimestamp, ipfsCid);
   });
 
@@ -505,7 +490,6 @@ describe("MerkleDistributorL1", function () {
     const { tree, amountsBigNumber } = prepareMerkleTree([user.address], ["1000000000"]);
     const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
     const endTimestamp = 0;
-    const ipfsCid = encodeIpfsHash("QmS94dN3Tb2vGFtUsDTcDTCDdp8MEWYi5YXZ4goBtFaq2W");
     const distributorAddress = await distributor.getAddress();
 
     await distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid);
@@ -563,13 +547,63 @@ describe("MerkleDistributorL1", function () {
     expect(await orderToken.balanceOf(owner.address)).to.be.equal(ownerBalanceBefore + distributorBalanceBefore);
   });
 
-  //   it("check different number of leafs", async function () {
-  //     const { orderToken, distributor, owner, user } = await distributorFixture();
-  //     const { addresses, amountsBigNumber, tree } = generateMerkleTreeForNLeafs(10);
-  //     await proposeAndUpdateRootDistribution(orderToken, addresses, amountsBigNumber, distributor, owner);
+  it("L1 check CeFi root and proof from files", async function () {
+    const { orderToken, distributor, owner, user } = await distributorFixture();
 
-  //     for (let i = 0; i < addresses.length; i++) {
-  //       await claimUserRewardsAndCheckResults(orderToken, distributor, user, tree.amountsBigNumber[i], tree.tree.getProof(i));
-  //     }
-  //   });
+    // Read the root and proofs from the file
+    const cefi_merkle_proofs = JSON.parse(fs.readFileSync("./test/cefi_merkle_proofs_6_leafs.json", "utf8"));
+
+    // Setup the distribution
+    const root = cefi_merkle_proofs["root"];
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+    const endTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
+    await distributor.connect(owner).proposeRoot(root, startTimestamp, endTimestamp, ipfsCid);
+
+    // Calculate total amount of tokens to be distributed
+    let totalAmount = BigInt(0);
+    for (const proof of cefi_merkle_proofs["proofs"]) {
+      const claimingAmountStr = proof["leafValue"]["amount"];
+      const claimingAmountBigInt = BigInt(claimingAmountStr);
+      totalAmount = totalAmount + claimingAmountBigInt;
+    }
+    // Transfer the tokens to the distributor
+    await orderToken.connect(owner).transfer(await distributor.getAddress(), TOTAL_SUPPLY);
+
+    // Increase time to startTimestamp
+    await helpers.time.increaseTo(startTimestamp + 1);
+
+    // In this case claimers are accounts from the hardhat network
+    const claimers = await ethers.getSigners();
+
+    // Map claimers address to index to be able to find claimer by address
+    const claimerAddressToIndex: { [key: string]: number } = {};
+    for (let i = 0; i < claimers.length; i++) {
+      claimerAddressToIndex[claimers[i].address] = i;
+    }
+
+    // Claim rewards for each claimer
+    for (const proof of cefi_merkle_proofs["proofs"]) {
+      const claimerAddress = proof["leafValue"]["address"];
+      const claimingAmountStr = proof["leafValue"]["amount"];
+      const claimingAmountBigInt = BigInt(claimingAmountStr);
+      const proofArray = proof["neighbourHashHierarchy"];
+      const claimer = claimers[claimerAddressToIndex[claimerAddress]];
+
+      const distributorBalanceBefore = await orderToken.balanceOf(await distributor.getAddress());
+      const claimerBalanceBefore = await orderToken.balanceOf(claimerAddress);
+
+      const tx = await distributor.connect(claimer).claimRewards(claimingAmountBigInt, proofArray);
+      // Should emit event
+      await expect(tx).to.emit(distributor, "RewardsClaimed").withArgs(anyValue, claimer.address, claimingAmountBigInt);
+
+      // Check that the claimer token claimed amount has been updated
+      expect(await distributor.getClaimed(claimer.address)).to.be.equal(claimingAmountBigInt);
+
+      // Check that the distributor has transferred the tokens
+      expect(await orderToken.balanceOf(await distributor.getAddress())).to.be.equal(distributorBalanceBefore - claimingAmountBigInt);
+
+      // Check that the claimer has received the tokens
+      expect(await orderToken.balanceOf(claimerAddress)).to.be.equal(claimerBalanceBefore + claimingAmountBigInt);
+    }
+  });
 });
