@@ -9,7 +9,6 @@ import type { HardhatUserConfig } from "hardhat/config";
 import { task } from "hardhat/config";
 
 import "./scripts/tasks/deploy_to";
-import "./scripts/tasks/upgrade_ledger";
 import "./scripts/tasks/verify_local";
 import "./scripts/tasks/verify_etherscan";
 import "./scripts/tasks/verify_hardhat";
