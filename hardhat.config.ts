@@ -76,15 +76,7 @@ const config: HardhatUserConfig = {
       saveDeployments: true,
       tags: ["test", "local"]
     },
-    arbitrumSepolia: {
-      url: `https://sepolia-rollup.arbitrum.io/rpc`,
-      accounts,
-      chainId: 421614,
-      live: true,
-      saveDeployments: true,
-      tags: ["staging"],
-      gasPrice: 10000000000
-    },
+    arbitrumSepolia: getHardhatNetworkConfig("arbitrumSepolia"),
     orderlySepolia: getHardhatNetworkConfig("orderlySepolia"),
     optimismSepolia: getHardhatNetworkConfig("optimismSepolia"),
     polygonMumbai: getHardhatNetworkConfig("polygonMumbai"),
