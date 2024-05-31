@@ -85,14 +85,17 @@ contract LedgerProxyTest is TestHelperOz5 {
         address proxyAddr = address(new ERC1967Proxy(proxyAImpl, initBytes));
         proxyA = ProxyLedger(payable(proxyAddr));
         usdc.mint(address(proxyA), 100 ether);
+        
+        proxyA.setLzEndpoint(endpoints[aEid]);
 
         ledgerOCCManager = new LedgerOCCManager();
-        ledgerOCCManager.initilize(address(bOFT), address(this));
+        ledgerOCCManager.initialize(address(bOFT), address(this));
         ledgerB = new LedgerTest();
         address placeholderAddr = address(ledgerB);
         ledgerB.initialize(address(this), address(ledgerOCCManager), placeholderAddr, bOFT, 1 ether, 100 ether);
 
         ledgerOCCManager.setLedgerAddr(address(ledgerB));
+        ledgerOCCManager.setLzEndpoint(endpoints[bEid]);
 
         proxyA.setMyChainId(aEid);
 

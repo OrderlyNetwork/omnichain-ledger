@@ -59,6 +59,7 @@
     "@types/chai": "^4.2.0",
     "@types/mocha": ">=9.1.0",
     "@types/node": "^20.12.13",
+    "@types/shelljs": "^0.8.15",
     "bs58": "^4.0.1",
     "chai": "^4.2.0",
     "dotenv": "^16.0.3",
@@ -69,8 +70,7 @@
     "hardhat-deploy": "^0.12.4",
     "hardhat-deploy-ethers": "^0.4.2",
     "hardhat-gas-reporter": "^1.0.8",
-    "orderly-network-config": "https://gitlab.com/orderlynetwork/orderly-v2/network_config.git",
-    "orderly-omnichain-occ": "https://gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#dev",
+    "orderly-network-config": "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git",
     "prettier": "^3.0.0",
     "solc": "^0.8.26",
     "solhint": "^3.4.1",
@@ -92,5 +92,8 @@
   "overrides": {
     "ethers": "^5.7.2",
     "hardhat-deploy": "^0.12.1"
+  },
+  "dependencies": {
+    "minimist": "^1.2.8"
   }
 }
