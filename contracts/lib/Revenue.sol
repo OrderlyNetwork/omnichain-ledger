@@ -23,7 +23,7 @@ import {Valor} from "./Valor.sol";
  *         So, each moment user shouldn't have more than 2 BatchedRedemptionRequest: finished but not prepared yet and current
  */
 abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
-    uint256 internal constant BATCH_DURATION = 14 days;
+    uint256 internal constant DEFAULT_BATCH_DURATION = 14 days;
 
     /// @dev Represents amount per chain
     struct ChainedAmount {
@@ -60,6 +60,9 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     mapping(address => UserRevenueRecord) internal userRevenue;
 
+    /// @notice Period of the batch in seconds
+    uint256 public batchDuration;
+
     /* ========== EVENTS ========== */
 
     /// @notice Emitted when user redeem valor for the chain; batchId is the current batch
@@ -85,8 +88,9 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== INITIALIZER ========== */
 
-    function revenueInit(address, uint256 _startTimstamp) internal onlyInitializing {
+    function revenueInit(address, uint256 _startTimstamp, uint256 _batchDuration) internal onlyInitializing {
         startTimestamp = _startTimstamp;
+        batchDuration = _batchDuration;
         // create first batch
         batches.push();
     }
@@ -100,7 +104,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (currentTimestamp < startTimestamp) {
             return 0;
         }
-        return uint16((currentTimestamp - startTimestamp) / BATCH_DURATION);
+        return uint16((currentTimestamp - startTimestamp) / batchDuration);
     }
 
     /// @notice Returns the batch structure by id without chained valor amount
@@ -111,8 +115,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         view
         returns (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled)
     {
-        batchStartTime = startTimestamp + _batchId * BATCH_DURATION;
-        batchEndTime = batchStartTime + BATCH_DURATION;
+        batchStartTime = startTimestamp + _batchId * batchDuration;
+        batchEndTime = batchStartTime + batchDuration;
         if (_batchId < batches.length) {
             Batch storage batch = _getBatch(_batchId);
             claimable = batch.claimable;
@@ -130,7 +134,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return _getBatch(_batchId).chainedValorAmount;
     }
 
-    /// @notice Returns the amount of valor that user can redeem for the chain
+    /// @notice Returns the amount of USDC required for batch on each chain
     function getUsdcAmountForBatch(uint16 _batchId) public view returns (ChainedAmount[] memory chainedUsdcAmount) {
         Batch storage batch = _getBatch(_batchId);
         chainedUsdcAmount = batch.chainedValorAmount;

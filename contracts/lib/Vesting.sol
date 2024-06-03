@@ -82,7 +82,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     error DepositNotEnough(uint256 amountEsorderDeposited, uint256 amountEsorderRequested);
 
     /* ========== INITIALIZER ========== */
-    function vestingInit(uint256 _vestingLockPeriod, uint256 _vestingLinearPeriod, address _orderCollector) internal onlyInitializing {
+    function vestingInit(address, uint256 _vestingLockPeriod, uint256 _vestingLinearPeriod, address _orderCollector) internal onlyInitializing {
         if (_vestingLockPeriod == 0) revert VestingLockPeriodIsZero();
         if (_vestingLinearPeriod == 0) revert VestingLinearPeriodIsZero();
 

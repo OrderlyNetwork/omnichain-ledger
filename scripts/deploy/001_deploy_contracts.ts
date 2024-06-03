@@ -3,7 +3,7 @@ import { DeployFunction, DeployResult } from "hardhat-deploy/types";
 import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
 import { fullTokens, ONE_DAY_IN_SECONDS, ONE_HOUR_IN_SECONDS, ONE_YEAR_IN_SECONDS } from "../../test/utilities";
 import { deployContract } from "../utils/deploy";
-import { OmnichainLedgerV1 } from "../../types";
+import { OmnichainLedgerV1, OmnichainLedgerTestV1 } from "../../types";
 import { getChainConfig } from "orderly-network-config";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -43,6 +43,31 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
       console.log("OmnichainLedgerV1 already initialized");
     }
     console.log("OmnichainLedgerV1:", OmnichainLedgerV1.address);
+
+    // Deploy OmnichainLedgerTestV1 with adjustable batchDuration, unstakeLockPeriod, vestingLockPeriod, vestingLinearPeriod for testing purposes
+    const OmnichainLedgerTestV1 = await deployContract(hre, "OmnichainLedgerTestV1", [], "proxyNoInit");
+    const OmnichainLedgerTestV1Contract = await ethers.getContract<OmnichainLedgerTestV1>("OmnichainLedgerTestV1");
+    try {
+      await OmnichainLedgerTestV1Contract.initialize(
+        owner as AddressLike,
+        occAdaptor as AddressLike,
+        orderCollector as AddressLike,
+        orderTokenOft as AddressLike,
+        valorPerSecond,
+        maximumValorEmission
+      );
+
+      const batchDuration = await OmnichainLedgerTestV1Contract.batchDuration();
+      console.log("batchDuration:", batchDuration.toString());
+
+      const ONE_MINUTE_IN_SECONDS = 60;
+      await OmnichainLedgerTestV1Contract.setBatchDuration(14 * ONE_MINUTE_IN_SECONDS);
+      await OmnichainLedgerTestV1Contract.setUnstakeLockPeriod(7 * ONE_MINUTE_IN_SECONDS);
+      await OmnichainLedgerTestV1Contract.setVestingLockPeriod(15 * ONE_MINUTE_IN_SECONDS);
+      await OmnichainLedgerTestV1Contract.setVestingLinearPeriod(75 * ONE_MINUTE_IN_SECONDS);
+    } catch (e) {
+      console.log("OmnichainLedgerTestV1 already initialized");
+    }
   }
 
   console.log("Finished running 001-deploy-contracts");

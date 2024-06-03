@@ -19,16 +19,7 @@ import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
-contract OmnichainLedgerV1 is
-    LedgerAccessControl,
-    UUPSUpgradeable,
-    ChainedEventIdCounter,
-    MerkleDistributor,
-    Valor,
-    Staking,
-    Revenue,
-    Vesting
-{
+contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEventIdCounter, MerkleDistributor, Valor, Staking, Revenue, Vesting {
     using SafeERC20 for IERC20;
 
     /* ========== STATE VARIABLES ========== */
@@ -66,9 +57,9 @@ contract OmnichainLedgerV1 is
         ledgerAccessControlInit(_owner);
         merkleDistributorInit(_owner);
         valorInit(_owner, _valorPerSecond, _maximumValorEmission);
-        stakingInit(_owner);
-        revenueInit(_owner, block.timestamp);
-        vestingInit(VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _orderCollector);
+        stakingInit(_owner, DEFAULT_UNSTAKE_LOCK_PERIOD);
+        revenueInit(_owner, block.timestamp, DEFAULT_BATCH_DURATION);
+        vestingInit(_owner, VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _orderCollector);
 
         orderTokenOft = address(_orderTokenOft);
         occAdaptor = _occAdaptor;
@@ -260,5 +251,4 @@ contract OmnichainLedgerV1 is
         _esOrderUnstake(_user, _chainId, _amount);
         _createVestingRequest(_user, _chainId, _amount);
     }
-
 }

@@ -79,8 +79,8 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== INITIALIZER ========== */
 
-    function stakingInit(address) internal onlyInitializing {
-        unstakeLockPeriod = DEFAULT_UNSTAKE_LOCK_PERIOD;
+    function stakingInit(address, uint256 _unstakeLockPeriod) internal onlyInitializing {
+        unstakeLockPeriod = _unstakeLockPeriod;
         lastValorUpdateTimestamp = block.timestamp;
     }
 
