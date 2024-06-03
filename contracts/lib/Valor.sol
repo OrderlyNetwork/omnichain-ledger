@@ -54,6 +54,8 @@ abstract contract Valor is LedgerAccessControl {
         uint256 valorToUsdcRateScaled
     );
 
+    event TotalUsdcInTreasureUpdated(uint256 totalUsdcInTreasure, uint256 totalValorAmount, uint256 valorToUsdcRateScaled);
+
     /* ========== ERRORS ========== */
     error ValorPerSecondExceedsMaxValue();
     error TooEarlyUsdcNetFeeRevenueUpdate();
@@ -72,6 +74,8 @@ abstract contract Valor is LedgerAccessControl {
         valorPerSecond = _valorPerSecond;
     }
 
+    /* ========== PUBLIC FUNCTIONS ========== */
+
     /**
      * @notice CeFi updates the daily USDC net fee revenue
      *          Function reverts, if the function is called too early - less than 12 hours after the last update
@@ -83,7 +87,23 @@ abstract contract Valor is LedgerAccessControl {
 
         lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
         totalUsdcInTreasure += _usdcNetFeeRevenue;
-        valorToUsdcRateScaled = totalValorAmount == 0 ? 0 : (totalUsdcInTreasure * VALOR_TO_USDC_RATE_PRECISION) / totalValorAmount;
+        _updateValorToUsdcRateScaled();
         emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+    }
+
+    /**
+     * @notice Set the totalUsdcInTreasure. Restricted to TREASURE_UPDATER_ROLE
+     *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
+     */
+    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(TREASURE_UPDATER_ROLE) {
+        totalUsdcInTreasure = _totalUsdcInTreasure;
+        _updateValorToUsdcRateScaled();
+        emit TotalUsdcInTreasureUpdated(totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+    }
+
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    function _updateValorToUsdcRateScaled() internal {
+        valorToUsdcRateScaled = totalValorAmount == 0 ? 0 : (totalUsdcInTreasure * VALOR_TO_USDC_RATE_PRECISION) / totalValorAmount;
     }
 }
