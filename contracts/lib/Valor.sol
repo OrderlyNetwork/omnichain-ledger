@@ -2,6 +2,8 @@
 pragma solidity 0.8.22;
 
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
+import {LedgerSignedTypes} from "./LedgerTypes.sol";
+import {Signature} from "./Signature.sol";
 
 /**
  * @title Valor contract
@@ -43,6 +45,9 @@ abstract contract Valor is LedgerAccessControl {
     /// @notice The amount of valor token, that has been collected by the user
     mapping(address => uint256) public collectedValor;
 
+    /// @notice The address, that signed the USDC revenue updates
+    address public usdcUpdaterAddress;
+
     /* ========== EVENTS ========== */
 
     /// @notice Emmited, when the daily USDC net fee revenue has been updated
@@ -74,6 +79,11 @@ abstract contract Valor is LedgerAccessControl {
         valorPerSecond = _valorPerSecond;
     }
 
+    /// @notice Owner can set address, that signed the USDC revenue updates
+    function setUsdcUpdaterAddress(address _usdcUpdaterAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        usdcUpdaterAddress = _usdcUpdaterAddress;
+    }
+
     /* ========== PUBLIC FUNCTIONS ========== */
 
     /**
@@ -82,21 +92,25 @@ abstract contract Valor is LedgerAccessControl {
      *          to prevent accidental double updates
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
-    function dailyUsdcNetFeeRevenue(uint256 _usdcNetFeeRevenue) external onlyRole(TREASURE_UPDATER_ROLE) {
+    function dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
         if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
 
+        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
+
         lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
-        totalUsdcInTreasure += _usdcNetFeeRevenue;
+        totalUsdcInTreasure += data.value;
         _updateValorToUsdcRateScaled();
-        emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+        emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, data.value, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
     }
 
     /**
      * @notice Set the totalUsdcInTreasure. Restricted to TREASURE_UPDATER_ROLE
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
-    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(TREASURE_UPDATER_ROLE) {
-        totalUsdcInTreasure = _totalUsdcInTreasure;
+    function setTotalUsdcInTreasure(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
+        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
+
+        totalUsdcInTreasure = data.value;
         _updateValorToUsdcRateScaled();
         emit TotalUsdcInTreasureUpdated(totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
     }

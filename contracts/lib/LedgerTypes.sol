@@ -55,3 +55,12 @@ library LedgerPayloadTypes {
         uint256 amount;
     }
 }
+
+library LedgerSignedTypes {
+    struct UintValueData {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        uint256 value;
+    }
+}
