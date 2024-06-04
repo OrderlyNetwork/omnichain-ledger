@@ -85,7 +85,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         address proxyAddr = address(new ERC1967Proxy(proxyAImpl, initBytes));
         proxyA = ProxyLedger(payable(proxyAddr));
         usdc.mint(address(proxyA), 100 ether);
-        
+
         proxyA.setLzEndpoint(endpoints[aEid]);
 
         ledgerOCCManager = new LedgerOCCManager();
@@ -137,7 +137,6 @@ contract LedgerProxyTest is TestHelperOz5 {
     }
 
     function test_occ_user_stake() public {
-
         assertEq(aOFT.balanceOf(userA), initialBalance);
         assertEq(bOFT.balanceOf(userB), initialBalance);
 
@@ -146,7 +145,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         vm.prank(userA);
         aOFT.approve(address(proxyA), tokensToSend);
 
-        uint256 nativeFee = proxyA.qouteStake(tokensToSend, userA, false);
+        uint256 nativeFee = proxyA.quoteStake(tokensToSend, userA, false);
         vm.prank(userA);
         proxyA.stake{value: nativeFee}(tokensToSend, false);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
@@ -173,7 +172,6 @@ contract LedgerProxyTest is TestHelperOz5 {
     }
 
     function test_occ_claim_reward() public {
-
         bOFT.mint(address(ledgerOCCManager), 10000 ether);
         // userA and userB and address(this)
         address[] memory users = new address[](3);
@@ -206,7 +204,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(userA, amounts[0]))));
         MerkleTreeHelper.verifyProof(tree.root, leaf, merkleProof);
 
-        uint256 nativeFee = proxyA.qouteClaimReward(distributionId, userA, cumulativeAmount, merkleProof, false);
+        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmount, merkleProof, false);
         vm.prank(userA);
         proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmount, merkleProof, false);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
@@ -224,7 +222,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         uint8 opCode = uint8(PayloadDataType.CreateOrderUnstakeRequest);
 
-        uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
+        uint256 nativeFee = proxyA.quoteSendUserRequest(tokensToSend, userA, opCode);
         vm.prank(userA);
         proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
@@ -238,13 +236,12 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         uint8 opCode = uint8(PayloadDataType.CancelOrderUnstakeRequest);
 
-        uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
+        uint256 nativeFee = proxyA.quoteSendUserRequest(tokensToSend, userA, opCode);
         vm.prank(userA);
         proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
-
     }
 
     function test_occ_user_withdraw_order() public {
@@ -255,7 +252,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         uint8 opCode = uint8(PayloadDataType.WithdrawOrder);
 
-        uint256 nativeFee = proxyA.qouteSendUserRequest(tokensToSend, userA, opCode);
+        uint256 nativeFee = proxyA.quoteSendUserRequest(tokensToSend, userA, opCode);
         vm.prank(userA);
         proxyA.sendUserRequest{value: nativeFee}(tokensToSend, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
@@ -279,7 +276,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         for (uint i = 0; i < 13; i++) {
             vm.warp(block.timestamp + 1 days); // warp time to 1 day later (1 day = 86400 seconds)
-            ledgerB.dailyUsdcNetFeeRevenue(1000);
+            ledgerB.dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
         }
 
         console.log("block.timestamp: ");
@@ -292,7 +289,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         uint8 opCode = uint8(PayloadDataType.RedeemValor);
 
-        uint256 nativeFee = proxyA.qouteSendUserRequest(redeemAmount, userA, opCode);
+        uint256 nativeFee = proxyA.quoteSendUserRequest(redeemAmount, userA, opCode);
         vm.prank(userA);
         proxyA.sendUserRequest{value: nativeFee}(redeemAmount, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
@@ -305,7 +302,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         test_occ_user_redeem_valor();
         // ledgerB.updateValorVars();
         // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
-        vm.warp(block.timestamp + 2 days); 
+        vm.warp(block.timestamp + 2 days);
         ledgerB.fixBatchValorToUsdcRate(1);
         ledgerB.batchPreparedToClaim(1);
 
@@ -325,7 +322,7 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         uint8 opCode = uint8(PayloadDataType.ClaimUsdcRevenue);
 
-        uint256 nativeFee = proxyA.qouteSendUserRequest(claimAmount, userA, opCode);
+        uint256 nativeFee = proxyA.quoteSendUserRequest(claimAmount, userA, opCode);
         vm.prank(userA);
         proxyA.sendUserRequest{value: nativeFee}(claimAmount, opCode);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
