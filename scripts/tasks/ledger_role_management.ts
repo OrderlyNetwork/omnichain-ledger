@@ -1,6 +1,6 @@
 import { types } from "hardhat/config";
 import { task } from "hardhat/config";
-import { LedgerRoles, ledgerGrantRole, ledgerRevokeRole } from "../../utils/ledger";
+import { LedgerRoles, ledgerGrantRole, ledgerRevokeRole } from "../utils/ledger";
 
 task("ledger-transfer-ownership", "Transfre ownership to provided address")
   .addParam("to", "Address to grant ownership to", undefined, types.string)

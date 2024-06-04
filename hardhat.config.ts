@@ -12,7 +12,8 @@ import "./scripts/tasks/deploy_to";
 import "./scripts/tasks/verify_local";
 import "./scripts/tasks/verify_etherscan";
 import "./scripts/tasks/verify_hardhat";
-import "./scripts/tasks/ledger/ledger_role_management";
+import "./scripts/tasks/ledger_role_management";
+import "./scripts/tasks/mdl1";
 import { getHardhatNetworkConfig, getHardhatApiKey, getHardhatEtherscanConfig } from "orderly-network-config";
 
 task("accounts", "Prints the list of accounts", async (_args, hre) => {

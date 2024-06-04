@@ -1,18 +1,15 @@
-import { BigNumber, BigNumberish, AddressLike } from "ethers";
-import { DeployFunction, DeployResult } from "hardhat-deploy/types";
-import { Artifact, HardhatRuntimeEnvironment } from "hardhat/types";
-import { fullTokens, ONE_DAY_IN_SECONDS, ONE_HOUR_IN_SECONDS, ONE_YEAR_IN_SECONDS } from "../../test/utilities";
+import { DeployFunction } from "hardhat-deploy/types";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { fullTokens, ONE_DAY_IN_SECONDS } from "../../test/utilities";
 import { deployContract } from "../utils/deploy";
 import { OmnichainLedgerV1, OmnichainLedgerTestV1 } from "../../types";
-import { getChainConfig } from "orderly-network-config";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, getNamedAccounts } = hre;
 
-  const { owner } = await getNamedAccounts();
-
-  // Deploy OmnichainLedgerV1 to orderlySepolia (L`edger) network or hardhat (local) network for testing
+  // Deploy OmnichainLedgerV1 to orderlySepolia (Ledger) network or hardhat (localhost) network for testing
   if (hre.network.name === "orderlySepolia" || hre.network.name === "hardhat") {
+    const { owner } = await getNamedAccounts();
     const occAdaptor = process.env.OCC_ADAPTOR_ADDRESS || ethers.ZeroAddress;
     const orderCollector = process.env.ORDER_COLLECTOR_ADDRESS || ethers.ZeroAddress;
     const orderTokenOft = process.env.ORDER_TOKEN_OFT_ADDRESS || ethers.ZeroAddress;
@@ -70,10 +67,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
   }
 
-  console.log("Finished running 001-deploy-contracts");
+  console.log("Finished running 001-deploy-ledger-contracts");
 
   return true;
 };
 export default func;
-func.id = "001-deploy-contracts"; // id required to prevent reexecution
+func.id = "001-deploy-ledger-contracts"; // id required to prevent reexecution
 func.tags = ["Lock"];
