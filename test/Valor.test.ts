@@ -55,6 +55,8 @@ describe("Valor", function () {
       value: BigInt("235236236236236236")
     };
 
-    await ledger.connect(owner).setTotalUsdcInTreasure(data2);
+    await helpers.time.increaseTo((await helpers.time.latest()) + ONE_DAY_IN_SECONDS);
+
+    await ledger.connect(owner).dailyUsdcNetFeeRevenue(data2);
   });
 });

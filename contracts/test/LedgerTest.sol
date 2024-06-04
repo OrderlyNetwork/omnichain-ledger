@@ -84,4 +84,13 @@ contract LedgerTest is OmnichainLedgerV1 {
     function nuberOfUsersBatchedRedemptionRequests(address _user) external view returns (uint256) {
         return userRevenue[_user].requests.length;
     }
+
+    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue) external onlyRole(TREASURE_UPDATER_ROLE) {
+        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
+
+        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+        totalUsdcInTreasure += _usdcNetFeeRevenue;
+        _updateValorToUsdcRateScaled();
+        emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+    }
 }

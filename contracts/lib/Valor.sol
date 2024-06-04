@@ -107,10 +107,8 @@ abstract contract Valor is LedgerAccessControl {
      * @notice Set the totalUsdcInTreasure. Restricted to TREASURE_UPDATER_ROLE
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
-    function setTotalUsdcInTreasure(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
-        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
-
-        totalUsdcInTreasure = data.value;
+    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(TREASURE_UPDATER_ROLE) {
+        totalUsdcInTreasure = _totalUsdcInTreasure;
         _updateValorToUsdcRateScaled();
         emit TotalUsdcInTreasureUpdated(totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
     }

@@ -23,7 +23,7 @@ describe("Revenue", function () {
       (((previousTotalUsdcInTreasure + dailyUsdcNetFeeRevenue) * BigInt(1e18)) / BigInt(totalValorAmountBefore)) * BigInt(1e9);
 
     // Owner can update the total USDC in the treasure because he granted TREASURE_UPDATER_ROLE
-    const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenue(dailyUsdcNetFeeRevenue);
+    const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(dailyUsdcNetFeeRevenue);
     await expect(tx)
       .to.emit(ledger, "DailyUsdcNetFeeRevenueUpdated")
       .withArgs(
@@ -121,7 +121,7 @@ describe("Revenue", function () {
     const expectedValorToUsdcRateScaled = 5000000000000000000000000000n;
     // Owner can update the total USDC in the treasure because he granted TREASURE_UPDATER_ROLE
     // And it should set the valor to USDC rate to 5
-    const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenue(1000);
+    const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
     await expect(tx).to.emit(ledger, "DailyUsdcNetFeeRevenueUpdated").withArgs(anyValue, 1000, 1000, 200, expectedValorToUsdcRateScaled);
 
     // Move time to the end of the batch
@@ -258,7 +258,7 @@ describe("Revenue", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
 
     await ledger.connect(owner).setTotalValorAmount(2000);
-    await ledger.connect(owner).dailyUsdcNetFeeRevenue(1000);
+    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
 
     // Batch 0 is created authomatically
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
