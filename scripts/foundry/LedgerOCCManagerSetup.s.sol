@@ -19,6 +19,8 @@ contract LedgerOCCManagerSetup is BaseScript, ConfigScript {
         DeployData memory ledgerOcc = readLedger(env, "ledger_occ_manager");
         DeployData memory ledger = readLedger(env, "ledger");
 
+        address lzEndpoint = getLzV2Endpoint(network);
+
         console.log("[LedgerOCCManagerSetup]env: ", env);
         console.log("[LedgerOCCManagerSetup]network: ", network);
         console.log("[LedgerOCCManagerSetup]ledgerOccAddress: ", ledgerOcc.proxy);
@@ -28,6 +30,7 @@ contract LedgerOCCManagerSetup is BaseScript, ConfigScript {
 
         vmSelectRpcAndBroadcast(network);
 
+        ledgerOCCManager.setLzEndpoint(lzEndpoint);
         ledgerOCCManager.setLedgerAddr(ledger.proxy);
         ledgerOCCManager.setMyChainId(getChainId(network));
 

@@ -56,6 +56,10 @@ abstract contract OCCAdapterDatalayout is LzTestData, LedgerAccessControl {
         myChainId = _myChainId;
     }
 
+    function setOrderTokenOft(address _orderTokenOft) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        orderTokenOft = _orderTokenOft;
+    }
+
     /* ====== set functions for Layerzero ====== */
 
     function setLzEndpoint(address _lzEndpoint) external onlyRole(DEFAULT_ADMIN_ROLE) {
