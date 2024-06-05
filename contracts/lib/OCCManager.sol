@@ -115,4 +115,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         SendParam memory sendParam = buildOCCVaultMsg(message);
         return IOFT(orderTokenOft).quoteSend(sendParam, false).nativeFee;
     }
+
+    // gap for upgradeable
+    uint256[50] private __gap;
 }

@@ -168,7 +168,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
         require(
             _authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender),
-            "OrderlyBox: composeMsg sender check failed"
+            "LedgerOCCManager: composeMsg sender check failed"
         );
 
         bytes memory _composeMsgContent = _message.composeMsg();

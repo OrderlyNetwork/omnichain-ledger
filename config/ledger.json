@@ -1,22 +1,40 @@
 {
   "dev": {
+    "ledger": {},
+    "ledger_occ_manager": {
+      "impl": "0x70286209327d9d7A8F2F2e93b50E0a84211dEB8E",
+      "proxy": "0x3871038ab33A8961e91C5c9ca62A7662a3354Cbf"
+    },
+    "ledger_proxy": {}
+  },
+  "qa": {
     "ledger": {
-      "impl": "0x5b1869d9a4c187f2eaa108f3062412ecf0526b24",
-      "proxy": "0x076C82f00DD5B4F51663bcD910c46fddD2395cec"
+      "impl": "0x9D37B9859bE706D9Fd1deF1E174ddB40a10F28dD",
+      "proxy": "0x9D37B9859bE706D9Fd1deF1E174ddB40a10F28dD"
     },
     "ledger_occ_manager": {
-      "impl": "0xd5379cB5921C2afb62CD1059dC3c8514cD265cB0",
-      "proxy": "0xfAFdb7fe1dF34f68F855781Bd0989CE92cE1e19a"
+      "impl": "0x76E94e59cBCb05ccC0eF40CDfe7fD316267e2836",
+      "proxy": "0x3F973968db1704AD98c372B591ac04Dbeb43a6E9"
     },
     "ledger_proxy": {
       "arbsepolia": {
-        "impl": "0x68b804f05537ce582268f7039a456e5f9e2f009c",
-        "proxy": "0xc47736159951CC2EE0aDc6Da68cBee9E0be479C3"
+        "impl": "0x7a501c3bF27A63A87dFf10E54a2eC95947B3cd9E",
+        "proxy": "0x13B2D9219e4afb48C085E60A9CFAcbc193a61F43"
       },
       "opsepolia": {
         "impl": "0xE1bD0BDD60B966E1c0bE89D16504357C60c21Ac0",
         "proxy": "0xF77f660aBa06A131561BE3eB207C7CfE972C0aeD"
       }
     }
+  },
+  "staging": {
+    "ledger": {},
+    "ledger_occ_manager": {},
+    "ledger_proxy": {}
+  },
+  "production": {
+    "ledger": {},
+    "ledger_occ_manager": {},
+    "ledger_proxy": {}
   }
 }

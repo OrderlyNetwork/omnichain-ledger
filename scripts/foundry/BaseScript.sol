@@ -31,6 +31,10 @@ contract BaseScript is Script {
         return vm.envAddress(network.toUpperCase().concat("_ENDPOINT"));
     }
 
+    function getLzV2Endpoint(string memory network) internal view returns (address) {
+        return vm.envAddress(network.toUpperCase().concat("_V2_ENDPOINT"));
+    }
+
     function getChainId(string memory network) internal view returns (uint256) {
         return vm.envUint(network.toUpperCase().concat("_CHAIN_ID"));
     }
