@@ -1,20 +1,25 @@
 import { types } from "hardhat/config";
 import { task } from "hardhat/config";
-import { LedgerRoles, ledgerGrantRole, ledgerRevokeRole } from "../utils/ledger";
+import { getContractAddress } from "../utils/common";
+import { MerkleDistributorL1 } from "../../types";
 
 task("mdl1-propose-root", "Propose new root to the Merkle Distributor L1 contract")
-  .addPositionalParam("address", "Address of Merkle Distributor L1", undefined, types.string)
+  .addParam("contractAddress", "Address of Merkle Distributor L1", undefined, types.string, true)
   .addParam("root", "Proposed Merkle Root", undefined, types.string)
   .addParam("startTimestamp", "Timestamp when new root become active", undefined, types.bigint)
   .addParam("endTimestamp", "Timestamp when distribution ends", 0n, types.bigint, true)
   .addParam("ipfsId", "IPFS ID for uploaded Merkle Tree (optional)", "0x00", types.string, true)
   .setAction(async (taskArgs, hre) => {
     console.log(`Running on ${hre.network.name}`);
-    console.log(`address: ${taskArgs.address}`);
-
+    const contractAddress = getContractAddress(taskArgs.contractAddress);
     const owner = await hre.ethers.getNamedSigner("owner");
 
-    const MerkleDistributorL1 = await hre.ethers.getContractAtWithSignerAddress("MerkleDistributorL1", taskArgs.address, owner.address);
+    const MerkleDistributorL1 = (await hre.ethers.getContractAtWithSignerAddress(
+      "MerkleDistributorL1",
+      contractAddress,
+      owner.address
+    )) as unknown as MerkleDistributorL1;
+
     const MerkleDistributorL1Address = await MerkleDistributorL1.getAddress();
     console.log(`MerkleDistributorL1 address: ${MerkleDistributorL1Address}`);
 
