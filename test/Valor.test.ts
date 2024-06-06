@@ -10,7 +10,16 @@ import { defaultAbiCoder } from "@ethersproject/abi";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture, VALOR_MAXIMUM_EMISSION } from "./utilities/index";
+import {
+  INITIAL_SUPPLY,
+  INITIAL_SUPPLY_STR,
+  ONE_DAY_IN_SECONDS,
+  LedgerToken,
+  ledgerFixture,
+  VALOR_MAXIMUM_EMISSION,
+  VALOR_PER_DAY,
+  VALOR_EMISSION_DURATION
+} from "./utilities/index";
 
 type UintValueData = {
   r: BytesLike;
@@ -71,5 +80,41 @@ describe("Valor", function () {
     // Move time forward by one day to allow sequential dailyUsdcNetFeeRevenue call
     await helpers.time.increaseTo((await helpers.time.latest()) + ONE_DAY_IN_SECONDS);
     await expect(ledger.connect(owner).dailyUsdcNetFeeRevenue(data2)).to.be.revertedWithCustomError(ledger, "InvalidSignature");
+  });
+
+  it("valor emission should be capped", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorFixture();
+
+    const chainId = 0;
+    const tx = await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 1000);
+    // Check the Staked event is emitted correctly
+    await expect(tx).to.emit(ledger, "Staked").withArgs(anyValue, chainId, user.address, 1000, LedgerToken.ORDER);
+
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(1000);
+
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Only one user staked, so user receives all valor emission for the day.
+    expect(await ledger.getUserValor(user.address)).greaterThanOrEqual(VALOR_PER_DAY);
+    // Now total valor emitted is not updated yet
+    expect(await ledger.totalValorEmitted()).to.equal(0);
+
+    await ledger.updateValorVars();
+    // Now total valor emitted is updated
+    expect(await ledger.totalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
+
+    // Let's stake for VALOR_EMISSION_DURATION
+    await helpers.time.increase(VALOR_EMISSION_DURATION);
+
+    await ledger.updateValorVars();
+    // Now total valor emitted is capped
+    expect(await ledger.totalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
+    expect(await ledger.getUserValor(user.address)).to.equal(VALOR_MAXIMUM_EMISSION);
+
+    // Waiting longer should not increase the total valor emitted
+    await helpers.time.increase(VALOR_EMISSION_DURATION);
+
+    await ledger.updateValorVars();
+    expect(await ledger.totalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
+    expect(await ledger.getUserValor(user.address)).to.equal(VALOR_MAXIMUM_EMISSION);
   });
 });
