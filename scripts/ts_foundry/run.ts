@@ -7,6 +7,8 @@ addArgvType("boolean", "multisig");
 addArgvType("boolean", "broadcast");
 addArgvType("boolean", "simulate");
 addArgvType("string", "method");
+addArgvType("string", "address");
+addArgvType("string", "data");
 
 const argv = require('minimist')(process.argv.slice(2), argv_type_config);
 

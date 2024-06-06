@@ -21,6 +21,8 @@ contract ProxyLedgerSetup is BaseScript, ConfigScript {
         DeployData memory ledgerOcc = readLedger(env, "ledger_occ_manager");
         DeployData memory ledgerProxy = readLedgerProxy(env, "ledger_proxy", network);
 
+        address lzEndpoint = getLzV2Endpoint(network);
+
         console.log("[ProxyLedgerSetup]env: ", env);
         console.log("[ProxyLedgerSetup]network: ", network);
         console.log("[ProxyLedgerSetup]ledgerOccAddress: ", ledgerOcc.proxy);
@@ -30,6 +32,7 @@ contract ProxyLedgerSetup is BaseScript, ConfigScript {
 
         vmSelectRpcAndBroadcast(network);
 
+        proxyLedger.setLzEndpoint(lzEndpoint);
         proxyLedger.setMyChainId(getChainId(network));
         proxyLedger.setLedgerInfo(getChainId(ledgerNetwork), ledgerOcc.proxy);
         proxyLedger.setChainId2Eid(getChainId(ledgerNetwork), getLzEid(ledgerNetwork));
