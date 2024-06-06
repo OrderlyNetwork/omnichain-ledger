@@ -75,6 +75,7 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
     error DistributionHasEnded();
     error DistributionStillActive();
     error InvalidMerkleProof();
+    error ZeroClaim();
 
     function VERSION() external pure virtual returns (string memory) {
         return "1.0.0";
@@ -264,6 +265,8 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
             claimedAmounts[_msgSender()] = _cumulativeAmount;
 
             emit RewardsClaimed(_getNextEventId(), _msgSender(), claimableAmount);
+        } else {
+            revert ZeroClaim();
         }
 
         return claimableAmount;

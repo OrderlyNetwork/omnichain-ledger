@@ -302,7 +302,7 @@ describe("MerkleDistributorL1", function () {
     await claimUserRewardsAndCheckResults(orderToken, distributor, user, amountsBigNumber[0], tree.getProof(0));
   });
 
-  it("repeat claim should transfer nothing", async function () {
+  it("repeat claim should be reverted", async function () {
     const { orderToken, distributor, owner, user } = await distributorFixture();
     const { tree, amountsBigNumber } = await proposeAndUpdateRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
     const distributorAddress = await distributor.getAddress();
@@ -312,9 +312,11 @@ describe("MerkleDistributorL1", function () {
     const distributorBalanceBefore = await orderToken.balanceOf(distributorAddress);
     const userBalanceBefore = await orderToken.balanceOf(user.address);
 
-    // Repeat claim should transfer nothing and not emit events
-    const tx2 = await distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0));
-    await expect(tx2).to.not.emit(distributor, "RewardsClaimed");
+    // Repeat claim should be reverted with ZeroClaim error
+    await expect(distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0))).to.be.revertedWithCustomError(
+      distributor,
+      "ZeroClaim"
+    );
 
     // Check that the user token claimed amount has not changed
     expect(await distributor.getClaimed(user.address)).to.be.equal(amountsBigNumber[0]);
