@@ -7,6 +7,18 @@ export enum LedgerRoles {
   ROOT_UPDATER_ROLE
 }
 
+export enum LedgerToken {
+  "ORDER",
+  "esORDER"
+}
+
+export function getLedgerTokenNum(token: string) {
+  if (token !== "ORDER" && token !== "esORDER") {
+    throw new Error("Only $ORDER token and es$ORDER (record based) are supported.");
+  }
+  return token === "ORDER" ? LedgerToken.ORDER : LedgerToken.esORDER;
+}
+
 export async function getLedgerContract(hre: HardhatRuntimeEnvironment, contractAddress: string, signerAddress: string, test: boolean = false) {
   return test
     ? ((await hre.ethers.getContractAtWithSignerAddress("OmnichainLedgerTestV1", contractAddress, signerAddress)) as unknown as OmnichainLedgerTestV1)
