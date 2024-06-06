@@ -112,9 +112,13 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /// @notice Calculate and update valor per share changed over time
+    /// This function actually emits valor to users
     function updateValorVars() public whenNotPaused {
         if (block.timestamp > lastValorUpdateTimestamp) {
-            accValorPerShareScaled = _getCurrentAccValorPreShareScaled();
+            (uint256 accValorPerShareCurrentScaled, uint256 valorEmission) = _getCurrentAccValorPreShareScaled();
+            accValorPerShareScaled = accValorPerShareCurrentScaled;
+            totalValorEmitted += valorEmission;
+            totalValorAmount += valorEmission;
             lastValorUpdateTimestamp = block.timestamp;
         }
     }
@@ -228,22 +232,23 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Get the total amount of valor debt for a given user
     function _getUserTotalValorDebt(address _user) private view returns (uint256) {
-        return (userTotalStakingBalance(_user) * _getCurrentAccValorPreShareScaled()) / ACC_VALOR_PER_SHARE_PRECISION;
+        (uint256 accValorPerShareCurrentScaled, ) = _getCurrentAccValorPreShareScaled();
+        return (userTotalStakingBalance(_user) * accValorPerShareCurrentScaled) / ACC_VALOR_PER_SHARE_PRECISION;
     }
 
     /// @notice Get current accrued valor share, updated to the current block
-    function _getCurrentAccValorPreShareScaled() private view returns (uint256) {
+    /// This function calculates valor emission up to now but does not actually emit valor
+    function _getCurrentAccValorPreShareScaled() private view returns (uint256 accValorPerShareCurrentScaled, uint256 valorEmission) {
         if (block.timestamp <= lastValorUpdateTimestamp || totalStakedAmount == 0) {
-            return accValorPerShareScaled;
+            return (accValorPerShareScaled, 0);
         }
 
-        uint256 accValorPerShareCurrentScaled = accValorPerShareScaled;
+        accValorPerShareCurrentScaled = accValorPerShareScaled;
         uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;
-        uint256 valorEmission = secondsElapsed * valorPerSecond;
+        valorEmission = secondsElapsed * valorPerSecond;
         if (totalValorEmitted + valorEmission > maximumValorEmission) {
             valorEmission = maximumValorEmission - totalValorEmitted;
         }
         accValorPerShareCurrentScaled += ((valorEmission * ACC_VALOR_PER_SHARE_PRECISION) / totalStakedAmount);
-        return accValorPerShareCurrentScaled;
     }
 }

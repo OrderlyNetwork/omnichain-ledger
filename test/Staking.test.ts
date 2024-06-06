@@ -4,6 +4,7 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture, VALOR_PER_DAY, VALOR_PER_SECOND } from "./utilities/index";
+import exp from "constants";
 
 describe("Staking", function () {
   async function stakingFixture() {
@@ -75,9 +76,13 @@ describe("Staking", function () {
     expect(await ledger.userTotalStakingBalance(user.address)).to.equal(1000);
 
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
-    // Our test valor emission is 1 valor per second.
     // Only one user staked, so user receives all valor emission for the day.
     expect(await ledger.getUserValor(user.address)).to.equal(VALOR_PER_DAY);
+
+    // Check that updateValorVars emit valor
+    await ledger.updateValorVars();
+    expect(await ledger.totalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
+    expect(await ledger.totalValorAmount()).greaterThanOrEqual(VALOR_PER_DAY);
   });
 
   it("unstake request should stop valor emission for user", async function () {
@@ -89,13 +94,20 @@ describe("Staking", function () {
     await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ORDER, 1000);
 
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
-    // Our test valor emission is 1 valor per second.
     // Two users staked equal amount in total, so they should receive the same amount of valor.
     // But they can be a bit greater due to a bit of time pass before checking the valor.
     expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
     expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
 
+    // Valor emission does not occurs just by time pass
+    expect(await ledger.totalValorEmitted()).to.closeTo(0, precision);
+    expect(await ledger.totalValorAmount()).to.closeTo(0, precision);
+
     await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, 1000);
+
+    // Check that createOrderUnstakeRequest emit valor
+    expect(await ledger.totalValorEmitted()).closeTo(VALOR_PER_DAY, precision);
+    expect(await ledger.totalValorAmount()).closeTo(VALOR_PER_DAY, precision);
 
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
     // Unstake request should stop valor emission for user, but not for others
@@ -124,7 +136,6 @@ describe("Staking", function () {
     await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ESORDER, 1000);
 
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
-    // Our test valor emission is 1 valor per second.
     // Three users staked equal amount in total, so they should receive the same amount of valor.
     // But they can be a bit greater due to a bit of time pass before checking the valor.
     expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY / BigInt(3), precision);
