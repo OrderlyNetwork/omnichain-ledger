@@ -126,4 +126,34 @@ describe("Vesting", function () {
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
     expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount);
   });
+
+  it("check that cancel vesting request removes right request", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+
+    const chainId = 0;
+    const vestingAmount1 = 1000;
+    const vestingAmount2 = 2000;
+
+    // Create two requests with different amounts
+    await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount1))
+      .to.emit(ledger, "VestingRequested")
+      .withArgs(1, chainId, user.address, 0, vestingAmount1, anyValue);
+    await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount2))
+      .to.emit(ledger, "VestingRequested")
+      .withArgs(2, chainId, user.address, 1, vestingAmount2, anyValue);
+
+    // Remocve the first request
+    await expect(ledger.connect(user).cancelVestingRequest(user.address, chainId, 0))
+      .to.emit(ledger, "VestingCanceled")
+      .withArgs(anyValue, chainId, user.address, 0, vestingAmount1);
+
+    // Check full vesting period
+    const vestingStartTime = await helpers.time.latest();
+    await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
+
+    // Claim second request
+    await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, 1))
+      .to.emit(ledger, "VestingClaimed")
+      .withArgs(anyValue, chainId, user.address, 1, vestingAmount2, vestingAmount2, anyValue);
+  });
 });

@@ -142,7 +142,10 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         VestingRequest storage userVestingRequest = _findVestingRequest(_user, _requestId);
 
         esOrderAmountToStakeBack = userVestingRequest.esOrderAmount;
-        userVestingRequest = userVestingInfos[_user].requests[userVestingInfos[_user].requests.length - 1];
+        VestingRequest memory lastRequest = userVestingInfos[_user].requests[userVestingInfos[_user].requests.length - 1];
+        userVestingRequest.requestId = lastRequest.requestId;
+        userVestingRequest.esOrderAmount = lastRequest.esOrderAmount;
+        userVestingRequest.unlockTimestamp = lastRequest.unlockTimestamp;
         userVestingInfos[_user].requests.pop();
 
         emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, _requestId, esOrderAmountToStakeBack);
