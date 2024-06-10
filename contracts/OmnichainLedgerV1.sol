@@ -173,17 +173,17 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         if (claimedAmount != 0) {
             if (token == LedgerToken.ESORDER) {
                 _stake(_user, _srcChainId, token, claimedAmount);
+            } else if (token == LedgerToken.ORDER) {
+                OCCLedgerMessage memory message = OCCLedgerMessage({
+                    dstChainId: _srcChainId,
+                    token: LedgerToken.ORDER,
+                    tokenAmount: claimedAmount,
+                    receiver: _user,
+                    payloadType: uint8(PayloadDataType.ClaimRewardBackward),
+                    payload: "0x0"
+                });
+                ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
             }
-
-            OCCLedgerMessage memory message = OCCLedgerMessage({
-                dstChainId: _srcChainId,
-                token: token,
-                tokenAmount: claimedAmount,
-                receiver: _user,
-                payloadType: uint8(PayloadDataType.ClaimRewardBackward),
-                payload: "0x0"
-            });
-            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
         }
     }
 
