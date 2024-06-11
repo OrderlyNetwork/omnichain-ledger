@@ -21,4 +21,8 @@ contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
     function setVestingLinearPeriod(uint256 _vestingLinearPeriod) external {
         vestingLinearPeriod = _vestingLinearPeriod;
     }
+
+    function setBatchStartTimestamp(uint256 _batchStartTimestamp) external {
+        batchStartTimestamp = _batchStartTimestamp;
+    }
 }

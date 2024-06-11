@@ -46,7 +46,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     Batch[] public batches;
 
     /// @notice The timestamp when the first batch starts
-    uint256 public startTimestamp;
+    uint256 public batchStartTimestamp;
 
     struct BatchedRedemptionRequest {
         uint16 batchId;
@@ -88,8 +88,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== INITIALIZER ========== */
 
-    function revenueInit(address, uint256 _startTimstamp, uint256 _batchDuration) internal onlyInitializing {
-        startTimestamp = _startTimstamp;
+    function revenueInit(address, uint256 _batchStartTimstamp, uint256 _batchDuration) internal onlyInitializing {
+        batchStartTimestamp = _batchStartTimstamp;
         batchDuration = _batchDuration;
         // create first batch
         batches.push();
@@ -101,10 +101,10 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /// based on the current timestamp, start timestamp and batch duration
     function getCurrentBatchId() public view returns (uint16) {
         uint256 currentTimestamp = block.timestamp;
-        if (currentTimestamp < startTimestamp) {
+        if (currentTimestamp < batchStartTimestamp) {
             return 0;
         }
-        return uint16((currentTimestamp - startTimestamp) / batchDuration);
+        return uint16((currentTimestamp - batchStartTimestamp) / batchDuration);
     }
 
     /// @notice Returns the batch structure by id without chained valor amount
@@ -115,7 +115,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         view
         returns (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled)
     {
-        batchStartTime = startTimestamp + _batchId * batchDuration;
+        batchStartTime = batchStartTimestamp + _batchId * batchDuration;
         batchEndTime = batchStartTime + batchDuration;
         if (_batchId < batches.length) {
             Batch storage batch = _getBatch(_batchId);
