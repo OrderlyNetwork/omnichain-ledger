@@ -10,4 +10,7 @@ abstract contract ChainedEventIdCounter {
         srcChainIdToEventId[srcChainId]++;
         return srcChainIdToEventId[srcChainId];
     }
+
+    // gap for upgradeable
+    uint256[5] private __gap;
 }

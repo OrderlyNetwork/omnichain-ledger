@@ -251,4 +251,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         }
         accValorPerShareCurrentScaled += ((valorEmission * ACC_VALOR_PER_SHARE_PRECISION) / totalStakedAmount);
     }
+
+    // gap for upgradeable
+    uint256[50] private __gap;
 }

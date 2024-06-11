@@ -308,4 +308,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
             }
         }
     }
+
+    // gap for upgradeable
+    uint256[50] private __gap;
 }

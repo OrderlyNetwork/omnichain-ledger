@@ -26,4 +26,7 @@ abstract contract LedgerAccessControl is Initializable, AccessControlUpgradeable
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+
+    // gap for upgradeable
+    uint256[5] private __gap;
 }

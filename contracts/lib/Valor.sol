@@ -113,4 +113,7 @@ abstract contract Valor is LedgerAccessControl {
     function _updateValorToUsdcRateScaled() internal {
         valorToUsdcRateScaled = totalValorAmount == 0 ? 0 : (totalUsdcInTreasure * VALOR_TO_USDC_RATE_PRECISION) / totalValorAmount;
     }
+
+    // gap for upgradeable
+    uint256[50] private __gap;
 }

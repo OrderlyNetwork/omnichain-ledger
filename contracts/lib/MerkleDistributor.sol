@@ -378,4 +378,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     function _distributionExists(uint32 _distributionId) private view returns (bool) {
         return activeDistributions[_distributionId].merkleTree.startTimestamp != 0;
     }
+
+    // gap for upgradeable
+    uint256[50] private __gap;
 }

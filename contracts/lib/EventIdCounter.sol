@@ -10,4 +10,7 @@ abstract contract EventIdCounter {
         eventId++;
         return eventId;
     }
+
+    // gap for upgradeable
+    uint256[5] private __gap;
 }
