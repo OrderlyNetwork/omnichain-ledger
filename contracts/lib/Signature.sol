@@ -18,6 +18,6 @@ library Signature {
     }
 
     function verifyUintValueSignature(LedgerSignedTypes.UintValueData memory data, address signer) internal pure {
-        verify(MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(data.value))), data.r, data.s, data.v, signer);
+        verify(MessageHashUtils.toEthSignedMessageHash(keccak256(abi.encode(data.value, data.timestamp))), data.r, data.s, data.v, signer);
     }
 }

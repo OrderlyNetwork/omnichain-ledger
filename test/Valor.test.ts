@@ -26,6 +26,7 @@ type UintValueData = {
   s: BytesLike;
   v: number;
   value: BigInt;
+  timestamp: BigInt;
 };
 
 describe("Valor", function () {
@@ -53,20 +54,22 @@ describe("Valor", function () {
 
     // First example data - should pass
     const data1: UintValueData = {
-      r: "0xe639bdecc62f62dc465f0133cc7d75b9dc603a0c6b5b4d6e978a12f93b0b64b8",
-      s: "0x3b95fb93464e57afe793cb212827c57f849074f2d4cf12d8bf0bdb381a560ea6",
-      v: 0x1c,
-      value: BigInt(123)
+      r: "0xb36e897ecb9be3fc7fe47da85ef8129be40097d7552b53ffafabca96a6b8fa5b",
+      s: "0x6fcecb8b834164bcda8ed0e37ed7e180c9764433d99e56b5f507a5db14f8f48a",
+      v: 0x1b,
+      value: BigInt(123),
+      timestamp: BigInt(1718072319590)
     };
 
     expect(await ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.not.be.reverted;
 
     // Second example data - should pass
     const data2: UintValueData = {
-      r: "0x73e5276c430779afca6ef8b25be6f86690cf1a51e6f74ff46339600b3c58459f",
-      s: "0x02ab081f611f281079ad8b7ab62bbb958bc3dc2682389833413cf6f8269bec76",
+      r: "0xa4155dce45b643e9979ba6089635b46351cd2da5e447189eedcd89e01629fcec",
+      s: "0x779fe7ace0df903c50ae3141f661f1b53ab8d99b567520d971ca67da1273c77f",
       v: 0x1b,
-      value: BigInt("235236236236236236")
+      value: BigInt("235236236236236236"),
+      timestamp: BigInt(1710000000000)
     };
 
     // Move time forward by one day to allow sequential dailyUsdcNetFeeRevenue call
