@@ -99,10 +99,10 @@ abstract contract Valor is LedgerAccessControl {
     }
 
     /**
-     * @notice Set the totalUsdcInTreasure. Restricted to TREASURE_UPDATER_ROLE
+     * @notice Set the totalUsdcInTreasure. Restricted to DEFAULT_ADMIN_ROLE
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
-    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(TREASURE_UPDATER_ROLE) {
+    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(DEFAULT_ADMIN_ROLE) {
         totalUsdcInTreasure = _totalUsdcInTreasure;
         _updateValorToUsdcRateScaled();
         emit TotalUsdcInTreasureUpdated(totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);

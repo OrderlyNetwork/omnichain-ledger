@@ -117,4 +117,12 @@ describe("Valor", function () {
     expect(await ledger.totalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
     expect(await ledger.getUserValor(user.address)).to.equal(VALOR_MAXIMUM_EMISSION);
   });
+
+  it("only owner can call setTotalUsdcInTreasure", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorFixture();
+
+    await expect(ledger.connect(user).setTotalUsdcInTreasure(100)).to.be.revertedWithCustomError(ledger, "AccessControlUnauthorizedAccount");
+
+    await ledger.connect(owner).setTotalUsdcInTreasure(100);
+  });
 });
