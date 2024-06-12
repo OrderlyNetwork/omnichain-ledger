@@ -227,7 +227,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         bytes32 _merkleRoot,
         uint256 _startTimestamp,
         bytes calldata _ipfsCid
-    ) external nonReentrant onlyUpdater {
+    ) external whenNotPaused nonReentrant onlyUpdater {
         if (_distributionExists(_distributionId)) revert DistributionAlreadyExists();
         if (_token != LedgerToken.ORDER && _token != LedgerToken.ESORDER) revert TokenIsNotSupportedForDistribution();
 
@@ -263,7 +263,7 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         bytes32 _merkleRoot,
         uint256 _startTimestamp,
         bytes calldata _ipfsCid
-    ) public nonReentrant onlyUpdater {
+    ) public whenNotPaused nonReentrant onlyUpdater {
         _proposeRoot(_distributionId, _merkleRoot, _startTimestamp, _ipfsCid);
     }
 

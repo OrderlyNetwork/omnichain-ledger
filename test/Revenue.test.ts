@@ -1,5 +1,4 @@
-import { deployments, ethers, upgrades } from "hardhat";
-import { BigNumber, Contract, ContractFactory } from "ethers";
+import { Contract } from "ethers";
 import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
@@ -282,5 +281,15 @@ describe("Revenue", function () {
     const batch1 = await ledger.getBatchInfo(1);
     expect(batch1["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled);
     expect(batch1["claimable"]).to.equal(true);
+  });
+
+  it("Revenue: pause should fail functions, that requires unpaused state", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+
+    await ledger.connect(owner).pause();
+    await expect(ledger.connect(owner).fixBatchValorToUsdcRate(0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(owner).batchPreparedToClaim(0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).redeemValor(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).claimUsdcRevenue(user.address, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
   });
 });

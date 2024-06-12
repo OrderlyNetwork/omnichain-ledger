@@ -4,7 +4,6 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture, VALOR_PER_DAY, VALOR_PER_SECOND } from "./utilities/index";
-import exp from "constants";
 
 describe("Staking", function () {
   async function stakingFixture() {
@@ -283,6 +282,33 @@ describe("Staking", function () {
       user,
       orderUnstakingAmount1 + orderUnstakingAmount2,
       (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS
+    );
+  });
+
+  it("Staking: pause should fail functions, that requires unpaused state", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
+
+    const chainId = 0;
+    const orderStakingAmount = 1000;
+
+    await ledger.connect(owner).pause();
+
+    await expect(ledger.connect(user).updateValorVars()).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, orderStakingAmount)).to.be.revertedWithCustomError(
+      ledger,
+      "EnforcedPause"
+    );
+
+    await expect(ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, orderStakingAmount)).to.be.revertedWithCustomError(
+      ledger,
+      "EnforcedPause"
+    );
+
+    await expect(ledger.connect(user).cancelOrderUnstakeRequest(user.address, chainId)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).withdrawOrder(user.address, chainId)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).esOrderUnstakeAndVest(user.address, chainId, orderStakingAmount)).to.be.revertedWithCustomError(
+      ledger,
+      "EnforcedPause"
     );
   });
 });
