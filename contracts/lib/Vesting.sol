@@ -104,7 +104,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     /* ========== OWNER FUNCTIONS ========== */
 
-    function setOrderCollector(address _orderCollector) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setOrderCollector(address _orderCollector) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         orderCollector = _orderCollector;
     }
 

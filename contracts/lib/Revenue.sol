@@ -163,7 +163,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     ///         This suppose to avoid the last day gap in USDC treasure amount
     ///         that can lead to set incorrect valor to USDC rate for the batch
     ///         batch.fixedValorToUsdcRateScaled will be set to current valorToUsdcRateScaled
-    function fixBatchValorToUsdcRate(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
+    function fixBatchValorToUsdcRate(uint16 _batchId) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
         // If nobody redeemed valor in the batch, batch will not be created at this moment, let's create it
         Batch storage batch = _getOrCreateBatch(_batchId);
@@ -178,7 +178,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /// @notice Admin marks batch as claimable when USDC is provided for the batch
     ///         This also reduce total valor amount and total USDC in treasure
     ///         This reduce shouldn't affect the valor to USDC rate because valor and USDC amounts are reduced proportionally
-    function batchPreparedToClaim(uint16 _batchId) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function batchPreparedToClaim(uint16 _batchId) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
         Batch storage batch = _getBatch(_batchId);
         if (batch.fixedValorToUsdcRateScaled == 0) revert BatchValorToUsdcRateIsNotFixed();
@@ -200,7 +200,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      *         to caclulate and collect pending valor for user
      *         Also supposed that reentrancy will be checked in the caller function
      */
-    function _redeemValor(address _user, uint256 _chainId, uint256 _amount) internal {
+    function _redeemValor(address _user, uint256 _chainId, uint256 _amount) internal whenNotPaused {
         if (_amount == 0) revert RedemptionAmountIsZero();
         if (collectedValor[_user] < _amount) revert AmountIsGreaterThanCollectedValor();
         collectedValor[_user] -= _amount;
@@ -226,7 +226,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      *         This function does not transfer USDC to the user, it just returns the amount
      *         Caller (Ledger contract) should transfer USDC to the user on the Vault chain
      */
-    function _claimUsdcRevenue(address _user, uint256 _chainId) internal returns (uint256 claimedUsdcAmount) {
+    function _claimUsdcRevenue(address _user, uint256 _chainId) internal whenNotPaused returns (uint256 claimedUsdcAmount) {
         // If user has pending USDC revenue for claimable batch, collect it
         _collectUserRevenueForClaimableBatch(_user);
 

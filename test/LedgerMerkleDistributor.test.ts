@@ -598,28 +598,34 @@ describe("LedgerMerkleDistributor", function () {
     await distributor.connect(owner).unpause();
   });
 
-  it("pause should fail functions, that requires unpaused state", async function () {
+  it("MD: pause should fail functions, that requires unpaused state", async function () {
     const { orderTokenOft, distributor, owner, user, updater, operator } = await distributorFixture();
     await distributor.connect(owner).pause();
 
     const distributionId = 1;
     const chainId = 1;
-    const { tree, amountsBigNumber, startTimestamp, ipfsCid } = await createDistribution(
-      LedgerToken.ORDER,
-      [user.address],
-      ["1000000000"],
+
+    const { tree, amountsBigNumber } = prepareMerkleTree([user.address], ["1000000000"]);
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+
+    await expect(
+      distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, tree.root, startTimestamp, ipfsCid)
+    ).to.be.revertedWithCustomError(distributor, "EnforcedPause");
+
+    await expect(distributor.connect(updater).proposeRoot(distributionId, tree.root, startTimestamp, ipfsCid)).to.be.revertedWithCustomError(
       distributor,
-      updater,
-      distributionId
+      "EnforcedPause"
     );
-    await helpers.time.increaseTo(startTimestamp + 1);
 
     await expect(distributor.connect(updater).updateRoot(distributionId)).to.be.revertedWithCustomError(distributor, "EnforcedPause");
     await expect(
       distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0))
     ).to.be.revertedWithCustomError(distributor, "EnforcedPause");
 
+    // Check that unpause allows to call the functions
     await distributor.connect(owner).unpause();
+    await distributor.connect(updater).createDistribution(distributionId, LedgerToken.ORDER, tree.root, startTimestamp, ipfsCid);
+    await helpers.time.increaseTo(startTimestamp + 1);
     await distributor.connect(updater).updateRoot(distributionId);
     await distributor.connect(user).claimRewards(distributionId, user.address, chainId, amountsBigNumber[0], tree.getProof(0));
   });

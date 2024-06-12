@@ -75,7 +75,7 @@ abstract contract Valor is LedgerAccessControl {
     }
 
     /// @notice Owner can set address, that signed the USDC revenue updates
-    function setUsdcUpdaterAddress(address _usdcUpdaterAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setUsdcUpdaterAddress(address _usdcUpdaterAddress) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         usdcUpdaterAddress = _usdcUpdaterAddress;
     }
 
@@ -87,7 +87,7 @@ abstract contract Valor is LedgerAccessControl {
      *          to prevent accidental double updates
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
-    function dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
+    function dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) external whenNotPaused onlyRole(TREASURE_UPDATER_ROLE) {
         if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
 
         Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
@@ -102,7 +102,7 @@ abstract contract Valor is LedgerAccessControl {
      * @notice Set the totalUsdcInTreasure. Restricted to DEFAULT_ADMIN_ROLE
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
-    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTotalUsdcInTreasure(uint256 _totalUsdcInTreasure) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) {
         totalUsdcInTreasure = _totalUsdcInTreasure;
         _updateValorToUsdcRateScaled();
         emit TotalUsdcInTreasureUpdated(totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);

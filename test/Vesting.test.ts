@@ -1,11 +1,7 @@
-import { deployments, ethers, upgrades } from "hardhat";
-import { BigNumber, Contract, ContractFactory } from "ethers";
 import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { INITIAL_SUPPLY, INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture } from "./utilities/index";
-import { any } from "hardhat/internal/core/params/argumentTypes";
+import { ONE_DAY_IN_SECONDS, ledgerFixture } from "./utilities/index";
 
 describe("Vesting", function () {
   async function vestingFixture() {
@@ -155,5 +151,16 @@ describe("Vesting", function () {
     await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, 1))
       .to.emit(ledger, "VestingClaimed")
       .withArgs(anyValue, chainId, user.address, 1, vestingAmount2, vestingAmount2, anyValue);
+  });
+
+  it("Vesting: pause should fail functions, that requires unpaused state", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+
+    await ledger.connect(owner).pause();
+    await expect(ledger.connect(user).setOrderCollector(user.address)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).createVestingRequest(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).cancelVestingRequest(user.address, 0, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).cancelAllVestingRequests(user.address, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(user).claimVestingRequest(user.address, 0, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
   });
 });

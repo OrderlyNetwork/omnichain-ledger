@@ -1,25 +1,8 @@
-import BN from "bn.js";
-import { concat, BytesLike, hexlify as toHex } from "@ethersproject/bytes";
-import { ethers } from "hardhat";
-import { BigNumber, Contract } from "ethers";
+import { BytesLike } from "@ethersproject/bytes";
 import { expect } from "chai";
-import { StandardMerkleTree } from "@openzeppelin/merkle-tree";
-import { keccak256 } from "ethereum-cryptography/keccak";
-import { hexToBytes, bytesToHex } from "ethereum-cryptography/utils";
-import { defaultAbiCoder } from "@ethersproject/abi";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import {
-  INITIAL_SUPPLY,
-  INITIAL_SUPPLY_STR,
-  ONE_DAY_IN_SECONDS,
-  LedgerToken,
-  ledgerFixture,
-  VALOR_MAXIMUM_EMISSION,
-  VALOR_PER_DAY,
-  VALOR_EMISSION_DURATION
-} from "./utilities/index";
+import { ONE_DAY_IN_SECONDS, LedgerToken, ledgerFixture, VALOR_MAXIMUM_EMISSION, VALOR_PER_DAY, VALOR_EMISSION_DURATION } from "./utilities/index";
 
 type UintValueData = {
   r: BytesLike;
@@ -127,5 +110,23 @@ describe("Valor", function () {
     await expect(ledger.connect(user).setTotalUsdcInTreasure(100)).to.be.revertedWithCustomError(ledger, "AccessControlUnauthorizedAccount");
 
     await ledger.connect(owner).setTotalUsdcInTreasure(100);
+  });
+
+  it("Valor: pause should fail functions, that requires unpaused state", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorFixture();
+
+    await ledger.connect(owner).pause();
+
+    const data1: UintValueData = {
+      r: "0xb36e897ecb9be3fc7fe47da85ef8129be40097d7552b53ffafabca96a6b8fa5b",
+      s: "0x6fcecb8b834164bcda8ed0e37ed7e180c9764433d99e56b5f507a5db14f8f48a",
+      v: 0x1b,
+      value: BigInt(123),
+      timestamp: BigInt(1718072319590)
+    };
+
+    await expect(ledger.connect(owner).setUsdcUpdaterAddress(usdcUpdaterAddress)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(owner).setTotalUsdcInTreasure(100)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
   });
 });

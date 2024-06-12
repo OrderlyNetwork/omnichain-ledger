@@ -7,7 +7,6 @@ import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { INITIAL_SUPPLY_STR, ONE_DAY_IN_SECONDS, TOTAL_SUPPLY } from "./utilities/index";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("MerkleDistributorL1", function () {
   const emptyRoot = "0x0000000000000000000000000000000000000000000000000000000000000000";
@@ -444,18 +443,30 @@ describe("MerkleDistributorL1", function () {
     await distributor.connect(owner).unpause();
   });
 
-  it("pause should fail functions, that requires unpaused state", async function () {
+  it("MDL1: pause should fail functions, that requires unpaused state", async function () {
     const { orderToken, distributor, owner, user } = await distributorFixture();
     await distributor.connect(owner).pause();
 
-    const { tree, amountsBigNumber, startTimestamp } = await proposeRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
-    await helpers.time.increaseTo(startTimestamp + 1);
+    const { tree, amountsBigNumber } = prepareMerkleTree([user.address], ["1000000000"]);
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+    const endTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
+    await expect(distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+      distributor,
+      "EnforcedPause"
+    );
+
+    // const { tree, amountsBigNumber, startTimestamp } = await proposeRootDistribution(orderToken, [user.address], ["1000000000"], distributor, owner);
     await expect(distributor.connect(owner).updateRoot()).to.be.revertedWithCustomError(distributor, "EnforcedPause");
     await expect(distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0))).to.be.revertedWithCustomError(
       distributor,
       "EnforcedPause"
     );
+
+    // Unpause should unlock the functions
     await distributor.connect(owner).unpause();
+    await distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid);
+    await orderToken.connect(owner).transfer(await distributor.getAddress(), amountsBigNumber[0]);
+    await helpers.time.increaseTo(startTimestamp + 1);
     await distributor.connect(owner).updateRoot();
     await distributor.connect(user).claimRewards(amountsBigNumber[0], tree.getProof(0));
   });

@@ -183,7 +183,7 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
         uint256 _startTimestamp,
         uint256 _endTimestamp,
         bytes calldata _ipfsCid
-    ) external nonReentrant onlyOwner {
+    ) external whenNotPaused nonReentrant onlyOwner {
         if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
 
         if (_startTimestamp < block.timestamp) revert StartTimestampIsInThePast();
@@ -213,7 +213,6 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
      *
      *  Reverts if root updates are paused.
      *  Reverts if the proposed root is bytes32(0).
-     *  Reverts if the proposed root epoch is not equal to the next root epoch.
      *  Reverts if the waiting period for the proposed root has not elapsed.
      */
     function updateRoot() public whenNotPaused {
@@ -238,7 +237,7 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
      *  Reverts if no active Merkle root is set.
      *  Reverts if the provided Merkle proof is invalid.
      */
-    function claimRewards(uint256 _cumulativeAmount, bytes32[] calldata _merkleProof) external nonReentrant returns (uint256) {
+    function claimRewards(uint256 _cumulativeAmount, bytes32[] calldata _merkleProof) external whenNotPaused nonReentrant returns (uint256) {
         if (canUpdateRoot()) {
             updateRoot();
         }
