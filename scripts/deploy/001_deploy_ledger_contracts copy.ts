@@ -3,6 +3,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { fullTokens, ONE_DAY_IN_SECONDS } from "../../test/utilities";
 import { deployContract } from "../utils/deploy";
 import { OmnichainLedgerV1, OmnichainLedgerTestV1 } from "../../types";
+import { AddressLike } from "ethers";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, getNamedAccounts } = hre;
@@ -28,14 +29,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const OmnichainLedgerV1 = await deployContract(hre, "OmnichainLedgerV1", [], "proxyNoInit");
     const OmnichainLedgerV1Contract = await ethers.getContract<OmnichainLedgerV1>("OmnichainLedgerV1");
     try {
-      await OmnichainLedgerV1Contract.initialize(
-        owner as AddressLike,
-        occAdaptor as AddressLike,
-        orderCollector as AddressLike,
-        orderTokenOft as AddressLike,
-        valorPerSecond,
-        maximumValorEmission
-      );
+      await OmnichainLedgerV1Contract.initialize(owner as AddressLike, occAdaptor as AddressLike, valorPerSecond, maximumValorEmission);
     } catch (e) {
       console.log("OmnichainLedgerV1 already initialized");
     }
@@ -45,14 +39,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const OmnichainLedgerTestV1 = await deployContract(hre, "OmnichainLedgerTestV1", [], "proxyNoInit");
     const OmnichainLedgerTestV1Contract = await ethers.getContract<OmnichainLedgerTestV1>("OmnichainLedgerTestV1");
     try {
-      await OmnichainLedgerTestV1Contract.initialize(
-        owner as AddressLike,
-        occAdaptor as AddressLike,
-        orderCollector as AddressLike,
-        orderTokenOft as AddressLike,
-        valorPerSecond,
-        maximumValorEmission
-      );
+      await OmnichainLedgerTestV1Contract.initialize(owner as AddressLike, occAdaptor as AddressLike, valorPerSecond, maximumValorEmission);
 
       const batchDuration = await OmnichainLedgerTestV1Contract.batchDuration();
       console.log("batchDuration:", batchDuration.toString());
