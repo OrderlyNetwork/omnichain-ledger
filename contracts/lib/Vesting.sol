@@ -42,9 +42,6 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     /// @notice Period after lock period, during which vesting $ORDER amount linearly increase from 50% to 100%
     uint256 public vestingLinearPeriod;
 
-    /// @notice Address, that will collect unvested $ORDER when user prematurely withdraws
-    address public orderCollector;
-
     /* ========== EVENTS ========== */
     event VestingRequested(
         uint256 indexed chainEventId,
@@ -82,13 +79,12 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     error DepositNotEnough(uint256 amountEsorderDeposited, uint256 amountEsorderRequested);
 
     /* ========== INITIALIZER ========== */
-    function vestingInit(address, uint256 _vestingLockPeriod, uint256 _vestingLinearPeriod, address _orderCollector) internal onlyInitializing {
+    function vestingInit(address, uint256 _vestingLockPeriod, uint256 _vestingLinearPeriod) internal onlyInitializing {
         if (_vestingLockPeriod == 0) revert VestingLockPeriodIsZero();
         if (_vestingLinearPeriod == 0) revert VestingLinearPeriodIsZero();
 
         vestingLockPeriod = _vestingLockPeriod;
         vestingLinearPeriod = _vestingLinearPeriod;
-        orderCollector = _orderCollector;
     }
 
     /* ========== PUBLIC VIEW FUNCTIONS ========== */
@@ -100,12 +96,6 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
 
     function getUserVestingRequests(address _user) public view returns (VestingRequest[] memory) {
         return userVestingInfos[_user].requests;
-    }
-
-    /* ========== OWNER FUNCTIONS ========== */
-
-    function setOrderCollector(address _orderCollector) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        orderCollector = _orderCollector;
     }
 
     /* ========== USER FUNCTIONS ========== */

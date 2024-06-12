@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -20,11 +19,8 @@ import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
 contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEventIdCounter, MerkleDistributor, Valor, Staking, Revenue, Vesting {
-    using SafeERC20 for IERC20;
-
     /* ========== STATE VARIABLES ========== */
     address public occAdaptor;
-    address public orderTokenOft;
 
     /* ========== ERRORS ========== */
     error UnsupportedPayloadType();
@@ -46,22 +42,14 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
 
     /* ========== INITIALIZER ========== */
 
-    function initialize(
-        address _owner,
-        address _occAdaptor,
-        address _orderCollector,
-        IOFT _orderTokenOft,
-        uint256 _valorPerSecond,
-        uint256 _maximumValorEmission
-    ) external initializer {
+    function initialize(address _owner, address _occAdaptor, uint256 _valorPerSecond, uint256 _maximumValorEmission) external initializer {
         ledgerAccessControlInit(_owner);
         merkleDistributorInit(_owner);
         valorInit(_owner, _valorPerSecond, _maximumValorEmission);
         stakingInit(_owner, DEFAULT_UNSTAKE_LOCK_PERIOD);
         revenueInit(_owner, block.timestamp, DEFAULT_BATCH_DURATION);
-        vestingInit(_owner, VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD, _orderCollector);
+        vestingInit(_owner, VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD);
 
-        orderTokenOft = address(_orderTokenOft);
         occAdaptor = _occAdaptor;
     }
 
@@ -69,10 +57,6 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
 
     function setOccAdaptor(address _occAdaptor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         occAdaptor = _occAdaptor;
-    }
-
-    function setOrderTokenOft(IOFT _orderTokenOft) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        orderTokenOft = address(_orderTokenOft);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
@@ -236,7 +220,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         }
 
         if (unclaimedOrderAmount != 0) {
-            IERC20(orderTokenOft).safeTransfer(orderCollector, unclaimedOrderAmount);
+            ILedgerOCCManager(occAdaptor).collectUnvestedOrders(unclaimedOrderAmount);
         }
     }
 

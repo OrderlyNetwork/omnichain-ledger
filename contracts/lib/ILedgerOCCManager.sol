@@ -5,4 +5,6 @@ import {OCCLedgerMessage} from "./OCCTypes.sol";
 
 interface ILedgerOCCManager {
     function ledgerSendToVault(OCCLedgerMessage memory message) external payable;
+
+    function collectUnvestedOrders(uint256 amount) external;
 }

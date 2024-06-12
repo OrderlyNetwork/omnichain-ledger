@@ -7,7 +7,7 @@ import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
 import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./OCCTypes.sol";
 
 // oz imports
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -30,12 +30,16 @@ interface ILedgerReceiver {
 contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatalayout, UUPSUpgradeable {
     using OptionsBuilder for bytes;
     using OFTComposeMsgCodec for bytes;
+    using SafeERC20 for IERC20;
 
     /// @dev ledger address
     address public ledgerAddr;
 
     /// @dev chain id to proxy ledger address mapping
     mapping(uint256 => address) public chainId2ProxyLedgerAddr;
+
+    /// @dev Address, that will collect unvested $ORDER when user prematurely withdraws
+    address public orderCollector;
 
     /// @dev modifier that only allow ledger to call
     modifier onlyLedger() {
@@ -62,16 +66,15 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         ledgerAddr = _ledgerAddr;
     }
 
+    function setOrderCollector(address _orderCollector) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        orderCollector = _orderCollector;
+    }
+
     /**
      * @notice construct OCCLedgerMessage for send through Layerzero
      * @param message The message to be sent.
      */
-    function buildOCCLedgerMsg(OCCLedgerMessage memory message)
-        internal
-        view
-        returns (SendParam memory sendParam)
-    {
-
+    function buildOCCLedgerMsg(OCCLedgerMessage memory message) internal view returns (SendParam memory sendParam) {
         /// build options
         uint8 _payloadType = message.payloadType;
         uint128 _dstGas = payloadType2DstGas[_payloadType];
@@ -82,11 +85,10 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         if (_oftGas == 0) {
             _oftGas = 2000000;
         }
-        
+
         uint256 amount = message.token == LedgerToken.ORDER ? message.tokenAmount : 0;
 
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
         sendParam = SendParam({
             dstEid: chainId2Eid[message.dstChainId],
             to: bytes32(uint256(uint160(chainId2ProxyLedgerAddr[message.dstChainId]))),
@@ -96,7 +98,6 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             composeMsg: abi.encode(message),
             oftCmd: bytes("")
         });
-
     }
 
     /**
@@ -104,7 +105,6 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      * @param message The message being sent.
      */
     function ledgerSendToVault(OCCLedgerMessage memory message) external payable onlyLedger {
-
         SendParam memory sendParam = buildOCCLedgerMsg(message);
         uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
 
@@ -115,6 +115,14 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         _options = sendParam.extraOptions;
 
         (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: fee}(sendParam, msgFee, address(this));
+    }
+
+    /**
+     * @notice Transfer unvested orders to orderCollector
+     * @param amount the amount to collect
+     */
+    function collectUnvestedOrders(uint256 amount) external onlyLedger {
+        IERC20(orderTokenOft).safeTransfer(orderCollector, amount);
     }
 
     /**
@@ -141,35 +149,21 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      * @param _eid The eid to identify the network from where the composeMsg sent
      * @param _remoteSender The address to identiy the sender on the remote network
      */
-    function _authorizeComposeMsgSender(
-        address _endpoint,
-        address _localSender,
-        uint32 _eid,
-        address _remoteSender
-    ) internal view returns (bool) {
+    function _authorizeComposeMsgSender(address _endpoint, address _localSender, uint32 _eid, address _remoteSender) internal view returns (bool) {
         address remoteLedgerProxy = chainId2ProxyLedgerAddr[eid2ChainId[_eid]];
-        return (
-            lzEndpoint == _endpoint &&
-            _localSender == orderTokenOft &&
-            _remoteSender == remoteLedgerProxy
-        );
+        return (lzEndpoint == _endpoint && _localSender == orderTokenOft && _remoteSender == remoteLedgerProxy);
     }
-
-
 
     function lzCompose(
         address _from,
         bytes32 /*_guid*/,
         bytes calldata _message,
         address /*executor*/,
-        bytes calldata /*_extraData*/ 
+        bytes calldata /*_extraData*/
     ) external payable {
         uint32 srcEid = _message.srcEid();
         address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
-        require(
-            _authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender),
-            "LedgerOCCManager: composeMsg sender check failed"
-        );
+        require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
 
         bytes memory _composeMsgContent = _message.composeMsg();
 
@@ -179,4 +173,3 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         // revert("TestOnly: end of lzCompose");
     }
 }
-
