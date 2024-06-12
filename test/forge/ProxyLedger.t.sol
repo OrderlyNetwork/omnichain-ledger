@@ -56,6 +56,8 @@ contract LedgerProxyTest is TestHelperOz5 {
     address public userB = address(0x2);
     uint256 public initialBalance = 100 ether;
 
+    address public orderCollectorAddress = address(0x3);
+
     function setUp() public virtual override {
         vm.deal(userA, 1000 ether);
         vm.deal(userB, 1000 ether);
@@ -91,9 +93,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         ledgerOCCManager = new LedgerOCCManager();
         ledgerOCCManager.initialize(address(bOFT), address(this));
         ledgerB = new LedgerTest();
-        address placeholderAddr = address(ledgerB);
-        ledgerB.initialize(address(this), address(ledgerOCCManager), placeholderAddr, bOFT, 1 ether, 100 ether);
+        ledgerB.initialize(address(this), address(ledgerOCCManager), 1 ether, 100 ether);
 
+        ledgerOCCManager.setOrderCollector(orderCollectorAddress);
         ledgerOCCManager.setLedgerAddr(address(ledgerB));
         ledgerOCCManager.setLzEndpoint(endpoints[bEid]);
 
@@ -123,6 +125,45 @@ contract LedgerProxyTest is TestHelperOz5 {
             abi.encodePacked(addressToBytes32(sender), msgCompose)
         );
         this.lzCompose(toEid, from, options, msgReceipt.guid, to, composerMsg_);
+    }
+
+    function _createMerkleDistribution(
+        LedgerToken _token,
+        uint32 _distributionId
+    ) public returns (uint32 distributionId, MerkleTreeHelper.Tree memory tree, uint256[] memory amounts, uint256 totalAmount) {
+        bOFT.mint(address(ledgerOCCManager), 10000 ether);
+        // userA and userB and address(this)
+        address[] memory users = new address[](3);
+        users[0] = userA;
+        users[1] = userB;
+        users[2] = address(this);
+        amounts = new uint256[](3);
+        amounts[0] = 10 ether;
+        amounts[1] = 20 ether;
+        amounts[2] = 30 ether;
+        totalAmount = amounts[0] + amounts[1] + amounts[2];
+
+        tree = MerkleTreeHelper.buildTree(users, amounts);
+
+        distributionId = _distributionId;
+        uint256 timestamp = block.timestamp;
+        bytes memory ipfsCid = "0x";
+        ledgerB.createDistribution(distributionId, _token, tree.root, timestamp, ipfsCid);
+    }
+
+    function _composeAndSendOneWayRequest(uint8 _opCode, uint256 _amount, address _user) public {
+        uint256 nativeFee = proxyA.quoteSendUserRequest(_amount, _user, _opCode);
+        vm.prank(_user);
+        proxyA.sendUserRequest{value: nativeFee}(_amount, _opCode);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
+    }
+
+    function _composeAndSendTwoWayRequest(uint8 _opCode, uint256 _amount, address _user) public {
+        _composeAndSendOneWayRequest(_opCode, _amount, _user);
+
+        verifyPackets(aEid, addressToBytes32(address(aOFT)));
+        _deliver_occ_msg(address(ledgerOCCManager), address(aOFT), address(proxyA), bEid, aEid);
     }
 
     function test_constructor() public {
@@ -172,27 +213,8 @@ contract LedgerProxyTest is TestHelperOz5 {
     }
 
     function test_occ_claim_reward() public {
-        bOFT.mint(address(ledgerOCCManager), 10000 ether);
-        // userA and userB and address(this)
-        address[] memory users = new address[](3);
-        users[0] = userA;
-        users[1] = userB;
-        users[2] = address(this);
-        uint256[] memory amounts = new uint256[](3);
-        amounts[0] = 10 ether;
-        amounts[1] = 20 ether;
-        amounts[2] = 30 ether;
-
-        console.log("start build tree...");
-
-        MerkleTreeHelper.Tree memory tree = MerkleTreeHelper.buildTree(users, amounts);
-
-        uint256 cumulativeAmount = 10 ether;
-
-        uint32 distributionId = 1;
-        uint256 timestamp = block.timestamp;
-        bytes memory ipfsCid = "0x";
-        ledgerB.createDistribution(distributionId, LedgerToken.ORDER, tree.root, timestamp, ipfsCid);
+        (uint32 distributionId, MerkleTreeHelper.Tree memory tree, uint256[] memory amounts, ) = _createMerkleDistribution(LedgerToken.ORDER, 1);
+        uint256 cumulativeAmountUserA = amounts[0];
 
         // get proof of userA
         bytes32[] memory merkleProof = MerkleTreeHelper.getProof(tree, 0, 3);
@@ -204,9 +226,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(userA, amounts[0]))));
         MerkleTreeHelper.verifyProof(tree.root, leaf, merkleProof);
 
-        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmount, merkleProof, false);
+        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmountUserA, merkleProof, false);
         vm.prank(userA);
-        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmount, merkleProof, false);
+        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmountUserA, merkleProof, false);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
@@ -331,5 +353,49 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         verifyPackets(aEid, addressToBytes32(address(aOFT)));
         _deliver_occ_msg(address(ledgerOCCManager), address(aOFT), address(proxyA), bEid, aEid);
+    }
+
+    function test_esorder_lifecycle() public {
+        (uint32 distributionId, MerkleTreeHelper.Tree memory tree, uint256[] memory amounts, ) = _createMerkleDistribution(LedgerToken.ESORDER, 1);
+        uint256 cumulativeAmountUserA = amounts[0];
+
+        // get proof of userA
+        bytes32[] memory merkleProof = MerkleTreeHelper.getProof(tree, 0, 3);
+
+        // Claim user's esOrder reward
+        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmountUserA, merkleProof, false);
+        vm.prank(userA);
+        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmountUserA, merkleProof, false);
+        verifyPackets(bEid, addressToBytes32(address(bOFT)));
+        _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
+
+        // Unstake user's esOrder and vest them
+        _composeAndSendOneWayRequest(uint8(PayloadDataType.EsOrderUnstakeAndVest), 3 ether, userA);
+
+        // Cancel user's vesting request
+        _composeAndSendOneWayRequest(uint8(PayloadDataType.CancelVestingRequest), 0, userA);
+
+        // Create new unstake request
+        _composeAndSendOneWayRequest(uint8(PayloadDataType.EsOrderUnstakeAndVest), 2 ether, userA);
+
+        //Wait for 15 days
+        vm.warp(block.timestamp + 15 days);
+
+        // Check user and order collector balances before claiming vesting request
+        uint256 userBalanceBefore = aOFT.balanceOf(userA);
+        assertEq(userBalanceBefore, initialBalance);
+        uint256 orderCollectorBalanceBefore = bOFT.balanceOf(orderCollectorAddress);
+        assertEq(orderCollectorBalanceBefore, 0);
+
+        // Claim user's vesting request with requestId 1
+        _composeAndSendTwoWayRequest(uint8(PayloadDataType.ClaimVestingRequest), 1, userA);
+
+        // Check user balance after claiming vesting request (should be half of the vested amount)
+        uint256 userBalanceAfter = aOFT.balanceOf(userA);
+        assertEq(userBalanceAfter, initialBalance + 1 ether);
+
+        // Unvested Orders should be transferred to the order collector
+        uint256 orderCollectorBalanceAfter = bOFT.balanceOf(orderCollectorAddress);
+        assertEq(orderCollectorBalanceAfter, 1 ether);
     }
 }

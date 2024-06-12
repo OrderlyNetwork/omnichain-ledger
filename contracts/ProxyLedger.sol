@@ -25,6 +25,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     event ClaimRewardTokenTransferred(address indexed user, uint256 amount);
     event WithdrawOrderTokenTransferred(address indexed user, uint256 amount);
     event ClaimUsdcRevenueTransferred(address indexed user, uint256 amount);
+    event ClaimVestingRequestTransferred(address indexed user, uint256 amount);
 
     /* ====== initializer ====== */
 
@@ -228,18 +229,27 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
 
             bool success = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
 
-            require(success, "TokenTransferFailed");
+            require(success, "OrderTokenTransferFailed");
 
             emit ClaimRewardTokenTransferred(message.receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.WithdrawOrderBackward)) {
             // require token is order, and amount > 0
-            require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimRewardBackward");
+            require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidWithdrawOrderBackward");
 
             bool success = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
 
             require(success, "OrderTokenTransferFailed");
 
             emit WithdrawOrderTokenTransferred(message.receiver, message.tokenAmount);
+        } else if (message.payloadType == uint8(PayloadDataType.ClaimVestingRequestBackward)) {
+            // require token is order, and amount > 0
+            require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimVestingRequestBackward");
+
+            bool success = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
+
+            require(success, "OrderTokenTransferFailed");
+
+            emit ClaimVestingRequestTransferred(message.receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             require(message.token == LedgerToken.USDC && message.tokenAmount > 0, "InvalidClaimUsdcRevenueBackward");
             bool success = IERC20(usdcAddr).transfer(message.receiver, message.tokenAmount);
