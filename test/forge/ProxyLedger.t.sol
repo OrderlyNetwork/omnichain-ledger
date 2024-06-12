@@ -186,9 +186,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         vm.prank(userA);
         aOFT.approve(address(proxyA), tokensToSend);
 
-        uint256 nativeFee = proxyA.quoteStake(tokensToSend, userA, false);
+        uint256 nativeFee = proxyA.quoteStakeOrder(tokensToSend, userA);
         vm.prank(userA);
-        proxyA.stake{value: nativeFee}(tokensToSend, false);
+        proxyA.stakeOrder{value: nativeFee}(tokensToSend);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         assertEq(aOFT.balanceOf(userA), initialBalance - tokensToSend);

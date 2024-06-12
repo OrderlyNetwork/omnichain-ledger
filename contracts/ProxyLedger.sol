@@ -108,13 +108,12 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @notice construct OCCVaultMessage for stake operation
      * @param amount the amount to stake
      * @param sender the sender of the stake
-     * @param isEsOrder whether the stake is for esOrder
      */
-    function buildStakeMessage(uint256 amount, address sender, bool isEsOrder) internal pure returns (OCCVaultMessage memory) {
+    function buildStakeOrderMessage(uint256 amount, address sender) internal pure returns (OCCVaultMessage memory) {
         return
             OCCVaultMessage({
                 srcChainId: 0,
-                token: isEsOrder ? LedgerToken.ESORDER : LedgerToken.ORDER,
+                token: LedgerToken.ORDER,
                 tokenAmount: amount,
                 sender: sender,
                 payloadType: uint8(PayloadDataType.Stake),
@@ -125,10 +124,9 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     /**
      * @notice stake the amount to the ledger
      * @param amount the amount to stake
-     * @param isEsOrder whether the stake is for esOrder
      */
-    function stake(uint256 amount, bool isEsOrder) external payable {
-        OCCVaultMessage memory message = buildStakeMessage(amount, msg.sender, isEsOrder);
+    function stakeOrder(uint256 amount) external payable {
+        OCCVaultMessage memory message = buildStakeOrderMessage(amount, msg.sender);
         vaultSendToLedger(message);
     }
 
@@ -136,10 +134,9 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @notice estimate the Layerzero fee for sending a message from vault to ledger chain in native token
      * @param amount the amount to stake
      * @param sender the sender of the stake
-     * @param isEsOrder whether the stake is for esOrder
      */
-    function quoteStake(uint256 amount, address sender, bool isEsOrder) external view returns (uint256) {
-        OCCVaultMessage memory message = buildStakeMessage(amount, sender, isEsOrder);
+    function quoteStakeOrder(uint256 amount, address sender) external view returns (uint256) {
+        OCCVaultMessage memory message = buildStakeOrderMessage(amount, sender);
         return estimateCCFeeFromVaultToLedger(message);
     }
 
