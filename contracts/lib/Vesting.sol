@@ -132,11 +132,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         VestingRequest storage userVestingRequest = _findVestingRequest(_user, _requestId);
 
         esOrderAmountToStakeBack = userVestingRequest.esOrderAmount;
-        VestingRequest memory lastRequest = userVestingInfos[_user].requests[userVestingInfos[_user].requests.length - 1];
-        userVestingRequest.requestId = lastRequest.requestId;
-        userVestingRequest.esOrderAmount = lastRequest.esOrderAmount;
-        userVestingRequest.unlockTimestamp = lastRequest.unlockTimestamp;
-        userVestingInfos[_user].requests.pop();
+        _removeUserVestingRequest(_user, userVestingRequest);
 
         emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, _requestId, esOrderAmountToStakeBack);
     }
@@ -166,25 +162,24 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         uint256 _chainId,
         uint256 _requestId
     ) internal whenNotPaused nonReentrant returns (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) {
-        VestingRequest storage vestingRequest = _findVestingRequest(_user, _requestId);
+        VestingRequest storage userVestingRequest = _findVestingRequest(_user, _requestId);
 
-        if (block.timestamp < vestingRequest.unlockTimestamp) revert VestingLockPeriodNotPassed();
+        if (block.timestamp < userVestingRequest.unlockTimestamp) revert VestingLockPeriodNotPassed();
 
-        claimedOrderAmount = _calculateVestingOrderAmount(vestingRequest);
-        unclaimedOrderAmount = vestingRequest.esOrderAmount - claimedOrderAmount;
+        claimedOrderAmount = _calculateVestingOrderAmount(userVestingRequest);
+        unclaimedOrderAmount = userVestingRequest.esOrderAmount - claimedOrderAmount;
 
         emit VestingClaimed(
             _getNextChainedEventId(_chainId),
             _chainId,
             _user,
             _requestId,
-            vestingRequest.esOrderAmount,
+            userVestingRequest.esOrderAmount,
             claimedOrderAmount,
-            block.timestamp - vestingRequest.unlockTimestamp
+            block.timestamp - userVestingRequest.unlockTimestamp
         );
 
-        vestingRequest = userVestingInfos[_user].requests[userVestingInfos[_user].requests.length - 1];
-        userVestingInfos[_user].requests.pop();
+        _removeUserVestingRequest(_user, userVestingRequest);
     }
 
     /* ========== PRIVATE FUNCTIONS ========== */
@@ -210,6 +205,14 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         uint256 vestedTime = block.timestamp - _vestingRequest.unlockTimestamp;
         if (vestedTime > vestingLinearPeriod) vestedTime = vestingLinearPeriod;
         return _vestingRequest.esOrderAmount / 2 + (_vestingRequest.esOrderAmount * vestedTime) / vestingLinearPeriod / 2;
+    }
+
+    function _removeUserVestingRequest(address _user, VestingRequest storage userVestingRequest) private {
+        VestingRequest memory lastRequest = userVestingInfos[_user].requests[userVestingInfos[_user].requests.length - 1];
+        userVestingRequest.requestId = lastRequest.requestId;
+        userVestingRequest.esOrderAmount = lastRequest.esOrderAmount;
+        userVestingRequest.unlockTimestamp = lastRequest.unlockTimestamp;
+        userVestingInfos[_user].requests.pop();
     }
 
     // gap for upgradeable

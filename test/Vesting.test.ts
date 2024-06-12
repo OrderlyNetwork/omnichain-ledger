@@ -2,11 +2,25 @@ import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { ONE_DAY_IN_SECONDS, ledgerFixture } from "./utilities/index";
+import { Contract } from "ethers";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Vesting", function () {
   async function vestingFixture() {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
     return { ledger, orderTokenOft, owner, user, updater, operator };
+  }
+
+  async function claimAndCheckVestingRequest(
+    ledger: Contract,
+    user: HardhatEthersSigner,
+    chainId: number,
+    requestId: number,
+    vestingAmounts: number[]
+  ) {
+    await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, requestId))
+      .to.emit(ledger, "VestingClaimed")
+      .withArgs(anyValue, chainId, user.address, requestId, vestingAmounts[requestId], vestingAmounts[requestId], anyValue);
   }
 
   it("check vesting initial state", async function () {
@@ -127,30 +141,34 @@ describe("Vesting", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
 
     const chainId = 0;
-    const vestingAmount1 = 1000;
-    const vestingAmount2 = 2000;
+    const vestingAmounts = [1000, 2000, 3000, 4000];
 
-    // Create two requests with different amounts
-    await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount1))
-      .to.emit(ledger, "VestingRequested")
-      .withArgs(1, chainId, user.address, 0, vestingAmount1, anyValue);
-    await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount2))
-      .to.emit(ledger, "VestingRequested")
-      .withArgs(2, chainId, user.address, 1, vestingAmount2, anyValue);
+    // Create requests with different amounts
+    for (let i = 0; i < 4; i++) {
+      await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmounts[i]))
+        .to.emit(ledger, "VestingRequested")
+        .withArgs(i + 1, chainId, user.address, i, vestingAmounts[i], anyValue);
+    }
 
     // Remocve the first request
     await expect(ledger.connect(user).cancelVestingRequest(user.address, chainId, 0))
       .to.emit(ledger, "VestingCanceled")
-      .withArgs(anyValue, chainId, user.address, 0, vestingAmount1);
+      .withArgs(anyValue, chainId, user.address, 0, vestingAmounts[0]);
 
     // Check full vesting period
     const vestingStartTime = await helpers.time.latest();
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
 
     // Claim second request
-    await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, 1))
-      .to.emit(ledger, "VestingClaimed")
-      .withArgs(anyValue, chainId, user.address, 1, vestingAmount2, vestingAmount2, anyValue);
+    await claimAndCheckVestingRequest(ledger, user, chainId, 1, vestingAmounts);
+
+    // Check that cancelled and claimed requests removed
+    await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
+    await expect(ledger.calculateVestingOrderAmount(user.address, 1)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
+
+    // Claim last requests
+    await claimAndCheckVestingRequest(ledger, user, chainId, 3, vestingAmounts);
+    await claimAndCheckVestingRequest(ledger, user, chainId, 2, vestingAmounts);
   });
 
   it("Vesting: pause should fail functions, that requires unpaused state", async function () {
