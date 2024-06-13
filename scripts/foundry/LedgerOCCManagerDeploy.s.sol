@@ -19,7 +19,7 @@ contract LedgerOCCManagerDeploy is BaseScript, ConfigScript {
         console.log("[LedgerOCCManagerDeploy]env: ", env);
         console.log("[LedgerOCCManagerDeploy]network: ", network);
 
-        address oftAddress = getOftAddress(network);
+        address oftAddress = readOFT(env, network);
 
         vmSelectRpcAndBroadcast(network);
 

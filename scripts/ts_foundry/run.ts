@@ -9,6 +9,7 @@ addArgvType("boolean", "simulate");
 addArgvType("string", "method");
 addArgvType("string", "address");
 addArgvType("string", "data");
+addArgvType("string", "args");
 
 const argv = require('minimist')(process.argv.slice(2), argv_type_config);
 

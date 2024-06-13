@@ -1,0 +1,19 @@
+{
+    "dev": {
+        "sepolia": "0x581BE804Ba3A74DFcD86014c093042EB93508876",
+        "arbsepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
+        "opsepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
+        "amoy": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
+        "basesepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
+        "fuji": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
+        "orderlysepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7"
+    },
+    "qa": {
+        "sepolia": "0x90573a6725202A16cd7d786167d947FC3fB1e628",
+        "arbsepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
+        "opsepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
+        "amoy": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
+        "basesepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
+        "orderlysepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d"
+    }
+}

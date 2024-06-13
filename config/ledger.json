@@ -5,25 +5,45 @@
       "impl": "0x70286209327d9d7A8F2F2e93b50E0a84211dEB8E",
       "proxy": "0x3871038ab33A8961e91C5c9ca62A7662a3354Cbf"
     },
-    "ledger_proxy": {}
+    "ledger_proxy": {
+      "arbsepolia": {},
+      "opsepolia": {},
+      "amoy": {},
+      "basesepolia": {},
+      "fuji": {},
+      "sepolia": {}
+    }
   },
   "qa": {
     "ledger": {
       "impl": "0x9D37B9859bE706D9Fd1deF1E174ddB40a10F28dD",
-      "proxy": "0x9D37B9859bE706D9Fd1deF1E174ddB40a10F28dD"
+      "proxy": "0x1cB262C876AE47A75Ec354D89766593839681C29"
     },
     "ledger_occ_manager": {
-      "impl": "0x76E94e59cBCb05ccC0eF40CDfe7fD316267e2836",
+      "impl": "0x2168aB9CfC514C782Ce1b512c6A92528B8b86364",
       "proxy": "0x3F973968db1704AD98c372B591ac04Dbeb43a6E9"
     },
     "ledger_proxy": {
       "arbsepolia": {
-        "impl": "0x7a501c3bF27A63A87dFf10E54a2eC95947B3cd9E",
+        "impl": "0x3BA500dB169D72064210E2Bf874fa208A93c013b",
         "proxy": "0x13B2D9219e4afb48C085E60A9CFAcbc193a61F43"
       },
       "opsepolia": {
-        "impl": "0xE1bD0BDD60B966E1c0bE89D16504357C60c21Ac0",
-        "proxy": "0xF77f660aBa06A131561BE3eB207C7CfE972C0aeD"
+        "impl": "0xDe1FDe26A1a16eEcEF73720191617194102EA396",
+        "proxy": "0xB4FC7751D82b1D0F6f90c63E6c2fabB47dF25a96"
+      },
+      "amoy": {
+        "impl": "0xfa9FcE6A038f5f22B243b082AE880D2fE3Ef31a4",
+        "proxy": "0x2BB903A155fae5cB8e9fDd6eaeB46EF95AC93FB9"
+      },
+      "basesepolia": {
+        "impl": "0xEfb319B7656Cc36e23D100F3D6F127bA56c00AA2",
+        "proxy": "0x5dC15b3492184F3dFf8f2c8206127C50c7dDFc24"
+      },
+      "fuji": {},
+      "sepolia": {
+        "impl": "0x4B4E25e461d8Cdc9333196Bc2A27527f3cFc3209",
+        "proxy": "0xBfc0B179da8551C8cf62460B93e40071C5ef131D"
       }
     }
   },

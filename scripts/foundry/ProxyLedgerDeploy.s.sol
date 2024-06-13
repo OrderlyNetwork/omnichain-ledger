@@ -19,7 +19,7 @@ contract ProxyLedgerDeploy is BaseScript, ConfigScript {
         console.log("[ProxyLedgerDeploy]env: ", env);
         console.log("[ProxyLedgerDeploy]network: ", network);
 
-        address oftAddress = getOftAddress(network);
+        address oftAddress = readOFT(env, network);
         address usdc = getUsdcAddress(network);
 
         vmSelectRpcAndBroadcast(network);
