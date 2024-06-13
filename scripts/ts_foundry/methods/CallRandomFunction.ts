@@ -9,9 +9,9 @@ const method_name = "CallRandomFunction";
 
 
 function genRawTxCalldata(func: string, args: string) {
-    // split args by comma
-    const argsArray = args.split(",");
-    // func is like "set(uint256,uint256)"
+    // split args by comma if it contains ,
+    const argsArray = args.includes(",") ? args.split(",") : [args];
+     // func is like "set(uint256,uint256)"
     // and generate the calldata
     const iface = new ethers.Interface(["function " + func]);
     const calldata = iface.encodeFunctionData(func, argsArray);

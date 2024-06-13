@@ -13,6 +13,12 @@ contract ConfigScript is Script {
     using StringUtils for string;
 
     string constant LEDGER_CONFIG_PATH = "config/ledger.json";
+    string constant OFT_CONFIG_PATH = "config/oft.json";
+
+    function readOFT(string memory env, string memory network) internal view returns (address) {
+        string memory filedata = vm.readFile(OFT_CONFIG_PATH);
+        return vm.parseJsonAddress(filedata, StringUtils.formJsonKey(env, network));
+    }
 
     function readLedger(string memory env, string memory role) internal view returns (DeployData memory) {
         string memory filedata = vm.readFile(LEDGER_CONFIG_PATH);

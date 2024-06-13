@@ -47,6 +47,9 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         _;
     }
 
+    // for receive native token
+    receive() external payable {}
+
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     function initialize(address _oft, address _owner) external initializer {
