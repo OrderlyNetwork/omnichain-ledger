@@ -51,6 +51,15 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     receive() external payable {}
 
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    
+    /* ========== prevent initialization for implementation contracts ========== */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /* ====== initializer ====== */
 
     function initialize(address _oft, address _owner) external initializer {
         ledgerAccessControlInit(_owner);

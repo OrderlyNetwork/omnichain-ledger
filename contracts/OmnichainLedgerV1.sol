@@ -40,6 +40,13 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     /// @notice upgrade the contract
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
+    /* ========== PREVENT INITIALIZATION FOR IMPLEMENTATION CONTRACTS ========== */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /* ========== INITIALIZER ========== */
 
     function initialize(address _owner, address _occAdaptor, uint256 _valorPerSecond, uint256 _maximumValorEmission) external initializer {
