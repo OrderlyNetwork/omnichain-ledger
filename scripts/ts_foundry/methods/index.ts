@@ -9,3 +9,4 @@ import "./verifyContract";
 import "./UpgradeLedgerOCCManager";
 import "./UpgradeProxyLedger";
 import "./printAllErrors";
+import "./printProxyLedger";

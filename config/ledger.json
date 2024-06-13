@@ -6,12 +6,27 @@
       "proxy": "0x3871038ab33A8961e91C5c9ca62A7662a3354Cbf"
     },
     "ledger_proxy": {
-      "arbsepolia": {},
-      "opsepolia": {},
-      "amoy": {},
-      "basesepolia": {},
+      "arbsepolia": {
+        "impl": "0x2e53653d6D74907a96cc33D8F0239075292a5e3b",
+        "proxy": "0xBfC49421E6c7Fe554345FbDDa23C01ee1d3780C0"
+      },
+      "opsepolia": {
+        "impl": "0x82eF0de97b34b9bcfb71384273E91066B4310De8",
+        "proxy": "0x99f7be5818F926B15678B8EfAC083ac74a059235"
+      },
+      "amoy": {
+        "impl": "0xBFC9141Fb39F17dFE48D06c525119Ae390A4955a",
+        "proxy": "0x51E74D767f61f2445A4142E13e265A2128648Ea8"
+      },
+      "basesepolia": {
+        "impl": "0xf912423f6Ec3BE2e1Bf6184B0f7166E96E9669f0",
+        "proxy": "0x86725bc9C5B43a55113E05E4293237Fcc75A6809"
+      },
       "fuji": {},
-      "sepolia": {}
+      "sepolia": {
+        "impl": "0xBFC9141Fb39F17dFE48D06c525119Ae390A4955a",
+        "proxy": "0x51E74D767f61f2445A4142E13e265A2128648Ea8"
+      }
     }
   },
   "qa": {
