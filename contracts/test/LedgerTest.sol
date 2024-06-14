@@ -2,6 +2,8 @@
 pragma solidity 0.8.22;
 
 import {LedgerToken} from "../lib/OCCTypes.sol";
+import {LedgerSignedTypes} from "../lib/LedgerTypes.sol";
+import {Signature} from "../lib/Signature.sol";
 import {OmnichainLedgerV1} from "../OmnichainLedgerV1.sol";
 
 contract LedgerTest is OmnichainLedgerV1 {
@@ -85,12 +87,20 @@ contract LedgerTest is OmnichainLedgerV1 {
         return userRevenue[_user].requests.length;
     }
 
-    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue) external onlyRole(TREASURE_UPDATER_ROLE) {
-        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
+    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue) public onlyRole(TREASURE_UPDATER_ROLE) {
+        _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, block.timestamp);
+    }
 
+    function dailyUsdcNetFeeRevenueTestNoTimeCheck(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
+        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
+        _dailyUsdcNetFeeRevenueTest(data.value, data.timestamp);
+    }
+
+    function _dailyUsdcNetFeeRevenueTest(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
         lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
         totalUsdcInTreasure += _usdcNetFeeRevenue;
         _updateValorToUsdcRateScaled();
-        emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+        _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
 }

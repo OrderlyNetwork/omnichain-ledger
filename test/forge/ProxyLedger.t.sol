@@ -26,7 +26,7 @@ import "forge-std/console.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
 // OCCAdapter imports
-import "../../contracts/test/LedgerTest.sol";
+import {LedgerTest} from "../../contracts/test/LedgerTest.sol";
 import "../../contracts/ProxyLedger.sol";
 import "../../contracts/lib/LedgerOCCManager.sol";
 // md imports
@@ -322,10 +322,10 @@ contract LedgerProxyTest is TestHelperOz5 {
     function test_occ_user_claim_usdc_revenue() public {
         uint256 claimAmount = 0;
         test_occ_user_redeem_valor();
-        // ledgerB.updateValorVars();
-        // ledgerB.dailyUsdcNetFeeRevenue(1000*14);
         vm.warp(block.timestamp + 2 days);
-        ledgerB.fixBatchValorToUsdcRate(1);
+        ledgerB.updateValorVars();
+        ledgerB.setTotalValorAmount(5000);
+        ledgerB.dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000 * 14);
         ledgerB.batchPreparedToClaim(1);
 
         (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled) = ledgerB

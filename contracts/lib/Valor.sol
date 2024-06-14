@@ -82,23 +82,6 @@ abstract contract Valor is LedgerAccessControl {
     /* ========== PUBLIC FUNCTIONS ========== */
 
     /**
-     * @notice CeFi updates the daily USDC net fee revenue
-     *          Function reverts, if the function is called too early - less than 12 hours after the last update
-     *          to prevent accidental double updates
-     *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
-     */
-    function dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) external whenNotPaused onlyRole(TREASURE_UPDATER_ROLE) {
-        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
-
-        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
-
-        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
-        totalUsdcInTreasure += data.value;
-        _updateValorToUsdcRateScaled();
-        emit DailyUsdcNetFeeRevenueUpdated(block.timestamp, data.value, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
-    }
-
-    /**
      * @notice Set the totalUsdcInTreasure. Restricted to DEFAULT_ADMIN_ROLE
      *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
      */
@@ -109,6 +92,23 @@ abstract contract Valor is LedgerAccessControl {
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */
+    /**
+     * @notice CeFi updates the daily USDC net fee revenue
+     *          Function reverts, if the function is called too early - less than 12 hours after the last update
+     *          to prevent accidental double updates
+     *          Function updates the totalUsdcInTreasure, valorToUsdcRateScaled
+     *          Supposed to be called from the Ledger contract
+     */
+    function _dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) internal whenNotPaused onlyRole(TREASURE_UPDATER_ROLE) {
+        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
+
+        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
+
+        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+        totalUsdcInTreasure += data.value;
+        _updateValorToUsdcRateScaled();
+        emit DailyUsdcNetFeeRevenueUpdated(data.timestamp, data.value, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+    }
 
     function _updateValorToUsdcRateScaled() internal {
         valorToUsdcRateScaled = totalValorAmount == 0 ? 0 : (totalUsdcInTreasure * VALOR_TO_USDC_RATE_PRECISION) / totalValorAmount;

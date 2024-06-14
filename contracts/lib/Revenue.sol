@@ -85,6 +85,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     error BatchIsNotFinished();
     error BatchValorToUsdcRateIsNotFixed();
     error NothingToClaim(address user, uint256 chainId);
+    error RedemptionIsNotStartedYet();
 
     /* ========== INITIALIZER ========== */
 
@@ -99,11 +100,11 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Calculate and returns the current batch id
     /// based on the current timestamp, start timestamp and batch duration
+    /// @dev Revert if the redemption is not started yet to prevent redemption before the start
     function getCurrentBatchId() public view returns (uint16) {
         uint256 currentTimestamp = block.timestamp;
-        if (currentTimestamp < batchStartTimestamp) {
-            return 0;
-        }
+        if (currentTimestamp < batchStartTimestamp) revert RedemptionIsNotStartedYet();
+
         return uint16((currentTimestamp - batchStartTimestamp) / batchDuration);
     }
 
@@ -158,22 +159,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     }
 
     /* ========== ADMIN FUNCTIONS ========== */
-
-    /// @notice CeFi fixes valor to USDC rate for the batch after providing daily USDC net fee amount after batch is finished
-    ///         This suppose to avoid the last day gap in USDC treasure amount
-    ///         that can lead to set incorrect valor to USDC rate for the batch
-    ///         batch.fixedValorToUsdcRateScaled will be set to current valorToUsdcRateScaled
-    function fixBatchValorToUsdcRate(uint16 _batchId) external whenNotPaused onlyRole(DEFAULT_ADMIN_ROLE) returns (uint256) {
-        if (_batchId >= getCurrentBatchId()) revert BatchIsNotFinished();
-        // If nobody redeemed valor in the batch, batch will not be created at this moment, let's create it
-        Batch storage batch = _getOrCreateBatch(_batchId);
-        if (batch.fixedValorToUsdcRateScaled == 0) {
-            batch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
-        }
-        emit BatchValorToUsdcRateIsFixed(_batchId, batch.fixedValorToUsdcRateScaled);
-
-        return batch.fixedValorToUsdcRateScaled;
-    }
 
     /// @notice Admin marks batch as claimable when USDC is provided for the batch
     ///         This also reduce total valor amount and total USDC in treasure
@@ -236,6 +221,23 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userRevenue[_user].chainedUsdcRevenue[_chainId] = 0;
 
         emit UsdcRevenueClaimed(_getNextChainedEventId(_chainId), _chainId, _user, claimedUsdcAmount);
+    }
+
+    /* ========== INTERNAL FUNCTIONS ========== */
+
+    /// @notice Check if previous finished batch has no fixed valor to USDC rate and fix it
+    ///         batch.fixedValorToUsdcRateScaled will be set to current valorToUsdcRateScaled
+    function _possiblyFixBatchValorToUsdcRateForPreviousBatch() internal whenNotPaused {
+        uint16 curBatchId = getCurrentBatchId();
+        if (curBatchId > 0) {
+            uint16 prevBatchId = curBatchId - 1;
+            // If nobody redeemed valor in the batch, batch will not be created at this moment, let's create it
+            Batch storage prevBatch = _getOrCreateBatch(prevBatchId);
+            if (prevBatch.fixedValorToUsdcRateScaled == 0) {
+                prevBatch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
+                emit BatchValorToUsdcRateIsFixed(prevBatchId, prevBatch.fixedValorToUsdcRateScaled);
+            }
+        }
     }
 
     /* ========== PRIVATE FUNCTIONS ========== */

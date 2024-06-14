@@ -6,7 +6,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/U
 
 import {LedgerAccessControl} from "./lib/LedgerAccessControl.sol";
 import {ChainedEventIdCounter} from "./lib/ChainedEventIdCounter.sol";
-import {LedgerPayloadTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
+import {LedgerPayloadTypes, PayloadDataType, LedgerSignedTypes} from "./lib/LedgerTypes.sol";
 import {Valor} from "./lib/Valor.sol";
 import {Staking} from "./lib/Staking.sol";
 import {Vesting} from "./lib/Vesting.sol";
@@ -59,7 +59,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         occAdaptor = _occAdaptor;
     }
 
-    /* ========== INTERNAL FUNCTIONS ========== */
+    /* ========== EXTERNAL FUNCTIONS ========== */
 
     /// @notice Receives message from OCCAdapter and dispatch it
     function ledgerRecvFromVault(OCCVaultMessage memory message) external onlyOCCAdaptor {
@@ -138,6 +138,14 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         else {
             revert UnsupportedPayloadType();
         }
+    }
+
+    /// @notice CeFi updates the daily USDC net fee revenue, define
+    /// Then check if it was last day in batch, and if so, fix this price for the batch
+    /// Internally restricted to TREASURE_UPDATER_ROLE
+    function dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) external {
+        _dailyUsdcNetFeeRevenue(data);
+        _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */

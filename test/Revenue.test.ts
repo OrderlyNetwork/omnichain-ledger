@@ -21,7 +21,13 @@ describe("Revenue", function () {
     const valorToUsdcRateScaled =
       (((previousTotalUsdcInTreasure + dailyUsdcNetFeeRevenue) * BigInt(1e18)) / BigInt(totalValorAmountBefore)) * BigInt(1e9);
 
+    const batchEndTime = (await ledger.getBatchInfo(batchId))["batchEndTime"];
+    if (batchEndTime > (await helpers.time.latest())) {
+      await helpers.time.increaseTo(batchEndTime + BigInt(1));
+    }
+
     // Owner can update the total USDC in the treasure because he granted TREASURE_UPDATER_ROLE
+    // This also fix the valor to USDC rate for previous finished batch
     const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(dailyUsdcNetFeeRevenue);
     await expect(tx)
       .to.emit(ledger, "DailyUsdcNetFeeRevenueUpdated")
@@ -33,13 +39,6 @@ describe("Revenue", function () {
         valorToUsdcRateScaled
       );
 
-    const batchEndTime = (await ledger.getBatchInfo(batchId))["batchEndTime"];
-    if (batchEndTime > (await helpers.time.latest())) {
-      await helpers.time.increaseTo(batchEndTime + BigInt(1));
-    }
-
-    // Now batch is finished and owner can fix the batch price
-    await ledger.connect(owner).fixBatchValorToUsdcRate(batchId);
     // Then owner can prepare the batch to be claimed
     await ledger.connect(owner).batchPreparedToClaim(batchId);
     const batchInfo = await ledger.getBatchInfo(batchId);
@@ -102,39 +101,6 @@ describe("Revenue", function () {
     expect(await ledger.getCurrentBatchId()).to.equal(1);
     expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, chainId)).to.equal(1000);
     expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 1, chainId)).to.equal(1000);
-  });
-
-  it("owner can fix batch price", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
-
-    // User can't fix batch price
-    await expect(ledger.connect(user).fixBatchValorToUsdcRate(0)).to.be.revertedWithCustomError(ledger, "AccessControlUnauthorizedAccount");
-
-    // Owner can't fix batch price if the batch is not finished
-    await expect(ledger.connect(owner).fixBatchValorToUsdcRate(0)).to.be.revertedWithCustomError(ledger, "BatchIsNotFinished");
-
-    // Test function to avoid long setup
-    await ledger.connect(user).setTotalValorAmount(200);
-    expect(await ledger.totalValorAmount()).to.equal(200);
-
-    const expectedValorToUsdcRateScaled = 5000000000000000000000000000n;
-    // Owner can update the total USDC in the treasure because he granted TREASURE_UPDATER_ROLE
-    // And it should set the valor to USDC rate to 5
-    const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
-    await expect(tx).to.emit(ledger, "DailyUsdcNetFeeRevenueUpdated").withArgs(anyValue, 1000, 1000, 200, expectedValorToUsdcRateScaled);
-
-    // Move time to the end of the batch
-    const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
-    await helpers.time.increaseTo(batch0EndTime + BigInt(1));
-
-    // Owner can't make the batch claimable if the batch valor to USDC rate is not set
-    await expect(ledger.connect(owner).batchPreparedToClaim(0)).to.be.revertedWithCustomError(ledger, "BatchValorToUsdcRateIsNotFixed");
-
-    await ledger.connect(owner).fixBatchValorToUsdcRate(0);
-
-    const batch0 = await ledger.getBatchInfo(0);
-    expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled);
-    expect(batch0["claimable"]).to.equal(false);
   });
 
   it("user can claim usdc revenue", async function () {
@@ -283,30 +249,30 @@ describe("Revenue", function () {
   it("owner should be able to fix batch price if nobody redeemed valor", async function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
 
-    await ledger.connect(owner).setTotalValorAmount(2000);
-    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
-
     // Batch 0 is created authomatically
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
     await helpers.time.increaseTo(batch0EndTime + BigInt(1));
 
-    await ledger.connect(owner).fixBatchValorToUsdcRate(0);
+    await ledger.connect(owner).setTotalValorAmount(2000);
+    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
+
     await ledger.connect(owner).batchPreparedToClaim(0);
 
-    const expectedValorToUsdcRateScaled = 500000000000000000000000000n;
+    const expectedValorToUsdcRateScaled1 = 500000000000000000000000000n;
     const batch0 = await ledger.getBatchInfo(0);
-    expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled);
+    expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled1);
     expect(batch0["claimable"]).to.equal(true);
 
     // Let's move to batch 1
     const batch1EndTime = (await ledger.getBatchInfo(1))["batchEndTime"];
     await helpers.time.increaseTo(batch1EndTime + BigInt(1));
 
-    await ledger.connect(owner).fixBatchValorToUsdcRate(1);
+    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
     await ledger.connect(owner).batchPreparedToClaim(1);
 
+    const expectedValorToUsdcRateScaled2 = 1000000000000000000000000000n;
     const batch1 = await ledger.getBatchInfo(1);
-    expect(batch1["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled);
+    expect(batch1["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled2);
     expect(batch1["claimable"]).to.equal(true);
   });
 
@@ -314,7 +280,7 @@ describe("Revenue", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
 
     await ledger.connect(owner).pause();
-    await expect(ledger.connect(owner).fixBatchValorToUsdcRate(0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+    await expect(ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(owner).batchPreparedToClaim(0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(user).redeemValor(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(user).claimUsdcRevenue(user.address, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
