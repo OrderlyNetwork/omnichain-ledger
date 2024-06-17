@@ -103,7 +103,12 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     /// @notice Create vesting request for user
     /// This call suppose to be called from Ledger contract only as part of es$ORDER unstake and vest!
     /// It does not check if user has enough es$ORDERs - it should be checked in Ledger contract as part of es$ORDER unstake.
-    function _createVestingRequest(address _user, uint256 _chainId, uint256 _amountEsorder) internal whenNotPaused nonReentrant {
+    function _createVestingRequest(
+        address _user,
+        uint256 _chainedEventId,
+        uint256 _chainId,
+        uint256 _amountEsorder
+    ) internal whenNotPaused nonReentrant {
         if (_amountEsorder == 0) revert VestingAmountIsZero();
 
         UserVestingInfo storage vestingInfo = userVestingInfos[_user];
@@ -112,20 +117,14 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         vestingInfo.requests.push(vestingRequest);
         vestingInfo.currentRequestId++;
 
-        emit VestingRequested(
-            _getNextChainedEventId(_chainId),
-            _chainId,
-            _user,
-            vestingRequest.requestId,
-            _amountEsorder,
-            vestingRequest.unlockTimestamp
-        );
+        emit VestingRequested(_chainedEventId, _chainId, _user, vestingRequest.requestId, _amountEsorder, vestingRequest.unlockTimestamp);
     }
 
     /// @notice Cancel vesting request for user and return es$ORDER amount
     /// Caller should stake back es$ORDER tokens
     function _cancelVestingRequest(
         address _user,
+        uint256 _chainedEventId,
         uint256 _chainId,
         uint256 _requestId
     ) internal whenNotPaused nonReentrant returns (uint256 esOrderAmountToStakeBack) {
@@ -134,13 +133,14 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         esOrderAmountToStakeBack = userVestingRequest.esOrderAmount;
         _removeUserVestingRequest(_user, userVestingRequest);
 
-        emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, _requestId, esOrderAmountToStakeBack);
+        emit VestingCanceled(_chainedEventId, _chainId, _user, _requestId, esOrderAmountToStakeBack);
     }
 
     /// @notice Cancel all vesting requests for user
     /// Caller should stake back es$ORDER tokens
     function _cancelAllVestingRequests(
         address _user,
+        uint256 _chainedEventId,
         uint256 _chainId
     ) internal whenNotPaused nonReentrant returns (uint256 esOrderAmountToStakeBack) {
         UserVestingInfo memory userVestingInfo = userVestingInfos[_user];
@@ -149,7 +149,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
             uint256 esOrderAmount = userVestingInfo.requests[i].esOrderAmount;
             esOrderAmountToStakeBack += esOrderAmount;
 
-            emit VestingCanceled(_getNextChainedEventId(_chainId), _chainId, _user, userVestingInfo.requests[i].requestId, esOrderAmount);
+            emit VestingCanceled(_chainedEventId, _chainId, _user, userVestingInfo.requests[i].requestId, esOrderAmount);
         }
 
         delete userVestingInfos[_user];
@@ -159,6 +159,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
     /// @dev User can withdraw $ORDER tokens only after locking period passed
     function _claimVestingRequest(
         address _user,
+        uint256 _chainedEventId,
         uint256 _chainId,
         uint256 _requestId
     ) internal whenNotPaused nonReentrant returns (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) {
@@ -170,7 +171,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         unclaimedOrderAmount = userVestingRequest.esOrderAmount - claimedOrderAmount;
 
         emit VestingClaimed(
-            _getNextChainedEventId(_chainId),
+            _chainedEventId,
             _chainId,
             _user,
             _requestId,

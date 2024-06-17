@@ -185,7 +185,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      *         to caclulate and collect pending valor for user
      *         Also supposed that reentrancy will be checked in the caller function
      */
-    function _redeemValor(address _user, uint256 _chainId, uint256 _amount) internal whenNotPaused {
+    function _redeemValor(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal whenNotPaused {
         if (_amount == 0) revert RedemptionAmountIsZero();
         if (collectedValor[_user] < _amount) revert AmountIsGreaterThanCollectedValor();
         collectedValor[_user] -= _amount;
@@ -202,7 +202,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         // Update redeemed valor amount for current batch and chain
         _getOrCreateChainedAmount(batches[currentBatchId].chainedValorAmount, _chainId).amount += _amount;
 
-        emit ValorRedeemed(_getNextChainedEventId(_chainId), _chainId, _user, currentBatchId, _amount);
+        emit ValorRedeemed(_chainedEventId, _chainId, _user, currentBatchId, _amount);
     }
 
     /**
@@ -211,7 +211,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      *         This function does not transfer USDC to the user, it just returns the amount
      *         Caller (Ledger contract) should transfer USDC to the user on the Vault chain
      */
-    function _claimUsdcRevenue(address _user, uint256 _chainId) internal whenNotPaused returns (uint256 claimedUsdcAmount) {
+    function _claimUsdcRevenue(address _user, uint256 _chainedEventId, uint256 _chainId) internal whenNotPaused returns (uint256 claimedUsdcAmount) {
         // If user has pending USDC revenue for claimable batch, collect it
         _collectUserRevenueForClaimableBatch(_user);
 
@@ -220,7 +220,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
         userRevenue[_user].chainedUsdcRevenue[_chainId] = 0;
 
-        emit UsdcRevenueClaimed(_getNextChainedEventId(_chainId), _chainId, _user, claimedUsdcAmount);
+        emit UsdcRevenueClaimed(_chainedEventId, _chainId, _user, claimedUsdcAmount);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */

@@ -147,7 +147,13 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Stake tokens from LedgerToken list for a given user
     /// For now only $ORDER and es$ORDER tokens are supported
-    function _stake(address _user, uint256 _chainId, LedgerToken _token, uint256 _amount) internal nonReentrant whenNotPaused {
+    function _stake(
+        address _user,
+        uint256 _chainedEventId,
+        uint256 _chainId,
+        LedgerToken _token,
+        uint256 _amount
+    ) internal nonReentrant whenNotPaused {
         if (_amount == 0) revert AmountIsZero();
         if (_token > LedgerToken.ESORDER) revert UnsupportedToken();
 
@@ -157,12 +163,17 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
         totalStakedAmount += _amount;
 
-        emit Staked(_getNextChainedEventId(_chainId), _chainId, _user, _amount, _token);
+        emit Staked(_chainedEventId, _chainId, _user, _amount, _token);
     }
 
     /// @notice Create unstaking request for `_amount` of $ORDER tokens
     /// If user has unstaking request, then it's amount will be updated but unlock time will reset to `unstakeLockPeriod` from now
-    function _createOrderUnstakeRequest(address _user, uint256 _chainId, uint256 _amount) internal nonReentrant whenNotPaused {
+    function _createOrderUnstakeRequest(
+        address _user,
+        uint256 _chainedEventId,
+        uint256 _chainId,
+        uint256 _amount
+    ) internal nonReentrant whenNotPaused {
         if (_amount == 0) revert AmountIsZero();
 
         if (userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] < _amount) revert StakingBalanceInsufficient(LedgerToken.ORDER);
@@ -175,12 +186,16 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userPendingUnstake[_user].balanceOrder += _amount;
         userPendingUnstake[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
 
-        emit OrderUnstakeRequested(_getNextChainedEventId(_chainId), _chainId, _user, _amount);
+        emit OrderUnstakeRequested(_chainedEventId, _chainId, _user, _amount);
         emit OrderUnstakeAmount(_user, userPendingUnstake[_user].balanceOrder, userPendingUnstake[_user].unlockTimestamp);
     }
 
     /// @notice Cancel unstaking request for $ORDER tokens and re-stake them
-    function _cancelOrderUnstakeRequest(address _user, uint256 _chainId) internal nonReentrant whenNotPaused returns (uint256 pendingOrderAmount) {
+    function _cancelOrderUnstakeRequest(
+        address _user,
+        uint256 _chainedEventId,
+        uint256 _chainId
+    ) internal nonReentrant whenNotPaused returns (uint256 pendingOrderAmount) {
         if (userPendingUnstake[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
 
         _updateValorVarsAndCollectUserValor(_user);
@@ -191,7 +206,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
         totalStakedAmount += pendingOrderAmount;
 
-        emit OrderUnstakeCancelled(_getNextChainedEventId(_chainId), _chainId, _user, pendingOrderAmount);
+        emit OrderUnstakeCancelled(_chainedEventId, _chainId, _user, pendingOrderAmount);
 
         userPendingUnstake[_user].balanceOrder = 0;
         userPendingUnstake[_user].unlockTimestamp = 0;
@@ -200,13 +215,17 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Withdraw unstaked $ORDER tokens. Contract does not tansfer tokens to user, it just returns amount of tokens to Ledger
     /// Caller (Ledger contract) should transfer tokens to user
-    function _withdrawOrder(address _user, uint256 _chainId) internal nonReentrant whenNotPaused returns (uint256 orderAmountForWithdraw) {
+    function _withdrawOrder(
+        address _user,
+        uint256 _chainedEventId,
+        uint256 _chainId
+    ) internal nonReentrant whenNotPaused returns (uint256 orderAmountForWithdraw) {
         if (userPendingUnstake[_user].unlockTimestamp == 0) revert NoPendingUnstakeRequest();
         if (block.timestamp < userPendingUnstake[_user].unlockTimestamp) revert UnlockTimeNotPassedYet();
 
         orderAmountForWithdraw = userPendingUnstake[_user].balanceOrder;
         if (orderAmountForWithdraw > 0) {
-            emit OrderWithdrawn(_getNextChainedEventId(_chainId), _chainId, _user, orderAmountForWithdraw);
+            emit OrderWithdrawn(_chainedEventId, _chainId, _user, orderAmountForWithdraw);
 
             userPendingUnstake[_user].balanceOrder = 0;
             userPendingUnstake[_user].unlockTimestamp = 0;
@@ -216,7 +235,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Unstake es$ORDER tokens immediately.
     /// Caller (Ledger contract) should vest _amount of es$ORDER tokens to Vesting contract
-    function _esOrderUnstake(address _user, uint256 _chainId, uint256 _amount) internal nonReentrant whenNotPaused {
+    function _esOrderUnstake(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal nonReentrant whenNotPaused {
         if (_amount == 0) revert AmountIsZero();
 
         if (userStakingInfo[_user].balance[uint256(LedgerToken.ESORDER)] < _amount) revert StakingBalanceInsufficient(LedgerToken.ESORDER);
@@ -227,7 +246,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
         totalStakedAmount -= _amount;
 
-        emit EsOrderUnstake(_getNextChainedEventId(_chainId), _chainId, _user, _amount);
+        emit EsOrderUnstake(_chainedEventId, _chainId, _user, _amount);
     }
 
     /* ========== INTERNAL FUNCTIONS ========== */

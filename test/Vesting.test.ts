@@ -147,7 +147,7 @@ describe("Vesting", function () {
     for (let i = 0; i < 4; i++) {
       await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmounts[i]))
         .to.emit(ledger, "VestingRequested")
-        .withArgs(i + 1, chainId, user.address, i, vestingAmounts[i], anyValue);
+        .withArgs(anyValue, chainId, user.address, i, vestingAmounts[i], anyValue);
     }
 
     // Remocve the first request

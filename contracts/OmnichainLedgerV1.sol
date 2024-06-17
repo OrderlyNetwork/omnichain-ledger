@@ -69,6 +69,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
             _ledgerClaimRewards(
                 claimRewardPayload.distributionId,
                 message.sender,
+                message.chainedEventId,
                 message.srcChainId,
                 claimRewardPayload.cumulativeAmount,
                 claimRewardPayload.merkleProof
@@ -76,7 +77,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         }
         // ========== Stake ==========
         else if (message.payloadType == uint8(PayloadDataType.Stake)) {
-            _stake(message.sender, message.srcChainId, message.token, message.tokenAmount);
+            _stake(message.sender, message.chainedEventId, message.srcChainId, message.token, message.tokenAmount);
         }
         // ========== CreateOrderUnstakeRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest)) {
@@ -84,15 +85,15 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.payload,
                 (LedgerPayloadTypes.CreateOrderUnstakeRequest)
             );
-            _createOrderUnstakeRequest(message.sender, message.srcChainId, createOrderUnstakeRequestPayload.amount);
+            _createOrderUnstakeRequest(message.sender, message.chainedEventId, message.srcChainId, createOrderUnstakeRequestPayload.amount);
         }
         // ========== CancelOrderUnstakeRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest)) {
-            _cancelOrderUnstakeRequest(message.sender, message.srcChainId);
+            _cancelOrderUnstakeRequest(message.sender, message.chainedEventId, message.srcChainId);
         }
         // ========== WithdrawOrder ==========
         else if (message.payloadType == uint8(PayloadDataType.WithdrawOrder)) {
-            _ledgerWithdrawOrder(message.sender, message.srcChainId);
+            _ledgerWithdrawOrder(message.sender, message.chainedEventId, message.srcChainId);
         }
         // ========== EsOrderUnstakeAndVest ==========
         else if (message.payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest)) {
@@ -100,7 +101,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.payload,
                 (LedgerPayloadTypes.EsOrderUnstakeAndVest)
             );
-            _ledgerEsOrderUnstakeAndVest(message.sender, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
+            _ledgerEsOrderUnstakeAndVest(message.sender, message.chainedEventId, message.srcChainId, esOrderUnstakeAndVestPayload.amount);
         }
         // ========== CancelVestingRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.CancelVestingRequest)) {
@@ -108,13 +109,18 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.payload,
                 (LedgerPayloadTypes.CancelVestingRequest)
             );
-            uint256 esOrderAmountToReStake = _cancelVestingRequest(message.sender, message.srcChainId, cancelVestingRequestPayload.requestId);
-            _stake(message.sender, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
+            uint256 esOrderAmountToReStake = _cancelVestingRequest(
+                message.sender,
+                message.chainedEventId,
+                message.srcChainId,
+                cancelVestingRequestPayload.requestId
+            );
+            _stake(message.sender, message.chainedEventId, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
         }
         // ========== CancelAllVestingRequests ==========
         else if (message.payloadType == uint8(PayloadDataType.CancelAllVestingRequests)) {
-            uint256 esOrderAmountToReStake = _cancelAllVestingRequests(message.sender, message.srcChainId);
-            _stake(message.sender, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
+            uint256 esOrderAmountToReStake = _cancelAllVestingRequests(message.sender, message.chainedEventId, message.srcChainId);
+            _stake(message.sender, message.chainedEventId, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
         }
         // ========== ClaimVestingRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.ClaimVestingRequest)) {
@@ -122,17 +128,16 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.payload,
                 (LedgerPayloadTypes.ClaimVestingRequest)
             );
-            _ledgerClaimVestingRequest(message.sender, message.srcChainId, claimVestingRequestPayload.requestId);
+            _ledgerClaimVestingRequest(message.sender, message.chainedEventId, message.srcChainId, claimVestingRequestPayload.requestId);
         }
         // ========== RedeemValor ==========
         else if (message.payloadType == uint8(PayloadDataType.RedeemValor)) {
             LedgerPayloadTypes.RedeemValor memory redeemValorPayload = abi.decode(message.payload, (LedgerPayloadTypes.RedeemValor));
-            _ledgerRedeemValor(message.sender, message.srcChainId, redeemValorPayload.amount);
+            _ledgerRedeemValor(message.sender, message.chainedEventId, message.srcChainId, redeemValorPayload.amount);
         }
         // ========== ClaimUsdcRevenue ==========
         else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenue)) {
-            // _claimUsdcRevenue(message.sender, message.srcChainId);
-            _ledgerClaimUsdcRevenue(message.sender, message.srcChainId);
+            _ledgerClaimUsdcRevenue(message.sender, message.chainedEventId, message.srcChainId);
         }
         // ========== UnsupportedPayloadType ==========
         else {
@@ -157,15 +162,23 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     function _ledgerClaimRewards(
         uint32 _distributionId,
         address _user,
+        uint256 _chainedEventId,
         uint256 _srcChainId,
         uint256 _cumulativeAmount,
         bytes32[] memory _merkleProof
     ) internal {
-        (LedgerToken token, uint256 claimedAmount) = _claimRewards(_distributionId, _user, _srcChainId, _cumulativeAmount, _merkleProof);
+        (LedgerToken token, uint256 claimedAmount) = _claimRewards(
+            _distributionId,
+            _user,
+            _chainedEventId,
+            _srcChainId,
+            _cumulativeAmount,
+            _merkleProof
+        );
 
         if (claimedAmount != 0) {
             if (token == LedgerToken.ESORDER) {
-                _stake(_user, _srcChainId, token, claimedAmount);
+                _stake(_user, _chainedEventId, _srcChainId, token, claimedAmount);
             } else if (token == LedgerToken.ORDER) {
                 OCCLedgerMessage memory message = OCCLedgerMessage({
                     dstChainId: _srcChainId,
@@ -181,8 +194,8 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     /// @notice Withdrawn $ORDER tokens are sent back to the user wallet on the source chain
-    function _ledgerWithdrawOrder(address _user, uint256 _chainId) internal {
-        uint256 orderAmountForWithdraw = _withdrawOrder(_user, _chainId);
+    function _ledgerWithdrawOrder(address _user, uint256 _chainedEventId, uint256 _chainId) internal {
+        uint256 orderAmountForWithdraw = _withdrawOrder(_user, _chainedEventId, _chainId);
         if (orderAmountForWithdraw != 0) {
             OCCLedgerMessage memory message = OCCLedgerMessage({
                 dstChainId: _chainId,
@@ -197,8 +210,8 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     /// @notice Claimed USDC revenue is sent back to the user wallet on the source chain
-    function _ledgerClaimUsdcRevenue(address _user, uint256 _chainId) internal {
-        uint256 usdcRevenueAmount = _claimUsdcRevenue(_user, _chainId);
+    function _ledgerClaimUsdcRevenue(address _user, uint256 _chainedEventId, uint256 _chainId) internal {
+        uint256 usdcRevenueAmount = _claimUsdcRevenue(_user, _chainedEventId, _chainId);
         if (usdcRevenueAmount != 0) {
             OCCLedgerMessage memory message = OCCLedgerMessage({
                 dstChainId: _chainId,
@@ -213,8 +226,8 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     /// @notice Claimed ORDER tokens should be sent to the user wallet on the source chain
-    function _ledgerClaimVestingRequest(address _user, uint256 _chainId, uint256 _requestId) internal {
-        (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) = _claimVestingRequest(_user, _chainId, _requestId);
+    function _ledgerClaimVestingRequest(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _requestId) internal {
+        (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) = _claimVestingRequest(_user, _chainedEventId, _chainId, _requestId);
 
         if (claimedOrderAmount != 0) {
             OCCLedgerMessage memory message = OCCLedgerMessage({
@@ -234,14 +247,14 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     /// @notice Before redeeming Valor need to collect pending Valor for the user
-    function _ledgerRedeemValor(address _user, uint256 _chainId, uint256 _amount) internal {
+    function _ledgerRedeemValor(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal {
         _updateValorVarsAndCollectUserValor(_user);
-        _redeemValor(_user, _chainId, _amount);
+        _redeemValor(_user, _chainedEventId, _chainId, _amount);
     }
 
     /// @notice When $ESORDER unstaked, it should be immediately vested
-    function _ledgerEsOrderUnstakeAndVest(address _user, uint256 _chainId, uint256 _amount) internal {
-        _esOrderUnstake(_user, _chainId, _amount);
-        _createVestingRequest(_user, _chainId, _amount);
+    function _ledgerEsOrderUnstakeAndVest(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal {
+        _esOrderUnstake(_user, _chainedEventId, _chainId, _amount);
+        _createVestingRequest(_user, _chainedEventId, _chainId, _amount);
     }
 }
