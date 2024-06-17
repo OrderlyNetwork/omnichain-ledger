@@ -28,8 +28,8 @@ contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
         batchStartTimestamp = _batchStartTimestamp;
     }
 
-    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue) public onlyRole(TREASURE_UPDATER_ROLE) {
-        _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, block.timestamp);
+    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
+        _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, _timestamp);
     }
 
     function dailyUsdcNetFeeRevenueTestNoTimeCheck(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
