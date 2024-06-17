@@ -4,6 +4,8 @@ pragma solidity 0.8.22;
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 import {LedgerToken} from "../lib/OCCTypes.sol";
 import {OmnichainLedgerV1} from "../OmnichainLedgerV1.sol";
+import {LedgerSignedTypes} from "../lib/LedgerTypes.sol";
+import {Signature} from "../lib/Signature.sol";
 
 contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
     function setBatchDuration(uint256 _batchDuration) external {
@@ -24,5 +26,22 @@ contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
 
     function setBatchStartTimestamp(uint256 _batchStartTimestamp) external {
         batchStartTimestamp = _batchStartTimestamp;
+    }
+
+    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue) public onlyRole(TREASURE_UPDATER_ROLE) {
+        _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, block.timestamp);
+    }
+
+    function dailyUsdcNetFeeRevenueTestNoTimeCheck(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
+        Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
+        _dailyUsdcNetFeeRevenueTest(data.value, data.timestamp);
+    }
+
+    function _dailyUsdcNetFeeRevenueTest(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
+        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+        totalUsdcInTreasure += _usdcNetFeeRevenue;
+        _updateValorToUsdcRateScaled();
+        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+        _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
 }
