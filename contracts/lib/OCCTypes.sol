@@ -10,6 +10,8 @@ enum LedgerToken {
 }
 
 struct OCCVaultMessage {
+    /// @dev the event id for the message, different id for different chains
+    uint256 chainedEventId;
     /// @dev the source chain id, the sender can omit this field
     uint256 srcChainId;
     /// @dev the symbol of the token
