@@ -27,6 +27,13 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     event ClaimUsdcRevenueTransferred(address indexed user, uint256 amount);
     event ClaimVestingRequestTransferred(address indexed user, uint256 amount);
 
+    /* ========== prevent initialization for implementation contracts ========== */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /* ====== initializer ====== */
 
     /// @notice initialize the contract

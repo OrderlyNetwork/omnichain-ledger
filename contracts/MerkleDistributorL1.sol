@@ -86,6 +86,13 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
     /// @notice upgrade the contract
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    /* ========== PREVENT INITIALIZATION FOR IMPLEMENTATION CONTRACTS ========== */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /* ========== INITIALIZATION ========== */
 
     function initialize(address owner, IERC20 _token) external initializer {
