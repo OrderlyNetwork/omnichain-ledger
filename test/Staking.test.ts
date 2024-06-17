@@ -80,8 +80,8 @@ describe("Staking", function () {
 
     // Check that updateValorVars emit valor
     await ledger.updateValorVars();
-    expect(await ledger.totalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
-    expect(await ledger.totalValorAmount()).greaterThanOrEqual(VALOR_PER_DAY);
+    expect(await ledger.getTotalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
+    expect(await ledger.getTotalValorAmount()).greaterThanOrEqual(VALOR_PER_DAY);
   });
 
   it("unstake request should stop valor emission for user", async function () {
@@ -98,15 +98,14 @@ describe("Staking", function () {
     expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
     expect(await ledger.getUserValor(owner.address)).to.closeTo(VALOR_PER_DAY / BigInt(2), precision);
 
-    // Valor emission does not occurs just by time pass
-    expect(await ledger.totalValorEmitted()).to.closeTo(0, precision);
-    expect(await ledger.totalValorAmount()).to.closeTo(0, precision);
+    expect(await ledger.getTotalValorEmitted()).to.closeTo(VALOR_PER_DAY, precision);
+    expect(await ledger.getTotalValorAmount()).to.closeTo(VALOR_PER_DAY, precision);
 
     await ledger.connect(user).createOrderUnstakeRequest(user.address, chainId, 1000);
 
     // Check that createOrderUnstakeRequest emit valor
-    expect(await ledger.totalValorEmitted()).closeTo(VALOR_PER_DAY, precision);
-    expect(await ledger.totalValorAmount()).closeTo(VALOR_PER_DAY, precision);
+    expect(await ledger.getTotalValorEmitted()).closeTo(VALOR_PER_DAY, precision);
+    expect(await ledger.getTotalValorAmount()).closeTo(VALOR_PER_DAY, precision);
 
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
     // Unstake request should stop valor emission for user, but not for others

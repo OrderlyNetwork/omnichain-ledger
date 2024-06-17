@@ -144,6 +144,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     /// Then check if it was last day in batch, and if so, fix this price for the batch
     /// Internally restricted to TREASURE_UPDATER_ROLE
     function dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) external {
+        updateValorVars();
         _dailyUsdcNetFeeRevenue(data);
         _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }

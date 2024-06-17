@@ -28,10 +28,10 @@ abstract contract Valor is LedgerAccessControl {
     uint256 public maximumValorEmission;
 
     /// @notice The total amount of valor token, that has been emitted
-    uint256 public totalValorEmitted;
+    uint256 internal totalValorEmitted;
 
     /// @notice The total amount of valor token, that is currently in circulation
-    uint256 public totalValorAmount;
+    uint256 internal totalValorAmount;
 
     /// @notice The timestamp of the last update of the USDC net fee revenue
     uint256 public lastUsdcNetFeeRevenueUpdateTimestamp;

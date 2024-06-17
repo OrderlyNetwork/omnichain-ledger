@@ -16,7 +16,7 @@ describe("Revenue", function () {
 
     const previousTotalUsdcInTreasure = await ledger.totalUsdcInTreasure();
     const dailyUsdcNetFeeRevenue = BigInt(1000);
-    const totalValorAmountBefore = await ledger.totalValorAmount();
+    const totalValorAmountBefore = await ledger.getTotalValorAmount();
     // Here split precision to 1e18 and 1e9 to avoid overflow
     const valorToUsdcRateScaled =
       (((previousTotalUsdcInTreasure + dailyUsdcNetFeeRevenue) * BigInt(1e18)) / BigInt(totalValorAmountBefore)) * BigInt(1e9);
@@ -44,7 +44,7 @@ describe("Revenue", function () {
     const batchInfo = await ledger.getBatchInfo(batchId);
     expect(batchInfo["claimable"]).to.equal(true);
     expect(batchInfo["fixedValorToUsdcRateScaled"]).to.equal(valorToUsdcRateScaled);
-    const totalValorAmountAfter = Number(await ledger.totalValorAmount());
+    const totalValorAmountAfter = Number(await ledger.getTotalValorAmount());
     expect(totalValorAmountAfter).to.equal(totalValorAmountBefore - batchInfo["redeemedValorAmount"]);
   }
 
@@ -127,7 +127,7 @@ describe("Revenue", function () {
 
     await prepareBatchForClaiming(ledger, owner, 0);
 
-    expect(await ledger.totalValorAmount()).to.equal(1000);
+    expect(await ledger.getTotalValorAmount()).to.equal(1000);
     expect(await ledger.totalUsdcInTreasure()).to.equal(500);
 
     // Now batch is prepared and have fixedValorToUsdcRateScaled, so, USDC amount for the batch is 500
@@ -179,7 +179,7 @@ describe("Revenue", function () {
 
     await prepareBatchForClaiming(ledger, owner, 0);
 
-    expect(await ledger.totalValorAmount()).to.equal(0);
+    expect(await ledger.getTotalValorAmount()).to.equal(0);
 
     const tx = await ledger.connect(user).claimUsdcRevenue(user.address, 0);
     await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 0, user.address, 500);

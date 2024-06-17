@@ -111,6 +111,26 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return _getPendingValor(_user) + collectedValor[_user];
     }
 
+    /// @notice Get the total amount of Valor that should be emitted to the moment
+    function getTotalValorEmitted() external view returns (uint256) {
+        if (block.timestamp > lastValorUpdateTimestamp) {
+            (, uint256 valorEmission) = _getCurrentAccValorPreShareScaled();
+            return totalValorEmitted + valorEmission;
+        }
+
+        return totalValorEmitted;
+    }
+
+    /// @notice Get the total amount of Valor that is currently in circulation
+    function getTotalValorAmount() external view returns (uint256) {
+        if (block.timestamp > lastValorUpdateTimestamp) {
+            (, uint256 valorEmission) = _getCurrentAccValorPreShareScaled();
+            return totalValorAmount + valorEmission;
+        }
+
+        return totalValorAmount;
+    }
+
     /// @notice Calculate and update valor per share changed over time
     /// This function actually emits valor to users
     function updateValorVars() public whenNotPaused {

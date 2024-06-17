@@ -81,26 +81,25 @@ describe("Valor", function () {
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
     // Only one user staked, so user receives all valor emission for the day.
     expect(await ledger.getUserValor(user.address)).greaterThanOrEqual(VALOR_PER_DAY);
-    // Now total valor emitted is not updated yet
-    expect(await ledger.totalValorEmitted()).to.equal(0);
+    expect(await ledger.getTotalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
 
     await ledger.updateValorVars();
     // Now total valor emitted is updated
-    expect(await ledger.totalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
+    expect(await ledger.getTotalValorEmitted()).greaterThanOrEqual(VALOR_PER_DAY);
 
     // Let's stake for VALOR_EMISSION_DURATION
     await helpers.time.increase(VALOR_EMISSION_DURATION);
 
     await ledger.updateValorVars();
     // Now total valor emitted is capped
-    expect(await ledger.totalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
+    expect(await ledger.getTotalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
     expect(await ledger.getUserValor(user.address)).to.equal(VALOR_MAXIMUM_EMISSION);
 
     // Waiting longer should not increase the total valor emitted
     await helpers.time.increase(VALOR_EMISSION_DURATION);
 
     await ledger.updateValorVars();
-    expect(await ledger.totalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
+    expect(await ledger.getTotalValorEmitted()).to.equal(VALOR_MAXIMUM_EMISSION);
     expect(await ledger.getUserValor(user.address)).to.equal(VALOR_MAXIMUM_EMISSION);
   });
 
