@@ -109,6 +109,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      */
     function ledgerSendToVault(OCCLedgerMessage memory message) external payable onlyLedger {
         SendParam memory sendParam = buildOCCLedgerMsg(message);
+        chainedEventId += 1;
         uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
 
         MessagingFee memory msgFee = MessagingFee(fee, 0);
@@ -175,4 +176,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         // revert("TestOnly: end of lzCompose");
     }
+
+    /// gap for upgradeable
+    uint256[50] private __gap;
 }

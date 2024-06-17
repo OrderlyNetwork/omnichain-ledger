@@ -27,11 +27,15 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
 
     /// @dev chain id of the ledger chain
     uint256 public ledgerChainId;
+
     /// @dev the address of the ledger
     address public ledgerAddr;
 
     /// @dev usdc address
     address public usdcAddr;
+
+    /// @dev event id tracker
+    uint256 public chainedEventId;
 
     /**
      * @notice set the ledger chain id and ledger address
@@ -117,5 +121,5 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     }
 
     // gap for upgradeable
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 }

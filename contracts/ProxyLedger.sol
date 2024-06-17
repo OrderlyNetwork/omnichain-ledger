@@ -57,9 +57,10 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         uint256 cumulativeAmount,
         bytes32[] memory merkleProof,
         bool isEsOrder
-    ) internal pure returns (OCCVaultMessage memory) {
+    ) internal view returns (OCCVaultMessage memory) {
         return
             OCCVaultMessage({
+                chainedEventId: chainedEventId,
                 srcChainId: 0,
                 token: isEsOrder ? LedgerToken.ESORDER : LedgerToken.ORDER,
                 tokenAmount: 0,
@@ -80,6 +81,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      */
     function claimReward(uint32 distributionId, uint256 cumulativeAmount, bytes32[] memory merkleProof, bool isEsOrder) external payable {
         OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, msg.sender, cumulativeAmount, merkleProof, isEsOrder);
+        chainedEventId += 1;
         vaultSendToLedger(message);
     }
 
@@ -109,9 +111,10 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param amount the amount to stake
      * @param sender the sender of the stake
      */
-    function buildStakeOrderMessage(uint256 amount, address sender) internal pure returns (OCCVaultMessage memory) {
+    function buildStakeOrderMessage(uint256 amount, address sender) internal view returns (OCCVaultMessage memory) {
         return
             OCCVaultMessage({
+                chainedEventId: chainedEventId,
                 srcChainId: 0,
                 token: LedgerToken.ORDER,
                 tokenAmount: amount,
@@ -127,6 +130,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      */
     function stakeOrder(uint256 amount) external payable {
         OCCVaultMessage memory message = buildStakeOrderMessage(amount, msg.sender);
+        chainedEventId += 1;
         vaultSendToLedger(message);
     }
 
@@ -154,11 +158,12 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      *  - 6: RedeemValor,
      *  - 7: ClaimUsdcRevenue,
      */
-    function buildOCCMessage(uint256 amount, address user, uint8 payloadType) internal pure returns (OCCVaultMessage memory) {
+    function buildOCCMessage(uint256 amount, address user, uint8 payloadType) internal view returns (OCCVaultMessage memory) {
         // require correct payloadType
         require(payloadType >= 2 && payloadType <= 10, "UnsupportedPayloadType");
         return
             OCCVaultMessage({
+                chainedEventId: chainedEventId,
                 srcChainId: 0,
                 token: LedgerToken.PLACEHOLDER,
                 tokenAmount: 0,
@@ -175,6 +180,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      */
     function sendUserRequest(uint256 amount, uint8 payloadType) external payable {
         OCCVaultMessage memory occMsg = buildOCCMessage(amount, msg.sender, payloadType);
+        chainedEventId += 1;
         vaultSendToLedger(occMsg);
     }
 
