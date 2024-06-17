@@ -108,7 +108,7 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
     /**
      * @notice Get the actual Merkle root and associated parameters.
      *         In most cases it will be the active Merkle root.
-     *         But it there is a proposed root and the start timestamp has passed, it will be the proposed root.
+     *         But if there is a proposed root and the start timestamp has passed, it will be the proposed root.
      *         Because it will be updated at the beginning of the next claimReward call and become active from that moment.
      *         So, user will actually obtain the rewards from the proposed root and have to provide amount and proof for it.
      *

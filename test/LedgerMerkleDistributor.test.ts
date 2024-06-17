@@ -90,7 +90,7 @@ describe("LedgerMerkleDistributor", function () {
     const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
     await expect(distributor.connect(updater).proposeRoot(distributionId, tree2.root, newStartTimestamp, newIpfsCid))
       .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, tree2.root, newStartTimestamp, newIpfsCid);
+      .withArgs(distributionId, tree2.root, newStartTimestamp, newIpfsCid);
     await helpers.time.increaseTo(newStartTimestamp + 1);
     await distributor.connect(updater).updateRoot(distributionId);
     return { tree: tree2, amountsBigNumber: amountsBigNumber2, startTimestamp: newStartTimestamp, ipfsCid: newIpfsCid };
@@ -245,7 +245,7 @@ describe("LedgerMerkleDistributor", function () {
     const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
     await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, newStartTimestamp, newIpfsCid))
       .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, newTree.root, newStartTimestamp, newIpfsCid);
+      .withArgs(distributionId, newTree.root, newStartTimestamp, newIpfsCid);
 
     // Check that the proposed root is correct
     await checkProposedRoot(distributor, distributionId, newTree, newStartTimestamp, newIpfsCid);
@@ -288,20 +288,20 @@ describe("LedgerMerkleDistributor", function () {
 
     await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, startTimestamp, ipfsCid))
       .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, newTree.root, startTimestamp, ipfsCid);
+      .withArgs(distributionId, newTree.root, startTimestamp, ipfsCid);
 
     await checkProposedRoot(distributor, distributionId, newTree, startTimestamp, ipfsCid);
 
     await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, startTimestamp + 1, ipfsCid))
       .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, newTree.root, startTimestamp + 1, ipfsCid);
+      .withArgs(distributionId, newTree.root, startTimestamp + 1, ipfsCid);
 
     await checkProposedRoot(distributor, distributionId, newTree, startTimestamp + 1, ipfsCid);
 
     const newIpfsCid = encodeIpfsHash("QmYNQJoKGNHTpPxCBPh9KkDpaExgd2duMa3aF6ytMpHdao");
     await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, startTimestamp + 1, newIpfsCid))
       .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, newTree.root, startTimestamp + 1, newIpfsCid);
+      .withArgs(distributionId, newTree.root, startTimestamp + 1, newIpfsCid);
 
     await checkProposedRoot(distributor, distributionId, newTree, startTimestamp, newIpfsCid);
   });
@@ -324,7 +324,7 @@ describe("LedgerMerkleDistributor", function () {
     const { tree: newTree } = prepareMerkleTree([user.address], ["2000000000"]);
     await expect(distributor.connect(updater).proposeRoot(distributionId, newTree.root, newStartTimestamp, ipfsCid))
       .to.emit(distributor, "RootProposed")
-      .withArgs(anyValue, distributionId, newTree.root, newStartTimestamp, ipfsCid);
+      .withArgs(distributionId, newTree.root, newStartTimestamp, ipfsCid);
 
     await checkDistribution(distributor, distributionId, LedgerToken.ORDER, tree, startTimestamp, ipfsCid);
     await checkProposedRoot(distributor, distributionId, newTree, newStartTimestamp, ipfsCid);
@@ -351,7 +351,7 @@ describe("LedgerMerkleDistributor", function () {
     expect(await distributor.canUpdateRoot(distributionId)).to.be.equal(true);
     await expect(distributor.connect(user).updateRoot(distributionId))
       .to.emit(distributor, "RootUpdated")
-      .withArgs(anyValue, distributionId, tree.root, startTimestamp, ipfsCid);
+      .withArgs(distributionId, tree.root, startTimestamp, ipfsCid);
 
     // Check that the active root is now the proposed one
     await checkDistribution(distributor, distributionId, LedgerToken.ORDER, tree, startTimestamp, ipfsCid);

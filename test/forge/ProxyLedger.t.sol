@@ -27,6 +27,7 @@ import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/
 
 // OCCAdapter imports
 import {LedgerTest} from "../../contracts/test/LedgerTest.sol";
+import {OmnichainLedgerV1} from "../../contracts/OmnichainLedgerV1.sol";
 import "../../contracts/ProxyLedger.sol";
 import "../../contracts/lib/LedgerOCCManager.sol";
 // md imports
@@ -81,6 +82,7 @@ contract LedgerProxyTest is TestHelperOz5 {
         aOFT.mint(userA, initialBalance);
         bOFT.mint(userB, initialBalance);
 
+        console.log("ProxyLedger: ");
         // deploy and initialize upgradeable proxy ledger
         address proxyAImpl = address(new ProxyLedger());
         bytes memory initBytes = abi.encodeWithSelector(ProxyLedger.initialize.selector, address(aOFT), address(usdc), address(this));
@@ -90,10 +92,23 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         proxyA.setLzEndpoint(endpoints[aEid]);
 
-        ledgerOCCManager = new LedgerOCCManager();
-        ledgerOCCManager.initialize(address(bOFT), address(this));
-        ledgerB = new LedgerTest();
-        ledgerB.initialize(address(this), address(ledgerOCCManager), 1 ether, 100 ether);
+        console.log("ledgerOCCManager: ");
+        address ledgerOCCManagerImpl = address(new LedgerOCCManager());
+        bytes memory ledgerOCCManagerInitBytes = abi.encodeWithSelector(LedgerOCCManager.initialize.selector, address(bOFT), address(this));
+        address ledgerOCCManagerProxyAddr = address(new ERC1967Proxy(ledgerOCCManagerImpl, ledgerOCCManagerInitBytes));
+        ledgerOCCManager = LedgerOCCManager(payable(ledgerOCCManagerProxyAddr));
+
+        console.log("LedgerTest: ");
+        address ledgerBImpl = address(new LedgerTest());
+        bytes memory ledgerBInitBytes = abi.encodeWithSelector(
+            OmnichainLedgerV1.initialize.selector,
+            address(this),
+            address(ledgerOCCManager),
+            1 ether,
+            100 ether
+        );
+        address ledgerBProxyAddr = address(new ERC1967Proxy(ledgerBImpl, ledgerBInitBytes));
+        ledgerB = LedgerTest(payable(ledgerBProxyAddr));
 
         ledgerOCCManager.setOrderCollector(orderCollectorAddress);
         ledgerOCCManager.setLedgerAddr(address(ledgerB));

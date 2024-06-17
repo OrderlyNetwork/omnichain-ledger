@@ -62,7 +62,6 @@ abstract contract Valor is LedgerAccessControl {
     event TotalUsdcInTreasureUpdated(uint256 totalUsdcInTreasure, uint256 totalValorAmount, uint256 valorToUsdcRateScaled);
 
     /* ========== ERRORS ========== */
-    error ValorPerSecondExceedsMaxValue();
     error TooEarlyUsdcNetFeeRevenueUpdate();
 
     /* ========== INITIALIZER ========== */

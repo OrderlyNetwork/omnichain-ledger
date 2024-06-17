@@ -7,7 +7,7 @@ import {Signature} from "../lib/Signature.sol";
 import {OmnichainLedgerV1} from "../OmnichainLedgerV1.sol";
 
 contract LedgerTest is OmnichainLedgerV1 {
-    function chainedEventId() internal returns (uint256) {
+    function chainedEventId() internal pure returns (uint256) {
         return 1;
     }
 
