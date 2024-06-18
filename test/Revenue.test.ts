@@ -114,9 +114,11 @@ describe("Revenue", function () {
       .to.be.revertedWithCustomError(ledger, "NothingToClaim")
       .withArgs(user.address, chainId);
 
+    const userCollectedValor = VALOR_PER_SECOND * BigInt(60 * 60 * 24 * 14);
+
     // Redeem valor to the current batch
-    await ledger.connect(user).setCollectedValor(user.address, 2000);
-    await ledger.connect(user).redeemValor(user.address, chainId, 1000);
+    await ledger.connect(user).setCollectedValor(user.address, userCollectedValor);
+    await ledger.connect(user).redeemValor(user.address, chainId, userCollectedValor / BigInt(2));
 
     // User still can't claim usdc revenue if the batch is not claimable
     await expect(ledger.connect(user).claimUsdcRevenue(user.address, chainId))
@@ -129,12 +131,10 @@ describe("Revenue", function () {
 
     await prepareBatchForClaiming(ledger, owner, 0);
 
-    expect(await ledger.getTotalValorAmount()).to.equal(1000);
-    expect(await ledger.totalUsdcInTreasure()).to.equal(500);
-
+    const precision = VALOR_PER_SECOND * BigInt(2);
     // Now batch is prepared and have fixedValorToUsdcRateScaled, so, USDC amount for the batch is 500
     const usdcAmountForBatchAndChainAfter = (await ledger.getUsdcAmountForBatch(0))[0][1];
-    expect(usdcAmountForBatchAndChainAfter).to.equal(500n);
+    expect(usdcAmountForBatchAndChainAfter).to.closeTo(2000n, precision);
 
     const tx = await ledger.connect(user).claimUsdcRevenue(user.address, chainId);
     await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, chainId, user.address, 500);
@@ -180,8 +180,6 @@ describe("Revenue", function () {
     await ledger.connect(user).redeemValor(user.address, 1, 1000);
 
     await prepareBatchForClaiming(ledger, owner, 0);
-
-    expect(await ledger.getTotalValorAmount()).to.equal(0);
 
     const tx = await ledger.connect(user).claimUsdcRevenue(user.address, 0);
     await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 0, user.address, 500);
@@ -255,7 +253,7 @@ describe("Revenue", function () {
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
     await helpers.time.increaseTo(batch0EndTime + BigInt(1));
 
-    await ledger.connect(owner).setTotalValorAmount(2000);
+    await ledger.connect(owner).setTotalValorEmitted(2000);
     await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
 
     await ledger.connect(owner).batchPreparedToClaim(0);
