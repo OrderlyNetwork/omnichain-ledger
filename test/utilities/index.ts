@@ -15,6 +15,7 @@ export const VALOR_MAXIMUM_EMISSION = fullTokens(1_000_000_000);
 export const VALOR_EMISSION_DURATION = 200 * 14 * ONE_DAY_IN_SECONDS;
 export const VALOR_PER_SECOND = VALOR_MAXIMUM_EMISSION / BigInt(VALOR_EMISSION_DURATION);
 export const VALOR_PER_DAY = VALOR_PER_SECOND * BigInt(ONE_DAY_IN_SECONDS);
+export const VALOR_TO_USDC_RATE_PRECISION = BigInt(1e27);
 
 // Defaults to e18 using amount * 10^18
 export function fullTokens(amount: BigNumberish, decimals = 18): bigint {

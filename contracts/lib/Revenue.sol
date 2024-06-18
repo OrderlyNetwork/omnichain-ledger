@@ -144,20 +144,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         }
     }
 
-    /// @notice Returns the amount of valor that user redeemed for the chain in the batch
-    function getUserRedeemedValorAmountForBatchAndChain(address _user, uint16 _batchId, uint256 _chainId) external view returns (uint256) {
-        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
-            if (userRevenue[_user].requests[i].batchId == _batchId) {
-                for (uint256 j = 0; j < userRevenue[_user].requests[i].chainedValorAmount.length; j++) {
-                    if (userRevenue[_user].requests[i].chainedValorAmount[j].chainId == _chainId) {
-                        return userRevenue[_user].requests[i].chainedValorAmount[j].amount;
-                    }
-                }
-            }
-        }
-        return 0;
-    }
-
     /* ========== ADMIN FUNCTIONS ========== */
 
     /// @notice Admin marks batch as claimable when USDC is provided for the batch
@@ -169,7 +155,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (batch.fixedValorToUsdcRateScaled == 0) revert BatchValorToUsdcRateIsNotFixed();
         if (batch.claimable) return;
 
-        totalValorAmount -= batch.redeemedValorAmount;
+        totalValorRedeemed += batch.redeemedValorAmount;
         totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
         batch.claimable = true;
 

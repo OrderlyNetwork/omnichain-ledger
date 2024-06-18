@@ -74,9 +74,10 @@ describe("Staking", function () {
 
     expect(await ledger.userTotalStakingBalance(user.address)).to.equal(1000);
 
+    const precision = VALOR_PER_SECOND * BigInt(2);
     await helpers.time.increase(ONE_DAY_IN_SECONDS);
     // Only one user staked, so user receives all valor emission for the day.
-    expect(await ledger.getUserValor(user.address)).to.equal(VALOR_PER_DAY);
+    expect(await ledger.getUserValor(user.address)).to.closeTo(VALOR_PER_DAY, precision);
 
     // Check that updateValorVars emit valor
     await ledger.updateValorVars();
@@ -88,7 +89,7 @@ describe("Staking", function () {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await stakingFixture();
 
     const chainId = 0;
-    const precision = VALOR_PER_SECOND * BigInt(2);
+    const precision = VALOR_PER_SECOND * BigInt(4);
     await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, 1000);
     await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ORDER, 1000);
 

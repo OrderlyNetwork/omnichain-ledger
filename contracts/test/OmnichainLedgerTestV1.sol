@@ -41,7 +41,7 @@ contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
         lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
         totalUsdcInTreasure += _usdcNetFeeRevenue;
         _updateValorToUsdcRateScaled();
-        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
         _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
 }
