@@ -169,7 +169,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (batch.fixedValorToUsdcRateScaled == 0) revert BatchValorToUsdcRateIsNotFixed();
         if (batch.claimable) return;
 
-        totalValorAmount -= batch.redeemedValorAmount;
+        totalValorRedeemed += batch.redeemedValorAmount;
         totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
         batch.claimable = true;
 
