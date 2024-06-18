@@ -123,6 +123,7 @@ abstract contract Valor is LedgerAccessControl {
 
     /* ========== INTERNAL FUNCTIONS ========== */
 
+    /// @notice Emit the valor token
     function _doValorEmission() public whenNotPaused returns (uint256 valorEmitted) {
         valorEmitted = _getValorPendingEmission();
         if (valorEmitted > 0) {

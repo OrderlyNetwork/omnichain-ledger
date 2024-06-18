@@ -38,8 +38,8 @@ contract LedgerTest is OmnichainLedgerV1 {
         }
     }
 
-    function setTotalValorAmount(uint256 _amount) external {
-        totalValorAmount = _amount;
+    function setTotalValorEmitted(uint256 _amount) external {
+        totalValorEmitted = _amount;
     }
 
     function setCollectedValor(address _user, uint256 _amount) external {
@@ -111,7 +111,7 @@ contract LedgerTest is OmnichainLedgerV1 {
         lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
         totalUsdcInTreasure += _usdcNetFeeRevenue;
         _updateValorToUsdcRateScaled();
-        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, totalValorAmount, valorToUsdcRateScaled);
+        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
         _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
 }

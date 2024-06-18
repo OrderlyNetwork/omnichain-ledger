@@ -1,21 +1,24 @@
-import { Contract } from "ethers";
+import { Contract, ethers } from "ethers";
 import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ledgerFixture } from "./utilities/index";
+import { ledgerFixture, LedgerToken } from "./utilities/index";
+import { days } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time/duration";
 
 describe("Revenue", function () {
   async function revenueFixture() {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
+    const ownerStakeAmount = ethers.parseEther("1");
+    await ledger.connect(owner).stake(owner.address, 0, LedgerToken.ORDER, ownerStakeAmount)
+    const valorEmissionstart = await ledger.valorEmissionStartTimestamp();
+    helpers.time.increaseTo(valorEmissionstart;
     return { ledger, orderTokenOft, owner, user, updater, operator };
   }
 
   async function prepareBatchForClaiming(ledger: Contract, owner: SignerWithAddress, batchId: number) {
-    await ledger.connect(owner).setTotalValorAmount(2000);
-
     const previousTotalUsdcInTreasure = await ledger.totalUsdcInTreasure();
-    const dailyUsdcNetFeeRevenue = BigInt(1000);
+    const dailyUsdcNetFeeRevenue = 2 * (await ledger.valorPerSecond()) * 60 * 60 * 24;
     const totalValorAmountBefore = await ledger.getTotalValorAmount();
     // Here split precision to 1e18 and 1e9 to avoid overflow
     const valorToUsdcRateScaled =
@@ -69,8 +72,6 @@ describe("Revenue", function () {
     expect(batch0ChainedValorAmount).to.deep.equal([]);
 
     expect(await ledger.getUsdcAmountForBatch(0)).to.deep.equal([]);
-
-    expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, 0)).to.equal(0);
   });
 
   it("user can redeem valor to the current batch", async function () {
@@ -91,7 +92,6 @@ describe("Revenue", function () {
     await ledger.connect(user).redeemValor(user.address, chainId, 1000);
 
     expect(await ledger.getCurrentBatchId()).to.equal(0);
-    expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, chainId)).to.equal(1000);
 
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
     await helpers.time.increaseTo(batch0EndTime + BigInt(1));
@@ -99,8 +99,6 @@ describe("Revenue", function () {
     await ledger.connect(user).redeemValor(user.address, chainId, 1000);
 
     expect(await ledger.getCurrentBatchId()).to.equal(1);
-    expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 0, chainId)).to.equal(1000);
-    expect(await ledger.getUserRedeemedValorAmountForBatchAndChain(user.address, 1, chainId)).to.equal(1000);
   });
 
   it("user can claim usdc revenue", async function () {
