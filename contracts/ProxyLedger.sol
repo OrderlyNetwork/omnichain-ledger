@@ -56,20 +56,18 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param user the user to claim reward
      * @param cumulativeAmount the cumulative amount to claim
      * @param merkleProof the merkle proof
-     * @param isEsOrder whether the claim is for esOrder
      */
     function buildClaimRewardMessage(
         uint32 distributionId,
         address user,
         uint256 cumulativeAmount,
-        bytes32[] memory merkleProof,
-        bool isEsOrder
+        bytes32[] memory merkleProof
     ) internal view returns (OCCVaultMessage memory) {
         return
             OCCVaultMessage({
                 chainedEventId: chainedEventId,
                 srcChainId: 0,
-                token: isEsOrder ? LedgerToken.ESORDER : LedgerToken.ORDER,
+                token: LedgerToken.PLACEHOLDER,
                 tokenAmount: 0,
                 sender: user,
                 payloadType: uint8(PayloadDataType.ClaimReward),
@@ -84,11 +82,9 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param distributionId the distribution id
      * @param cumulativeAmount the cumulative amount to claim
      * @param merkleProof the merkle proof
-     * @param isEsOrder whether the claim is for esOrder
      */
-    function claimReward(uint32 distributionId, uint256 cumulativeAmount, bytes32[] memory merkleProof, bool isEsOrder) external payable {
-        OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, msg.sender, cumulativeAmount, merkleProof, isEsOrder);
-        chainedEventId += 1;
+    function claimReward(uint32 distributionId, uint256 cumulativeAmount, bytes32[] memory merkleProof) external payable {
+        OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, msg.sender, cumulativeAmount, merkleProof);
         vaultSendToLedger(message);
     }
 
@@ -98,16 +94,14 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param user the user to claim reward
      * @param cumulativeAmount the cumulative amount to claim
      * @param merkleProof the merkle proof
-     * @param isEsOrder whether the claim is for esOrder
      */
     function quoteClaimReward(
         uint32 distributionId,
         address user,
         uint256 cumulativeAmount,
-        bytes32[] memory merkleProof,
-        bool isEsOrder
+        bytes32[] memory merkleProof
     ) external view returns (uint256) {
-        OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, user, cumulativeAmount, merkleProof, isEsOrder);
+        OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, user, cumulativeAmount, merkleProof);
         return estimateCCFeeFromVaultToLedger(message);
     }
 
@@ -137,7 +131,6 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      */
     function stakeOrder(uint256 amount) external payable {
         OCCVaultMessage memory message = buildStakeOrderMessage(amount, msg.sender);
-        chainedEventId += 1;
         vaultSendToLedger(message);
     }
 
@@ -187,7 +180,6 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      */
     function sendUserRequest(uint256 amount, uint8 payloadType) external payable {
         OCCVaultMessage memory occMsg = buildOCCMessage(amount, msg.sender, payloadType);
-        chainedEventId += 1;
         vaultSendToLedger(occMsg);
     }
 

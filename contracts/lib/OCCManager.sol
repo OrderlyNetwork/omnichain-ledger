@@ -17,7 +17,6 @@ import {IOFT, SendParam, OFTReceipt} from "@layerzerolabs/lz-evm-oapp-v2/contrac
 import {IOAppComposer} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppComposer.sol";
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
-
 /**
  * @title VaultOCCManager for handle OCC message between vault and ledger
  * @dev This contract is used to send OCC message from vault to ledger
@@ -54,11 +53,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
      * @notice construct OCCVaultMessage for send through Layerzero
      * @param message The message to be sent.
      */
-    function buildOCCVaultMsg(OCCVaultMessage memory message)
-        internal
-        view
-        returns (SendParam memory sendParam)
-    {
+    function buildOCCVaultMsg(OCCVaultMessage memory message) internal view returns (SendParam memory sendParam) {
         /// set the source chain id
         message.srcChainId = myChainId;
 
@@ -72,8 +67,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         if (_oftGas == 0) {
             _oftGas = 2000000;
         }
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
         sendParam = SendParam({
             dstEid: chainId2Eid[ledgerChainId],
             to: bytes32(uint256(uint160(ledgerAddr))),
@@ -83,7 +77,6 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
             composeMsg: abi.encode(message),
             oftCmd: bytes("")
         });
-
     }
 
     /**
@@ -91,7 +84,6 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
      * @param message The message being sent.
      */
     function vaultSendToLedger(OCCVaultMessage memory message) internal {
-
         if (message.tokenAmount > 0) {
             address erc20TokenAddr = IOFT(orderTokenOft).token();
             bool success = IERC20(erc20TokenAddr).transferFrom(message.sender, address(this), message.tokenAmount);
@@ -114,6 +106,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         uint256 lzFee = msg.value - payloadType2BackwardFee[message.payloadType];
 
         (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: lzFee}(sendParam, msgFee, msg.sender);
+        chainedEventId += 1;
     }
 
     /**

@@ -241,9 +241,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(userA, amounts[0]))));
         MerkleTreeHelper.verifyProof(tree.root, leaf, merkleProof);
 
-        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmountUserA, merkleProof, false);
+        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmountUserA, merkleProof);
         vm.prank(userA);
-        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmountUserA, merkleProof, false);
+        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmountUserA, merkleProof);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
 
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
@@ -381,9 +381,9 @@ contract LedgerProxyTest is TestHelperOz5 {
         bytes32[] memory merkleProof = MerkleTreeHelper.getProof(tree, 0, 3);
 
         // Claim user's esOrder reward
-        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmountUserA, merkleProof, false);
+        uint256 nativeFee = proxyA.quoteClaimReward(distributionId, userA, cumulativeAmountUserA, merkleProof);
         vm.prank(userA);
-        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmountUserA, merkleProof, false);
+        proxyA.claimReward{value: nativeFee}(distributionId, cumulativeAmountUserA, merkleProof);
         verifyPackets(bEid, addressToBytes32(address(bOFT)));
         _deliver_occ_msg(address(proxyA), address(bOFT), address(ledgerOCCManager), aEid, bEid);
 
