@@ -7,7 +7,7 @@ import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
 import {OCCVaultMessage, OCCLedgerMessage} from "./OCCTypes.sol";
 
 // oz imports
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // lz imports
 import {OApp, MessagingFee, Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OApp.sol";
@@ -23,6 +23,7 @@ import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/li
  */
 abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     using OptionsBuilder for bytes;
+    using SafeERC20 for IERC20;
 
     /// @dev chain id of the ledger chain
     uint256 public ledgerChainId;
@@ -86,13 +87,11 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     function vaultSendToLedger(OCCVaultMessage memory message) internal {
         if (message.tokenAmount > 0) {
             address erc20TokenAddr = IOFT(orderTokenOft).token();
-            bool success = IERC20(erc20TokenAddr).transferFrom(message.sender, address(this), message.tokenAmount);
+            IERC20(erc20TokenAddr).safeTransferFrom(message.sender, address(this), message.tokenAmount);
 
             if (IOFT(orderTokenOft).approvalRequired()) {
                 IERC20(erc20TokenAddr).approve(address(orderTokenOft), message.tokenAmount);
             }
-
-            require(success, "TokenTransferFailed");
         }
 
         SendParam memory sendParam = buildOCCVaultMsg(message);

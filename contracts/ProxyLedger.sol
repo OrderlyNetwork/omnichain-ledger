@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
@@ -21,6 +21,7 @@ import {LedgerPayloadTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
  */
 contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     using OFTComposeMsgCodec for bytes;
+    using SafeERC20 for IERC20;
 
     event ClaimRewardTokenTransferred(address indexed user, uint256 amount);
     event WithdrawOrderTokenTransferred(address indexed user, uint256 amount);
@@ -229,34 +230,26 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimRewardBackward");
 
-            bool success = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
-
-            require(success, "OrderTokenTransferFailed");
+            IERC20(IOFT(orderTokenOft).token()).safeTransfer(message.receiver, message.tokenAmount);
 
             emit ClaimRewardTokenTransferred(message.receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.WithdrawOrderBackward)) {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidWithdrawOrderBackward");
 
-            bool success = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
-
-            require(success, "OrderTokenTransferFailed");
+            IERC20(IOFT(orderTokenOft).token()).safeTransfer(message.receiver, message.tokenAmount);
 
             emit WithdrawOrderTokenTransferred(message.receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.ClaimVestingRequestBackward)) {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimVestingRequestBackward");
 
-            bool success = IERC20(IOFT(orderTokenOft).token()).transfer(message.receiver, message.tokenAmount);
-
-            require(success, "OrderTokenTransferFailed");
+            IERC20(IOFT(orderTokenOft).token()).safeTransfer(message.receiver, message.tokenAmount);
 
             emit ClaimVestingRequestTransferred(message.receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             require(message.token == LedgerToken.USDC && message.tokenAmount > 0, "InvalidClaimUsdcRevenueBackward");
-            bool success = IERC20(usdcAddr).transfer(message.receiver, message.tokenAmount);
-
-            require(success, "USDCTokenTransferFailed");
+            IERC20(usdcAddr).safeTransfer(message.receiver, message.tokenAmount);
 
             emit ClaimUsdcRevenueTransferred(message.receiver, message.tokenAmount);
         } else {
