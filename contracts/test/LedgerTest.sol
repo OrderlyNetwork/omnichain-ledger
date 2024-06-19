@@ -114,4 +114,17 @@ contract LedgerTest is OmnichainLedgerV1 {
         emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
         _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
+
+    function getUserRedeemedValorAmountForBatchAndChain(address _user, uint16 _batchId, uint256 _chainId) external view returns (uint256) {
+        for (uint256 i = 0; i < userRevenue[_user].requests.length; i++) {
+            if (userRevenue[_user].requests[i].batchId == _batchId) {
+                for (uint256 j = 0; j < userRevenue[_user].requests[i].chainedValorAmount.length; j++) {
+                    if (userRevenue[_user].requests[i].chainedValorAmount[j].chainId == _chainId) {
+                        return userRevenue[_user].requests[i].chainedValorAmount[j].amount;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
 }

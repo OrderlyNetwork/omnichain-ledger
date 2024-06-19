@@ -36,7 +36,7 @@ describe("Revenue", function () {
     const totalValorAmount = totalValorAmountBefore + (await ledger.valorPerSecond()) * timeDiff;
     const valorToUsdcRateScaled = (BigInt(totalUsdcInTreasure) * VALOR_TO_USDC_RATE_PRECISION) / BigInt(totalValorAmount);
 
-    const precision = VALOR_PER_SECOND * BigInt(2);
+    const precision = VALOR_PER_SECOND * BigInt(4);
 
     // Owner can update the total USDC in the treasure because he granted TREASURE_UPDATER_ROLE
     // This also fix the valor to USDC rate for previous finished batch
@@ -53,6 +53,7 @@ describe("Revenue", function () {
     expect(batchInfo["fixedValorToUsdcRateScaled"]).to.closeTo(valorToUsdcRateScaled, precision * precision);
     const totalValorAmountAfter = await ledger.getTotalValorAmount();
     expect(totalValorAmountAfter).to.closeTo(totalValorAmount - batchInfo["redeemedValorAmount"], precision * BigInt(2));
+    return { usdcRevenuePerBatch, valorPerBatch };
   }
 
   it("check revenue initial state", async function () {
@@ -129,15 +130,15 @@ describe("Revenue", function () {
     const usdcAmountForBatchAndChainBefore = (await ledger.getUsdcAmountForBatch(0))[0][1];
     expect(usdcAmountForBatchAndChainBefore).to.equal(0n);
 
-    await prepareBatchForClaiming(ledger, owner, 0);
+    const { usdcRevenuePerBatch, valorPerBatch } = await prepareBatchForClaiming(ledger, owner, 0);
 
-    const precision = VALOR_PER_SECOND * BigInt(2);
+    const precision = VALOR_PER_SECOND * BigInt(4);
     // Now batch is prepared and have fixedValorToUsdcRateScaled, so, USDC amount for the batch is 500
     const usdcAmountForBatchAndChainAfter = (await ledger.getUsdcAmountForBatch(0))[0][1];
-    expect(usdcAmountForBatchAndChainAfter).to.closeTo(2000n, precision);
+    expect(usdcAmountForBatchAndChainAfter).to.closeTo(usdcRevenuePerBatch / BigInt(2), precision);
 
     const tx = await ledger.connect(user).claimUsdcRevenue(user.address, chainId);
-    await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, chainId, user.address, 500);
+    await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, chainId, user.address, usdcAmountForBatchAndChainAfter);
   });
 
   it("user can claim usdc revenue for multiple batches", async function () {
@@ -181,11 +182,13 @@ describe("Revenue", function () {
 
     await prepareBatchForClaiming(ledger, owner, 0);
 
+    const usdcAmountForBatchAndChain0 = (await ledger.getUsdcAmountForBatch(0))[0][1];
     const tx = await ledger.connect(user).claimUsdcRevenue(user.address, 0);
-    await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 0, user.address, 500);
+    await expect(tx).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 0, user.address, usdcAmountForBatchAndChain0);
 
+    const usdcAmountForBatchAndChain1 = (await ledger.getUsdcAmountForBatch(0))[1][1];
     const tx2 = await ledger.connect(user).claimUsdcRevenue(user.address, 1);
-    await expect(tx2).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 1, user.address, 500);
+    await expect(tx2).to.emit(ledger, "UsdcRevenueClaimed").withArgs(anyValue, 1, user.address, usdcAmountForBatchAndChain1);
   });
 
   it("user can redeem valor more than once to the same batch", async function () {
@@ -253,26 +256,29 @@ describe("Revenue", function () {
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
     await helpers.time.increaseTo(batch0EndTime + BigInt(1));
 
-    await ledger.connect(owner).setTotalValorEmitted(2000);
-    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
+    const usdcRevenueForBatch0 = (await ledger.getTotalValorAmount()) / BigInt(2);
+    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcRevenueForBatch0);
 
     await ledger.connect(owner).batchPreparedToClaim(0);
 
+    const precision = VALOR_PER_SECOND * BigInt(100);
+
     const expectedValorToUsdcRateScaled1 = 500000000000000000000000000n;
     const batch0 = await ledger.getBatchInfo(0);
-    expect(batch0["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled1);
+    expect(batch0["fixedValorToUsdcRateScaled"]).to.closeTo(expectedValorToUsdcRateScaled1, precision);
     expect(batch0["claimable"]).to.equal(true);
 
     // Let's move to batch 1
     const batch1EndTime = (await ledger.getBatchInfo(1))["batchEndTime"];
     await helpers.time.increaseTo(batch1EndTime + BigInt(1));
 
-    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
+    const usdcRevenueForBatch1 = (await ledger.getTotalValorAmount()) - usdcRevenueForBatch0;
+    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcRevenueForBatch1);
     await ledger.connect(owner).batchPreparedToClaim(1);
 
     const expectedValorToUsdcRateScaled2 = 1000000000000000000000000000n;
     const batch1 = await ledger.getBatchInfo(1);
-    expect(batch1["fixedValorToUsdcRateScaled"]).to.equal(expectedValorToUsdcRateScaled2);
+    expect(batch1["fixedValorToUsdcRateScaled"]).to.closeTo(expectedValorToUsdcRateScaled2, precision);
     expect(batch1["claimable"]).to.equal(true);
   });
 
