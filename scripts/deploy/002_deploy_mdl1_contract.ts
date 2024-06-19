@@ -10,15 +10,24 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, getNamedAccounts } = hre;
 
   // Deploy MerkleDistributorL1 hardhat (localhost) network for testing
-  if (hre.network.name === "hardhat") {
+  if (hre.network.name === "sepolia" || hre.network.name === "hardhat") {
     const { owner } = await getNamedAccounts();
-    const orderTokenTotalSupply = fullTokens(1_000_000_000);
-    const OrderToken = await deployContract(hre, "OrderToken", [orderTokenTotalSupply]);
+
+    let orderTokenAddress = process.env.MDL1_ORDER_TOKEN_ADDRESS;
+    if (hre.network.name === "hardhat") {
+      const orderTokenTotalSupply = fullTokens(1_000_000_000);
+      const OrderToken = await deployContract(hre, "OrderToken", [orderTokenTotalSupply]);
+      orderTokenAddress = OrderToken.address;
+    }
+
+    if (!orderTokenAddress) {
+      throw new Error("MDL1_ORDER_TOKEN_ADDRESS is required");
+    }
 
     const MerkleDistributorL1 = await deployContract(hre, "MerkleDistributorL1", [], "proxyNoInit");
     const MerkleDistributorL1Contract = await ethers.getContract<MerkleDistributorL1>("MerkleDistributorL1");
     try {
-      await MerkleDistributorL1Contract.initialize(owner, OrderToken.address);
+      await MerkleDistributorL1Contract.initialize(owner, orderTokenAddress);
     } catch (e) {
       console.log("MerkleDistributorL1 already initialized");
     }

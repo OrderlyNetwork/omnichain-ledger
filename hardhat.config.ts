@@ -15,6 +15,7 @@ import "./scripts/tasks/verify_hardhat";
 import "./scripts/tasks/ledger_role_management";
 import "./scripts/tasks/ledger_md";
 import "./scripts/tasks/mdl1";
+import "./scripts/tasks/ol_qa_setup";
 import { getHardhatNetworkConfig, getHardhatApiKey, getHardhatEtherscanConfig } from "orderly-network-config";
 
 task("accounts", "Prints the list of accounts", async (_args, hre) => {
@@ -83,7 +84,8 @@ const config: HardhatUserConfig = {
     orderlySepolia: getHardhatNetworkConfig("orderlySepolia"),
     optimismSepolia: getHardhatNetworkConfig("optimismSepolia"),
     polygonMumbai: getHardhatNetworkConfig("polygonMumbai"),
-    polygon: getHardhatNetworkConfig("polygon")
+    polygon: getHardhatNetworkConfig("polygon"),
+    sepolia: getHardhatNetworkConfig("sepolia")
   },
   etherscan: {
     apiKey: {
@@ -91,14 +93,16 @@ const config: HardhatUserConfig = {
       orderlySepolia: getHardhatApiKey("orderlySepolia") || "orderlySepolia",
       optimismSepolia: getHardhatApiKey("optimismSepolia"),
       polygonMumbai: getHardhatApiKey("polygonMumbai"),
-      polygon: getHardhatApiKey("polygon")
+      polygon: getHardhatApiKey("polygon"),
+      sepolia: getHardhatApiKey("sepolia")
     },
     customChains: [
       getHardhatEtherscanConfig("arbitrumSepolia"),
       getHardhatEtherscanConfig("orderlySepolia"),
       getHardhatEtherscanConfig("optimismSepolia"),
       getHardhatEtherscanConfig("polygonMumbai"),
-      getHardhatEtherscanConfig("polygon")
+      getHardhatEtherscanConfig("polygon"),
+      getHardhatEtherscanConfig("sepolia")
     ]
   },
   external: {
