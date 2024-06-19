@@ -301,9 +301,9 @@ contract LedgerProxyTest is TestHelperOz5 {
     }
 
     function test_occ_user_redeem_valor() public {
+        ledgerB.setValorEmissionStartTimestamp(block.timestamp + 1);
         uint256 redeemAmount = 100;
         vm.warp(block.timestamp + 14 days); // warp time to 1 day later (1 day = 86400 seconds
-        ledgerB.setTotalValorAmount(5000);
         test_occ_user_stake();
 
         console.log("block.timestamp: ");
@@ -315,6 +315,8 @@ contract LedgerProxyTest is TestHelperOz5 {
             vm.warp(block.timestamp + 1 days); // warp time to 1 day later (1 day = 86400 seconds)
             ledgerB.dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000);
         }
+        ledgerB.setTotalValorEmitted(5000);
+        ledgerB.setCollectedValor(userA, 100);
 
         console.log("block.timestamp: ");
         console.log(block.timestamp);
@@ -339,7 +341,8 @@ contract LedgerProxyTest is TestHelperOz5 {
         test_occ_user_redeem_valor();
         vm.warp(block.timestamp + 2 days);
         ledgerB.updateValorVars();
-        ledgerB.setTotalValorAmount(5000);
+        ledgerB.setTotalValorEmitted(5000);
+        ledgerB.setCollectedValor(userA, 100);
         ledgerB.dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000 * 14);
         ledgerB.batchPreparedToClaim(1);
 

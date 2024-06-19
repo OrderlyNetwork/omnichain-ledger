@@ -37,6 +37,9 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
     /// @dev event id tracker
     uint256 public chainedEventId;
 
+    /// @dev additional fee for backward message mapping
+    mapping(uint8 => uint256) public payloadType2BackwardFee;
+
     /**
      * @notice set the ledger chain id and ledger address
      * @param _ledgerChainId the ledger chain id
@@ -108,7 +111,9 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
         _msgPayload = sendParam.composeMsg;
         _options = sendParam.extraOptions;
 
-        (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: msg.value}(sendParam, msgFee, msg.sender);
+        uint256 lzFee = msg.value - payloadType2BackwardFee[message.payloadType];
+
+        (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: lzFee}(sendParam, msgFee, msg.sender);
     }
 
     /**
@@ -117,9 +122,20 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
      */
     function estimateCCFeeFromVaultToLedger(OCCVaultMessage memory message) internal view returns (uint256) {
         SendParam memory sendParam = buildOCCVaultMsg(message);
-        return IOFT(orderTokenOft).quoteSend(sendParam, false).nativeFee;
+        uint256 lzFee = IOFT(orderTokenOft).quoteSend(sendParam, false).nativeFee;
+        uint256 backwardFee = payloadType2BackwardFee[message.payloadType];
+        return lzFee + backwardFee;
+    }
+
+    /**
+     * @notice set payload type to backward fee
+     * @param payloadType the payload type
+     * @param backwardFee the backward fee
+     */
+    function setPayloadType2BackwardFee(uint8 payloadType, uint256 backwardFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        payloadType2BackwardFee[payloadType] = backwardFee;
     }
 
     // gap for upgradeable
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 }
