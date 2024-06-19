@@ -14,6 +14,7 @@ contract ProxyLedgerDeploy is BaseScript, ConfigScript {
     function run() external {
         string memory env = vm.envString("FS_ProxyLedgerDeploy_env");
         string memory network = vm.envString("FS_ProxyLedgerDeploy_network");
+        string memory salt = vm.envString("FS_ProxyLedgerDeploy_salt");
         bool broadcast = vm.envBool("FS_ProxyLedgerDeploy_broadcast");
 
         console.log("[ProxyLedgerDeploy]env: ", env);
@@ -24,10 +25,12 @@ contract ProxyLedgerDeploy is BaseScript, ConfigScript {
 
         vmSelectRpcAndBroadcast(network);
 
-        ProxyLedger ledgerProxy = new ProxyLedger();
+        ProxyLedger ledgerProxy = new ProxyLedger{salt: keccak256(bytes(salt))}();
         bytes memory data = abi.encodeWithSelector(ProxyLedger.initialize.selector, oftAddress, usdc, vm.addr(getPrivateKey(network)));
-        address proxy = address(new ERC1967Proxy(address(ledgerProxy), data));
+        address proxy = address(new ERC1967Proxy{salt: keccak256(bytes(salt))}(address(ledgerProxy), bytes("")));
 
+        // run initialize
+        ProxyLedger(payable(proxy)).initialize(oftAddress, usdc, vm.addr(getPrivateKey(network)));
 
         vm.stopBroadcast();
 
