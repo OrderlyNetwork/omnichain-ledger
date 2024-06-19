@@ -1,19 +1,27 @@
 {
     "dev": {
-        "sepolia": "0x581BE804Ba3A74DFcD86014c093042EB93508876",
-        "arbsepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
-        "opsepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
-        "amoy": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
-        "basesepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
-        "fuji": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7",
-        "orderlysepolia": "0x6850bdee5a830ae53b161b3246d68f202a6c14b7"
+        "sepolia": "0x42A1D4a8459bB5B0FeA4f923A576d1A4e6290Db5",
+        "arbsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+        "opsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+        "amoy": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+        "basesepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+        "fuji": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+        "orderlysepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903"
     },
     "qa": {
-        "sepolia": "0x90573a6725202A16cd7d786167d947FC3fB1e628",
-        "arbsepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
-        "opsepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
-        "amoy": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
-        "basesepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d",
-        "orderlysepolia": "0xb6b4cce7da1d67d720a5c79143e6383d5ff8b16d"
+        "sepolia": "0xaEc5B1E45E8383926ef5095Da0a4a1da95C3D4cc",
+        "arbsepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+        "opsepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+        "amoy": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+        "basesepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+        "orderlysepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18"
+    },
+    "staging": {
+        "sepolia": "0x4E2ECA66576aCdCB56AA4acE314f812Bdc097A4A",
+        "arbsepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+        "opsepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+        "amoy": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+        "basesepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+        "orderlysepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8"
     }
 }

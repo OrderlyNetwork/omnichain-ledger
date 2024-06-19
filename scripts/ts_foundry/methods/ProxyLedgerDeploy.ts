@@ -11,15 +11,21 @@ const method_name = "ProxyLedgerDeploy";
 export function ProxyLedgerDeployWithArgv(argv: any) {
     const required_flags = ["env", "network", "broadcast"];
     checkArgs(method_name, argv, required_flags);
-    ProxyLedgerDeploy(argv.env, argv.network, argv.broadcast, argv.simulate);
+    ProxyLedgerDeploy(argv.env, argv.network, argv.salt, argv.broadcast, argv.simulate);
 }
 
-export function ProxyLedgerDeploy(env: string, network: string, broadcast: boolean, simulate: boolean) {
+export function ProxyLedgerDeploy(env: string, network: string, salt: string, broadcast: boolean, simulate: boolean) {
     
 
     set_env_var(method_name, "env", env);
     set_env_var(method_name, "network", network);
     set_env_var(method_name, "broadcast", broadcast.toString());
+    if (salt) {
+        set_env_var(method_name, "salt", salt);
+    } else {
+        set_env_var(method_name, "salt", env);
+    }
+
     foundry_wrapper(method_name, broadcast, simulate);
 
 }

@@ -1,71 +1,102 @@
 {
   "dev": {
-    "ledger": {},
+    "ledger": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x741a48F39683c345Ff37A86791537154869C77D4"
+    },
     "ledger_occ_manager": {
-      "impl": "0x70286209327d9d7A8F2F2e93b50E0a84211dEB8E",
-      "proxy": "0x3871038ab33A8961e91C5c9ca62A7662a3354Cbf"
+      "impl": "0x6fe4a788452011f2F831e013E4Ae4278b0278F29",
+      "proxy": "0xb846DF606b592B9646db03aE2568951651D9D5BC"
     },
     "ledger_proxy": {
       "arbsepolia": {
-        "impl": "0x2e53653d6D74907a96cc33D8F0239075292a5e3b",
-        "proxy": "0xBfC49421E6c7Fe554345FbDDa23C01ee1d3780C0"
+        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "opsepolia": {
-        "impl": "0x82eF0de97b34b9bcfb71384273E91066B4310De8",
-        "proxy": "0x99f7be5818F926B15678B8EfAC083ac74a059235"
+        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "amoy": {
-        "impl": "0xBFC9141Fb39F17dFE48D06c525119Ae390A4955a",
-        "proxy": "0x51E74D767f61f2445A4142E13e265A2128648Ea8"
+        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "basesepolia": {
-        "impl": "0xf912423f6Ec3BE2e1Bf6184B0f7166E96E9669f0",
-        "proxy": "0x86725bc9C5B43a55113E05E4293237Fcc75A6809"
+        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "fuji": {},
       "sepolia": {
-        "impl": "0xBFC9141Fb39F17dFE48D06c525119Ae390A4955a",
-        "proxy": "0x51E74D767f61f2445A4142E13e265A2128648Ea8"
+        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       }
     }
   },
   "qa": {
     "ledger": {
-      "impl": "0x9D37B9859bE706D9Fd1deF1E174ddB40a10F28dD",
-      "proxy": "0x1cB262C876AE47A75Ec354D89766593839681C29"
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0xf4EFdE916687eFBa271b1eDf436B206b285bc478"
     },
     "ledger_occ_manager": {
-      "impl": "0x2168aB9CfC514C782Ce1b512c6A92528B8b86364",
-      "proxy": "0x3F973968db1704AD98c372B591ac04Dbeb43a6E9"
+      "impl": "0xcFBd86e5c9279126F9A58fECFF808c218401133b",
+      "proxy": "0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53"
     },
     "ledger_proxy": {
       "arbsepolia": {
-        "impl": "0x3BA500dB169D72064210E2Bf874fa208A93c013b",
-        "proxy": "0x13B2D9219e4afb48C085E60A9CFAcbc193a61F43"
+        "impl": "0xD7D22Fd785a1952cCae0800Dc6DAD47F64b47A6e",
+        "proxy": "0xB20A18d8A53Ea23A5E8da32465De374f942693D7"
       },
       "opsepolia": {
-        "impl": "0xDe1FDe26A1a16eEcEF73720191617194102EA396",
-        "proxy": "0xB4FC7751D82b1D0F6f90c63E6c2fabB47dF25a96"
+        "impl": "0xD7D22Fd785a1952cCae0800Dc6DAD47F64b47A6e",
+        "proxy": "0xB20A18d8A53Ea23A5E8da32465De374f942693D7"
       },
       "amoy": {
-        "impl": "0xfa9FcE6A038f5f22B243b082AE880D2fE3Ef31a4",
-        "proxy": "0x2BB903A155fae5cB8e9fDd6eaeB46EF95AC93FB9"
+        "impl": "0xD7D22Fd785a1952cCae0800Dc6DAD47F64b47A6e",
+        "proxy": "0xB20A18d8A53Ea23A5E8da32465De374f942693D7"
       },
       "basesepolia": {
-        "impl": "0xEfb319B7656Cc36e23D100F3D6F127bA56c00AA2",
-        "proxy": "0x5dC15b3492184F3dFf8f2c8206127C50c7dDFc24"
+        "impl": "0xD7D22Fd785a1952cCae0800Dc6DAD47F64b47A6e",
+        "proxy": "0xB20A18d8A53Ea23A5E8da32465De374f942693D7"
       },
       "fuji": {},
       "sepolia": {
-        "impl": "0x4B4E25e461d8Cdc9333196Bc2A27527f3cFc3209",
-        "proxy": "0xBfc0B179da8551C8cf62460B93e40071C5ef131D"
+        "impl": "0xD7D22Fd785a1952cCae0800Dc6DAD47F64b47A6e",
+        "proxy": "0xB20A18d8A53Ea23A5E8da32465De374f942693D7"
       }
     }
   },
   "staging": {
-    "ledger": {},
-    "ledger_occ_manager": {},
-    "ledger_proxy": {}
+    "ledger": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0xfD81d496CeCEf7e18d3fca7F822bE770131f75F2"
+    },
+    "ledger_occ_manager": {
+      "impl": "0xF3a873795EA6F91e9C02fb97dF5cAC0d47411218",
+      "proxy": "0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1"
+    },
+    "ledger_proxy": {
+      "arbsepolia": {
+        "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
+        "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
+      },
+      "opsepolia": {
+        "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
+        "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
+      },
+      "amoy": {
+        "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
+        "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
+      },
+      "basesepolia": {
+        "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
+        "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
+      },
+      "fuji": {},
+      "sepolia": {
+        "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
+        "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
+      }
+    }
   },
   "production": {
     "ledger": {},

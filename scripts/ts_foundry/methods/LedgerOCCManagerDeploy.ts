@@ -12,15 +12,20 @@ const method_name = "LedgerOCCManagerDeploy";
 export function LedgerOCCManagerDeployWithArgv(argv: any) {
     const required_flags = ["env", "network", "broadcast"];
     checkArgs(method_name, argv, required_flags);
-    LedgerOCCManagerDeploy(argv.env, argv.network, argv.broadcast, argv.simulate);
+    LedgerOCCManagerDeploy(argv.env, argv.network, argv.salt, argv.broadcast, argv.simulate);
 }
 
-export function LedgerOCCManagerDeploy(env: string, network: string, broadcast: boolean, simulate: boolean) {
+export function LedgerOCCManagerDeploy(env: string, network: string, salt: string, broadcast: boolean, simulate: boolean) {
     
 
     set_env_var(method_name, "env", env);
     set_env_var(method_name, "network", network);
     set_env_var(method_name, "broadcast", broadcast.toString());
+    if (salt) {
+        set_env_var(method_name, "salt", salt);
+    } else {
+        set_env_var(method_name, "salt", env);
+    }
     foundry_wrapper(method_name, broadcast, simulate);
 
 }
