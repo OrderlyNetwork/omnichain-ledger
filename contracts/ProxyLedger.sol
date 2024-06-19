@@ -83,7 +83,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param cumulativeAmount the cumulative amount to claim
      * @param merkleProof the merkle proof
      */
-    function claimReward(uint32 distributionId, uint256 cumulativeAmount, bytes32[] memory merkleProof) external payable {
+    function claimReward(uint32 distributionId, uint256 cumulativeAmount, bytes32[] memory merkleProof) external payable whenNotPaused {
         OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, msg.sender, cumulativeAmount, merkleProof);
         vaultSendToLedger(message);
     }
@@ -129,7 +129,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @notice stake the amount to the ledger
      * @param amount the amount to stake
      */
-    function stakeOrder(uint256 amount) external payable {
+    function stakeOrder(uint256 amount) external payable whenNotPaused {
         OCCVaultMessage memory message = buildStakeOrderMessage(amount, msg.sender);
         vaultSendToLedger(message);
     }
@@ -178,7 +178,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param amount the amount to send
      * @param payloadType the payload type
      */
-    function sendUserRequest(uint256 amount, uint8 payloadType) external payable {
+    function sendUserRequest(uint256 amount, uint8 payloadType) external payable whenNotPaused {
         OCCVaultMessage memory occMsg = buildOCCMessage(amount, msg.sender, payloadType);
         vaultSendToLedger(occMsg);
     }
