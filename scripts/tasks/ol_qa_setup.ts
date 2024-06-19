@@ -28,7 +28,7 @@ async function grantRoleForAddressList(OmnichainLedgerTestV1: OmnichainLedgerTes
       console.log(`Address ${address} already has ${roleHash} role`);
       continue;
     } else {
-      //   await OmnichainLedgerTestV1.grantRole(defaultAdminRole, address);
+        await OmnichainLedgerTestV1.grantRole(roleHash, address);
       console.log(`Granted ${roleHash} role to ${address}`);
     }
   }
@@ -68,7 +68,10 @@ task("ol-qa-setup", "Initial contract setup for QA environment").setAction(async
   ];
 
   const fiveMinutes = 60 * 5;
-  const distributionStartTimestamp = new Date().getTime() / 1000 + fiveMinutes;
+  const currentTimestamp = new Date().getTime();
+  const distributionStartTimestamp = currentTimestamp - currentTimestamp % 1000 + fiveMinutes;
+  // const distributionStartTimestamp = new Date().getTime() / 1000 + fiveMinutes;
+  console.log(`Distribution start timestamp: ${distributionStartTimestamp}`);
 
   for (const distribution of distributions) {
     const activeDistribution = await OmnichainLedgerTestV1.getDistribution(distribution.id);

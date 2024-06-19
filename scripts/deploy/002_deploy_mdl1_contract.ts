@@ -10,7 +10,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, getNamedAccounts } = hre;
 
   // Deploy MerkleDistributorL1 hardhat (localhost) network for testing
-  if (hre.network.name === "orderlySepolia" || hre.network.name === "hardhat") {
+  if (hre.network.name === "Sepolia" || hre.network.name === "hardhat") {
     const { owner } = await getNamedAccounts();
 
     let orderTokenAddress = process.env.MDL1_ORDER_TOKEN_ADDRESS;
