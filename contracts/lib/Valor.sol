@@ -83,6 +83,7 @@ abstract contract Valor is LedgerAccessControl {
         valorPerSecond = _valorPerSecond;
         maximumValorEmission = _maximumValorEmission;
         valorEmissionStartTimestamp = block.timestamp + 1 days;
+        lastValorUpdateTimestamp = valorEmissionStartTimestamp;
     }
 
     /* ========== VIEWS ========== */
@@ -109,6 +110,7 @@ abstract contract Valor is LedgerAccessControl {
         if (block.timestamp > valorEmissionStartTimestamp) revert ValorEmissionAlreadyStarted();
         if (block.timestamp > _valorEmissionStartTimestamp) revert ValorEmissionCouldNotStartInThePast();
         valorEmissionStartTimestamp = _valorEmissionStartTimestamp;
+        lastValorUpdateTimestamp = _valorEmissionStartTimestamp;
     }
 
     /**
@@ -134,7 +136,7 @@ abstract contract Valor is LedgerAccessControl {
 
     /// @notice Get the amount of valor, that should be emitted to the moment since the last update
     function _getValorPendingEmission() internal view returns (uint256 valorPendingEmission) {
-        if (block.timestamp <= valorEmissionStartTimestamp || block.timestamp <= lastValorUpdateTimestamp) return 0;
+        if (block.timestamp <= lastValorUpdateTimestamp) return 0;
 
         uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;
         valorPendingEmission = secondsElapsed * valorPerSecond;

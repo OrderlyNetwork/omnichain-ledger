@@ -1,5 +1,7 @@
+import { types } from "hardhat/config";
 import { task } from "hardhat/config";
-import { OmnichainLedgerV1, OmnichainLedgerTestV1 } from "../../types";
+import { getContractAddress } from "../utils/common";
+import { OmnichainLedgerTestV1 } from "../../types";
 
 enum LedgerTokens {
   ORDER,
@@ -30,73 +32,90 @@ async function grantRoleForAddressList(OmnichainLedgerTestV1: OmnichainLedgerTes
       console.log(`Address ${address} already has ${roleHash} role`);
       continue;
     } else {
-      await OmnichainLedgerTestV1.grantRole(roleHash, address);
+      // await OmnichainLedgerTestV1.grantRole(roleHash, address);
       console.log(`Granted ${roleHash} role to ${address}`);
     }
   }
 }
 
-task("ol-qa-setup", "Initial contract setup for QA environment").setAction(async (_, hre) => {
-  console.log("######### Initial OmnichainLedgerTestV1 contract setup for QA environment #########");
+task("ol-qa-setup", "Initial contract setup for QA environment")
+  .addParam("contractAddress", "Address of OmnichainLedgerTestV1", undefined, types.string, true)
+  .setAction(async (taskArgs, hre) => {
+    console.log(`Running on ${hre.network.name}`);
+    const contractAddress = getContractAddress(taskArgs.contractAddress);
+    console.log("######### Initial OmnichainLedgerTestV1 contract setup for QA environment #########");
 
-  const { ethers } = hre;
-  const deployer = await ethers.getNamedSigner("deployer");
+    const { ethers } = hre;
+    const owner = await ethers.getNamedSigner("owner");
 
-  const OmnichainLedgerTestV1 = await ethers.getContract<OmnichainLedgerTestV1>("OmnichainLedgerTestV1");
-  console.log("OmnichainLedgerTestV1:", await OmnichainLedgerTestV1.getAddress());
+    const OmnichainLedgerTestV1 = (await hre.ethers.getContractAtWithSignerAddress(
+      "OmnichainLedgerTestV1",
+      contractAddress,
+      owner.address
+    )) as unknown as OmnichainLedgerTestV1;
 
-  const defaultAdminRole = await OmnichainLedgerTestV1.DEFAULT_ADMIN_ROLE();
-  await grantRoleForAddressList(OmnichainLedgerTestV1, defaultAdminRole, addressForAdminRole);
+    const OmnichainLedgerTestV1Address = await OmnichainLedgerTestV1.getAddress();
+    console.log(`OmnichainLedgerTestV1Address address: ${OmnichainLedgerTestV1Address}`);
 
-  const usdcUpdaterRole = await OmnichainLedgerTestV1.TREASURE_UPDATER_ROLE();
-  await grantRoleForAddressList(OmnichainLedgerTestV1, usdcUpdaterRole, addressForUsdcUpdaterRole);
+    const defaultAdminRole = await OmnichainLedgerTestV1.DEFAULT_ADMIN_ROLE();
+    await grantRoleForAddressList(OmnichainLedgerTestV1, defaultAdminRole, addressForAdminRole);
 
-  await OmnichainLedgerTestV1.setUsdcUpdaterAddress(usdcUpdaterAddress);
+    const usdcUpdaterRole = await OmnichainLedgerTestV1.TREASURE_UPDATER_ROLE();
+    await grantRoleForAddressList(OmnichainLedgerTestV1, usdcUpdaterRole, addressForUsdcUpdaterRole);
 
-  const distributions: Distribution[] = [
-    {
-      id: 0,
-      token: LedgerTokens.ORDER,
-      root: "0x57be9e714ef8c5d0b8fb9bc2a4c5fd3c5c360ba1349b6faf6a085669ed8bc194"
-    },
-    {
-      id: 2,
-      token: LedgerTokens.ORDER,
-      root: "0xe4381082d20128e9a5aba5110f642554bb955277c31567041be8bfdc0881ca7b"
-    },
-    {
-      id: 3,
-      token: LedgerTokens.esORDER,
-      root: "0x3c9d7d97b058147c55e6a577a67ac7135afd7dff2c6577521bbbab01dc420239"
-    }
-  ];
-
-  const fiveMinutes = 60 * 5;
-  const currentTimestamp = new Date().getTime();
-  const distributionStartTimestamp = currentTimestamp - (currentTimestamp % 1000) + fiveMinutes;
-  // const distributionStartTimestamp = new Date().getTime() / 1000 + fiveMinutes;
-  console.log(`Distribution start timestamp: ${distributionStartTimestamp}`);
-
-  for (const distribution of distributions) {
-    const activeDistribution = await OmnichainLedgerTestV1.getDistribution(distribution.id);
-    const activeDistributionTimestamp = activeDistribution[2];
-    if (activeDistributionTimestamp > 0) {
-      const activeDistributionRoot = activeDistribution[1];
-      const proposedRoot = (await OmnichainLedgerTestV1.getProposedRoot(distribution.id))[0];
-      if (activeDistributionRoot === distribution.root || proposedRoot === distribution.root) {
-        console.log(`Distribution ${distribution.id} root ${distribution.root} is already active`);
-        continue;
-      } else {
-        await OmnichainLedgerTestV1.proposeRoot(distribution.id, distribution.root, distributionStartTimestamp, "0x");
-        console.log(`Proposed root ${distribution.root} for distribution ${distribution.id} with start timestamp ${distributionStartTimestamp}`);
-      }
+    const usdcUpdaterAddress = await OmnichainLedgerTestV1.usdcUpdaterAddress();
+    console.log(`Current USDC updater address: ${usdcUpdaterAddress}`);
+    if (usdcUpdaterAddress === usdcUpdaterAddress) {
+      console.log(`USDC updater address is already set to ${usdcUpdaterAddress}`);
     } else {
-      await OmnichainLedgerTestV1.createDistribution(distribution.id, distribution.token, distribution.root, distributionStartTimestamp, "0x");
-      console.log(
-        `Added distribution ${distribution.id} for token ${distribution.token} with root ${distribution.root} and start timestamp ${distributionStartTimestamp}`
-      );
+      console.log(`Set USDC updater address to ${usdcUpdaterAddress}`);
+      await OmnichainLedgerTestV1.setUsdcUpdaterAddress(usdcUpdaterAddress);
     }
-  }
-});
 
-export {};
+    const distributions: Distribution[] = [
+      {
+        id: 0,
+        token: LedgerTokens.ORDER,
+        root: "0x57be9e714ef8c5d0b8fb9bc2a4c5fd3c5c360ba1349b6faf6a085669ed8bc194"
+      },
+      {
+        id: 2,
+        token: LedgerTokens.ORDER,
+        root: "0xe4381082d20128e9a5aba5110f642554bb955277c31567041be8bfdc0881ca7b"
+      },
+      {
+        id: 3,
+        token: LedgerTokens.esORDER,
+        root: "0x3c9d7d97b058147c55e6a577a67ac7135afd7dff2c6577521bbbab01dc420239"
+      }
+    ];
+
+    const fiveMinutes = 60 * 5;
+    const currentTimestamp = new Date().getTime();
+    const distributionStartTimestamp = Math.floor(currentTimestamp / 1000 + fiveMinutes);
+    // const distributionStartTimestamp = new Date().getTime() / 1000 + fiveMinutes;
+    console.log(`Distribution start timestamp: ${distributionStartTimestamp}`);
+
+    for (const distribution of distributions) {
+      const activeDistribution = await OmnichainLedgerTestV1.getDistribution(distribution.id);
+      const activeDistributionTimestamp = activeDistribution[2];
+      if (activeDistributionTimestamp > 0) {
+        const activeDistributionRoot = activeDistribution[1];
+        const proposedRoot = (await OmnichainLedgerTestV1.getProposedRoot(distribution.id))[0];
+        if (activeDistributionRoot === distribution.root || proposedRoot === distribution.root) {
+          console.log(`Distribution ${distribution.id} root ${distribution.root} is already active`);
+          continue;
+        } else {
+          // await OmnichainLedgerTestV1.proposeRoot(distribution.id, distribution.root, distributionStartTimestamp, "0x");
+          console.log(`Proposed root ${distribution.root} for distribution ${distribution.id} with start timestamp ${distributionStartTimestamp}`);
+        }
+      } else {
+        // await OmnichainLedgerTestV1.createDistribution(distribution.id, distribution.token, distribution.root, distributionStartTimestamp, "0x");
+        console.log(
+          `Added distribution ${distribution.id} for token ${distribution.token} with root ${distribution.root} and start timestamp ${distributionStartTimestamp}`
+        );
+      }
+    }
+  });
+
+export { };
