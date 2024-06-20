@@ -10,6 +10,8 @@ describe("Revenue", function () {
   const chainId = 0;
   // Let's make precision in 2 seconds Valor emission rate for transactions
   const precision = VALOR_PER_SECOND * BigInt(2);
+  const VALOR_TO_USDC_RATE_PRECISION = BigInt(1e27);
+  const USER_STAKE_AMOUNT = ethers.parseEther("1000");
 
   async function revenueFixture() {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
@@ -30,25 +32,75 @@ describe("Revenue", function () {
 
   async function userStakedAndValorEmissionStarted() {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
-    const userStakeAmount = ethers.parseEther("1000");
+
+    expect(await ledger.getCurrentBatchId()).to.equal(0);
+
+    // User makes a stake to start collecting valor after valor emission started
+    const userStakeAmount = USER_STAKE_AMOUNT;
     await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, userStakeAmount);
     const valorEmissionstart = await ledger.valorEmissionStartTimestamp();
     helpers.time.increaseTo(valorEmissionstart);
 
     expect(await ledger.userTotalStakingBalance(user.address)).to.equal(userStakeAmount);
     expect(await ledger.getUserValor(user.address)).to.equal(0);
+    expect(await ledger.getTotalValorEmitted()).to.equal(0);
+    expect(await ledger.getTotalValorAmount()).to.equal(0);
     return { ledger, orderTokenOft, owner, user, updater, operator };
   }
 
   async function oneDayBeforeBatch0EndUserCollectedValorFor12Days() {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await userStakedAndValorEmissionStarted();
+
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
-    await helpers.time.increaseTo(batch0EndTime - days(1));
+    await helpers.time.increaseTo(batch0EndTime - BigInt(days(1)));
 
-    const userCollectedValor = VALOR_PER_DAY * BigInt(12);
-    expect(await ledger.getUserValor(user.address)).to.be.closeTo(userCollectedValor, precision);
+    const userExpectedCollectedValor = VALOR_PER_DAY * BigInt(12);
 
-    return { ledger, orderTokenOft, owner, user, updater, operator };
+    expect(await ledger.getUserValor(user.address)).to.be.closeTo(userExpectedCollectedValor, precision);
+    expect(await ledger.getCurrentBatchId()).to.equal(0);
+
+    return { ledger, orderTokenOft, owner, user, updater, operator, userCollectedValor: userExpectedCollectedValor };
+  }
+
+  async function userRedeemedBatch0Finished() {
+    const { ledger, orderTokenOft, owner, user, updater, operator, userCollectedValor } = await oneDayBeforeBatch0EndUserCollectedValorFor12Days();
+
+    const userRedeemValor = userCollectedValor / BigInt(2);
+    await ledger.connect(user).redeemValor(user.address, chainId, userRedeemValor);
+    const userLeftValor = await ledger.getUserValor(user.address);
+    expect(userLeftValor).to.equal(userCollectedValor - userRedeemValor);
+
+    const batch0Info = await ledger.getBatchInfo(0);
+    expect(batch0Info["claimable"]).to.equal(false);
+    expect(batch0Info["redeemedValorAmount"]).to.equal(userRedeemValor);
+    expect(batch0Info["fixedValorToUsdcRateScaled"]).to.equal(0);
+    expect(await ledger.getUserValor(user.address)).to.closeTo(userCollectedValor - userRedeemValor, precision);
+
+    await helpers.time.increaseTo(batch0Info["batchEndTime"]);
+    return { ledger, orderTokenOft, owner, user, updater, operator, userRedeemValor };
+  }
+
+  async function batch0PreparedForClaiming() {
+    const { ledger, orderTokenOft, owner, user, updater, operator, userRedeemValor } = await userRedeemedBatch0Finished();
+
+    const totalValorAmount = await ledger.getTotalValorAmount();
+    const usdcNetFeeRevenueForBatch0 = (totalValorAmount + VALOR_PER_SECOND) * BigInt(2);
+    await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcNetFeeRevenueForBatch0);
+
+    const batch0InfoBeforePrepared = await ledger.getBatchInfo(0);
+    expect(batch0InfoBeforePrepared["claimable"]).to.equal(false);
+    console.log("batch0Info[\"fixedValorToUsdcRateScaled\"]", batch0InfoBeforePrepared["fixedValorToUsdcRateScaled"]);
+    const expectedValorToUsdcRateScaled = BigInt(2) * VALOR_TO_USDC_RATE_PRECISION;
+    expect(batch0InfoBeforePrepared["fixedValorToUsdcRateScaled"]).to.be.closeTo(expectedValorToUsdcRateScaled, precision);
+
+    const { usdcRevenuePerBatch, valorPerBatch } = await prepareBatchForClaiming(ledger, owner, 0);
+    const batch0InfoAfterPrepared = await ledger.getBatchInfo(0);
+    expect(batch0InfoAfterPrepared["claimable"]).to.equal(true);
+
+    const batch0UsdcAmount = (BigInt(batch0InfoAfterPrepared["redeemedValorAmount"]) * BigInt(batch0InfoAfterPrepared["fixedValorToUsdcRateScaled"])) / VALOR_TO_USDC_RATE_PRECISION;
+    expect(batch0UsdcAmount).to.closeTo(userRedeemValor * BigInt(2), precision);
+
+    return { ledger, orderTokenOft, owner, user, updater, operator, userRedeemValor, usdcRevenuePerBatch, valorPerBatch };
   }
 
   async function prepareBatchForClaiming(ledger: Contract, owner: SignerWithAddress, batchId: number) {
@@ -128,19 +180,12 @@ describe("Revenue", function () {
   });
 
   it("user can redeem valor to the current batch", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
-
-    await ledger.connect(user).setCollectedValor(user.address, 2000);
-    await ledger.connect(user).redeemValor(user.address, chainId, 1000);
-
-    expect(await ledger.getCurrentBatchId()).to.equal(0);
-
-    const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
-    await helpers.time.increaseTo(batch0EndTime + BigInt(1));
-
-    await ledger.connect(user).redeemValor(user.address, chainId, 1000);
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await batch0PreparedForClaiming();
 
     expect(await ledger.getCurrentBatchId()).to.equal(1);
+    const userValor = await ledger.getUserValor(user.address);
+    console.log("userValor", userValor);
+    await ledger.connect(user).redeemValor(user.address, chainId, userValor);
   });
 
   it("user can claim usdc revenue", async function () {
