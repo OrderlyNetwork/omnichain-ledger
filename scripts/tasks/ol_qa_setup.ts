@@ -21,6 +21,8 @@ const addressForAdminRole = [
 
 const addressForUsdcUpdaterRole = ["0x314d042d164bbef71924f19a3913f65c0acfb94e", "0x4a5c7c5633baf55ddd46b6b9caf084e839bda895"];
 
+const usdcUpdaterAddress = "0x3bfE2722f197ac4d86f4EDA622c4FE9201E68D2F";
+
 async function grantRoleForAddressList(OmnichainLedgerTestV1: OmnichainLedgerTestV1, roleHash: string, addressForRole: string[]) {
   for (const address of addressForRole) {
     const hasRole = await OmnichainLedgerTestV1.hasRole(roleHash, address);
@@ -28,7 +30,7 @@ async function grantRoleForAddressList(OmnichainLedgerTestV1: OmnichainLedgerTes
       console.log(`Address ${address} already has ${roleHash} role`);
       continue;
     } else {
-        await OmnichainLedgerTestV1.grantRole(roleHash, address);
+      await OmnichainLedgerTestV1.grantRole(roleHash, address);
       console.log(`Granted ${roleHash} role to ${address}`);
     }
   }
@@ -48,6 +50,8 @@ task("ol-qa-setup", "Initial contract setup for QA environment").setAction(async
 
   const usdcUpdaterRole = await OmnichainLedgerTestV1.TREASURE_UPDATER_ROLE();
   await grantRoleForAddressList(OmnichainLedgerTestV1, usdcUpdaterRole, addressForUsdcUpdaterRole);
+
+  await OmnichainLedgerTestV1.setUsdcUpdaterAddress(usdcUpdaterAddress);
 
   const distributions: Distribution[] = [
     {
@@ -69,7 +73,7 @@ task("ol-qa-setup", "Initial contract setup for QA environment").setAction(async
 
   const fiveMinutes = 60 * 5;
   const currentTimestamp = new Date().getTime();
-  const distributionStartTimestamp = currentTimestamp - currentTimestamp % 1000 + fiveMinutes;
+  const distributionStartTimestamp = currentTimestamp - (currentTimestamp % 1000) + fiveMinutes;
   // const distributionStartTimestamp = new Date().getTime() / 1000 + fiveMinutes;
   console.log(`Distribution start timestamp: ${distributionStartTimestamp}`);
 
