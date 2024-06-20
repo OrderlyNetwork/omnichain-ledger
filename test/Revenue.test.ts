@@ -3,16 +3,51 @@ import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ledgerFixture, LedgerToken, VALOR_PER_SECOND, VALOR_TO_USDC_RATE_PRECISION } from "./utilities/index";
+import { ledgerFixture, LedgerToken, VALOR_PER_DAY, VALOR_PER_SECOND, VALOR_TO_USDC_RATE_PRECISION } from "./utilities/index";
 import { days } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time/duration";
 
 describe("Revenue", function () {
+  const chainId = 0;
+  // Let's make precision in 2 seconds Valor emission rate for transactions
+  const precision = VALOR_PER_SECOND * BigInt(2);
+
   async function revenueFixture() {
     const { ledger, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
+    return { ledger, orderTokenOft, owner, user, updater, operator };
+  }
+
+  async function valorEmissionStarted() {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
     const ownerStakeAmount = ethers.parseEther("1");
-    await ledger.connect(owner).stake(owner.address, 0, LedgerToken.ORDER, ownerStakeAmount);
+    await ledger.connect(owner).stake(owner.address, chainId, LedgerToken.ORDER, ownerStakeAmount);
     const valorEmissionstart = await ledger.valorEmissionStartTimestamp();
     helpers.time.increaseTo(valorEmissionstart);
+
+    expect(await ledger.userTotalStakingBalance(owner.address)).to.equal(ownerStakeAmount);
+    expect(await ledger.getUserValor(owner.address)).to.equal(0);
+    return { ledger, orderTokenOft, owner, user, updater, operator };
+  }
+
+  async function userStakedAndValorEmissionStarted() {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const userStakeAmount = ethers.parseEther("1000");
+    await ledger.connect(user).stake(user.address, chainId, LedgerToken.ORDER, userStakeAmount);
+    const valorEmissionstart = await ledger.valorEmissionStartTimestamp();
+    helpers.time.increaseTo(valorEmissionstart);
+
+    expect(await ledger.userTotalStakingBalance(user.address)).to.equal(userStakeAmount);
+    expect(await ledger.getUserValor(user.address)).to.equal(0);
+    return { ledger, orderTokenOft, owner, user, updater, operator };
+  }
+
+  async function oneDayBeforeBatch0EndUserCollectedValorFor12Days() {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await userStakedAndValorEmissionStarted();
+    const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
+    await helpers.time.increaseTo(batch0EndTime - days(1));
+
+    const userCollectedValor = VALOR_PER_DAY * BigInt(12);
+    expect(await ledger.getUserValor(user.address)).to.be.closeTo(userCollectedValor, precision);
+
     return { ledger, orderTokenOft, owner, user, updater, operator };
   }
 
@@ -79,10 +114,8 @@ describe("Revenue", function () {
     expect(await ledger.getUsdcAmountForBatch(0)).to.deep.equal([]);
   });
 
-  it("user can redeem valor to the current batch", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
-
-    const chainId = 0;
+  it("redeem valor unsuccessful cases", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
     // User can't redeem zero amount of valor
     await expect(ledger.connect(user).redeemValor(user.address, chainId, 0)).to.be.revertedWithCustomError(ledger, "RedemptionAmountIsZero");
@@ -92,6 +125,10 @@ describe("Revenue", function () {
       ledger,
       "AmountIsGreaterThanCollectedValor"
     );
+  });
+
+  it("user can redeem valor to the current batch", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
     await ledger.connect(user).setCollectedValor(user.address, 2000);
     await ledger.connect(user).redeemValor(user.address, chainId, 1000);
@@ -107,9 +144,8 @@ describe("Revenue", function () {
   });
 
   it("user can claim usdc revenue", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
-    const chainId = 0;
     // User can't claim usdc revenue if the batch is not claimable
     await expect(ledger.connect(user).claimUsdcRevenue(user.address, chainId))
       .to.be.revertedWithCustomError(ledger, "NothingToClaim")
@@ -142,9 +178,8 @@ describe("Revenue", function () {
   });
 
   it("user can claim usdc revenue for multiple batches", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
-    const chainId = 0;
     const userTotalValorAmount = 2000;
     const redeemValorAmountForBatch0 = 1000;
     const redeemValorAmountForBatch1 = 1000;
@@ -174,7 +209,7 @@ describe("Revenue", function () {
   });
 
   it("user can claim usdc revenue for multiple chains", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
     await ledger.connect(user).setCollectedValor(user.address, 2000);
     await ledger.connect(user).redeemValor(user.address, 0, 1000);
@@ -192,7 +227,7 @@ describe("Revenue", function () {
   });
 
   it("user can redeem valor more than once to the same batch", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
     await ledger.connect(user).setCollectedValor(user.address, 2000);
     await ledger.connect(user).redeemValor(user.address, 0, 1000);
@@ -202,9 +237,8 @@ describe("Revenue", function () {
   });
 
   it("user should have no more than 2 BatchedRedemptionRequest at the same time", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
-    const chainId = 0;
     await ledger.connect(user).setCollectedValor(user.address, 3000);
     // User redeem valor to the current batch (0)
     await ledger.connect(user).redeemValor(user.address, chainId, 1000);
@@ -250,7 +284,7 @@ describe("Revenue", function () {
   });
 
   it("owner should be able to fix batch price if nobody redeemed valor", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
     // Batch 0 is created authomatically
     const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
@@ -283,7 +317,7 @@ describe("Revenue", function () {
   });
 
   it("Revenue: pause should fail functions, that requires unpaused state", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await revenueFixture();
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await valorEmissionStarted();
 
     await ledger.connect(owner).pause();
     await expect(ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
