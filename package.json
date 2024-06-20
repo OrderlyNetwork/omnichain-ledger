@@ -71,8 +71,6 @@
     "hardhat-deploy": "^0.12.4",
     "hardhat-deploy-ethers": "^0.4.2",
     "hardhat-gas-reporter": "^1.0.8",
-    "orderly-network-config": "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git",
-    "orderly-omnichain-occ": "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git",
     "prettier": "^3.0.0",
     "solc": "^0.8.26",
     "solhint": "^3.4.1",
