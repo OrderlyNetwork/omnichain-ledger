@@ -1,30 +1,26 @@
 import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
-import { ONE_DAY_IN_SECONDS, ledgerFixture } from "./utilities/index";
-import { Contract } from "ethers";
+import { CHAIN_ID_0, ONE_DAY_IN_SECONDS, USER_STAKE_AMOUNT, VALOR_CHECK_PRECISION, amountCloseTo, ledgerFixture } from "./utilities/index";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-describe("Vesting", function () {
-  async function vestingFixture() {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
-    return { ledger, orderTokenOft, owner, user, updater, operator };
-  }
+import { LedgerTest } from "../types/contracts/test";
 
+describe("Vesting", function () {
   async function claimAndCheckVestingRequest(
-    ledger: Contract,
+    ledger: LedgerTest,
     user: HardhatEthersSigner,
-    chainId: number,
+    CHAIN_ID_0: number,
     requestId: number,
-    vestingAmounts: number[]
+    vestingAmounts: BigInt[]
   ) {
-    await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, requestId))
+    await expect(ledger.connect(user).claimVestingRequest(user.address, CHAIN_ID_0, requestId))
       .to.emit(ledger, "VestingClaimed")
-      .withArgs(anyValue, chainId, user.address, requestId, vestingAmounts[requestId], vestingAmounts[requestId], anyValue);
+      .withArgs(anyValue, CHAIN_ID_0, user.address, requestId, vestingAmounts[requestId], vestingAmounts[requestId], anyValue);
   }
 
   it("check vesting initial state", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
     expect(await ledger.vestingLockPeriod()).to.equal(15 * ONE_DAY_IN_SECONDS);
     expect(await ledger.vestingLinearPeriod()).to.equal(75 * ONE_DAY_IN_SECONDS);
@@ -32,13 +28,12 @@ describe("Vesting", function () {
   });
 
   it("user can request vesting and contract correctly calculates VestingOrderAmount over time", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
-    const chainId = 0;
-    const vestingAmount = 1000;
-    await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount))
+    const vestingAmount = USER_STAKE_AMOUNT;
+    await expect(ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount))
       .to.emit(ledger, "VestingRequested")
-      .withArgs(1, chainId, user.address, 0, vestingAmount, anyValue);
+      .withArgs(1, CHAIN_ID_0, user.address, 0, vestingAmount, anyValue);
 
     const userVestingRequests = await ledger.getUserVestingRequests(user.address);
     expect(userVestingRequests.length).to.equal(1);
@@ -49,11 +44,11 @@ describe("Vesting", function () {
     const vestingStartTime = await helpers.time.latest();
     // After 15 days, the user can withdraw half of the vesting amount
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 15);
-    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount / 2);
+    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount / BigInt(2));
 
     // After half of the linear vesting period, the user can withdraw 3 / 4 of the vesting amount
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 15 + (ONE_DAY_IN_SECONDS * 75) / 2);
-    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal((vestingAmount * 3) / 4);
+    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal((vestingAmount * BigInt(3)) / BigInt(4));
 
     // After the linear vesting period, the user can withdraw the full vesting amount
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
@@ -61,34 +56,32 @@ describe("Vesting", function () {
   });
 
   it("user can cancel vesting request", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
-    const chainId = 0;
-    const vestingAmount = 1000;
-    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
+    const vestingAmount = USER_STAKE_AMOUNT;
+    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
 
-    await expect(ledger.connect(user).cancelVestingRequest(user.address, chainId, 0))
+    await expect(ledger.connect(user).cancelVestingRequest(user.address, CHAIN_ID_0, 0))
       .to.emit(ledger, "VestingCanceled")
-      .withArgs(anyValue, chainId, user.address, 0, vestingAmount);
+      .withArgs(anyValue, CHAIN_ID_0, user.address, 0, vestingAmount);
 
     await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
   });
 
   it("user can cancel all vesting requests", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
-    const chainId = 0;
-    const vestingAmount = 1000;
-    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
-    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
+    const vestingAmount = USER_STAKE_AMOUNT;
+    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
+    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
 
     // Both requests can be calculated, so, they are created
     expect(await ledger.connect(user).calculateVestingOrderAmount(user.address, 0)).to.be.equal(0);
     expect(await ledger.connect(user).calculateVestingOrderAmount(user.address, 1)).to.be.equal(0);
 
-    const tx = await ledger.connect(user).cancelAllVestingRequests(user.address, chainId);
-    await expect(tx).to.emit(ledger, "VestingCanceled").withArgs(anyValue, chainId, user.address, 0, vestingAmount);
-    await expect(tx).to.emit(ledger, "VestingCanceled").withArgs(anyValue, chainId, user.address, 1, vestingAmount);
+    const tx = await ledger.connect(user).cancelAllVestingRequests(user.address, CHAIN_ID_0);
+    await expect(tx).to.emit(ledger, "VestingCanceled").withArgs(anyValue, CHAIN_ID_0, user.address, 0, vestingAmount);
+    await expect(tx).to.emit(ledger, "VestingCanceled").withArgs(anyValue, CHAIN_ID_0, user.address, 1, vestingAmount);
 
     // After canceling all requests, they can't be calculated
     await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
@@ -96,14 +89,13 @@ describe("Vesting", function () {
   });
 
   it("user can claim vesting request after lock period", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
-    const chainId = 0;
-    const vestingAmount = 1000;
-    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
+    const vestingAmount = USER_STAKE_AMOUNT;
+    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
 
     // User can't claim the vesting request before the lock period passes
-    await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, 0)).to.be.revertedWithCustomError(
+    await expect(ledger.connect(user).claimVestingRequest(user.address, CHAIN_ID_0, 0)).to.be.revertedWithCustomError(
       ledger,
       "VestingLockPeriodNotPassed"
     );
@@ -111,68 +103,66 @@ describe("Vesting", function () {
     const vestingStartTime = await helpers.time.latest();
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 15);
 
-    await expect(ledger.connect(user).claimVestingRequest(user.address, chainId, 0))
+    await expect(ledger.connect(user).claimVestingRequest(user.address, CHAIN_ID_0, 0))
       .to.emit(ledger, "VestingClaimed")
-      .withArgs(anyValue, chainId, user.address, 0, vestingAmount, vestingAmount / 2, 2);
+      .withArgs(anyValue, CHAIN_ID_0, user.address, 0, vestingAmount, amountCloseTo(vestingAmount / BigInt(2), VALOR_CHECK_PRECISION), 2);
 
     await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
   });
 
   it("vested amount is correctly calculated", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
-    const chainId = 0;
-    const vestingAmount = 1000;
-    await ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmount);
+    const vestingAmount = USER_STAKE_AMOUNT;
+    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
 
     const vestingStartTime = await helpers.time.latest();
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 15);
 
-    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount / 2);
+    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount / BigInt(2));
 
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 15 + (ONE_DAY_IN_SECONDS * 75) / 2);
-    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal((vestingAmount * 3) / 4);
+    expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal((vestingAmount * BigInt(3)) / BigInt(4));
 
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
     expect(await ledger.calculateVestingOrderAmount(user.address, 0)).to.be.equal(vestingAmount);
   });
 
   it("check that cancel vesting request removes right request", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, user } = await ledgerFixture();
 
-    const chainId = 0;
-    const vestingAmounts = [1000, 2000, 3000, 4000];
+    const vestingAmounts = [USER_STAKE_AMOUNT, USER_STAKE_AMOUNT * BigInt(2), USER_STAKE_AMOUNT * BigInt(3), USER_STAKE_AMOUNT * BigInt(4)];
 
     // Create requests with different amounts
     for (let i = 0; i < 4; i++) {
-      await expect(ledger.connect(user).createVestingRequest(user.address, chainId, vestingAmounts[i]))
+      await expect(ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmounts[i]))
         .to.emit(ledger, "VestingRequested")
-        .withArgs(anyValue, chainId, user.address, i, vestingAmounts[i], anyValue);
+        .withArgs(anyValue, CHAIN_ID_0, user.address, i, vestingAmounts[i], anyValue);
     }
 
     // Remocve the first request
-    await expect(ledger.connect(user).cancelVestingRequest(user.address, chainId, 0))
+    await expect(ledger.connect(user).cancelVestingRequest(user.address, CHAIN_ID_0, 0))
       .to.emit(ledger, "VestingCanceled")
-      .withArgs(anyValue, chainId, user.address, 0, vestingAmounts[0]);
+      .withArgs(anyValue, CHAIN_ID_0, user.address, 0, vestingAmounts[0]);
 
     // Check full vesting period
     const vestingStartTime = await helpers.time.latest();
     await helpers.time.increaseTo(vestingStartTime + ONE_DAY_IN_SECONDS * 90);
 
     // Claim second request
-    await claimAndCheckVestingRequest(ledger, user, chainId, 1, vestingAmounts);
+    await claimAndCheckVestingRequest(ledger, user, CHAIN_ID_0, 1, vestingAmounts);
 
     // Check that cancelled and claimed requests removed
     await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
     await expect(ledger.calculateVestingOrderAmount(user.address, 1)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
 
     // Claim last requests
-    await claimAndCheckVestingRequest(ledger, user, chainId, 3, vestingAmounts);
-    await claimAndCheckVestingRequest(ledger, user, chainId, 2, vestingAmounts);
+    await claimAndCheckVestingRequest(ledger, user, CHAIN_ID_0, 3, vestingAmounts);
+    await claimAndCheckVestingRequest(ledger, user, CHAIN_ID_0, 2, vestingAmounts);
   });
 
   it("Vesting: pause should fail functions, that requires unpaused state", async function () {
-    const { ledger, orderTokenOft, owner, user, updater, operator } = await vestingFixture();
+    const { ledger, owner, user } = await ledgerFixture();
 
     await ledger.connect(owner).pause();
     await expect(ledger.connect(user).createVestingRequest(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
