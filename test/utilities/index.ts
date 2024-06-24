@@ -106,6 +106,13 @@ export async function waitForLastDayOfCurrentBatch(ledger: LedgerTest) {
   await helpers.time.increaseTo(batch0EndTime - BigInt(days(1)));
 }
 
+export async function waitForEmissionStart(ledger: LedgerTest) {
+  const valorEmissionStart = await ledger.valorEmissionStartTimestamp();
+  if ((await helpers.time.latest()) < valorEmissionStart) {
+    await helpers.time.increaseTo(valorEmissionStart);
+  }
+}
+
 /// User mckes a stake and waits for valor emission to start. Check user staking balance and valor emission
 export async function userStakedAndWaitForEmissionStart(ledger: LedgerTest, user: HardhatEthersSigner, stakeAmount: BigInt) {
   const tx = await ledger.connect(user).stake(user.address, CHAIN_ID_0, LedgerToken.ORDER, stakeAmount.valueOf());
@@ -114,10 +121,7 @@ export async function userStakedAndWaitForEmissionStart(ledger: LedgerTest, user
 
   expect(await ledger.userTotalStakingBalance(user.address)).to.equal(stakeAmount.valueOf());
 
-  const valorEmissionstart = await ledger.valorEmissionStartTimestamp();
-  if ((await helpers.time.latest()) < valorEmissionstart) {
-    await helpers.time.increaseTo(valorEmissionstart);
-  }
+  await waitForEmissionStart(ledger);
 
   expect(await ledger.userTotalStakingBalance(user.address)).to.equal(stakeAmount);
   expect(await ledger.getUserValor(user.address)).to.equal(0);
@@ -191,6 +195,18 @@ export async function prepareBatchForClaiming(ledger: LedgerTest, owner: SignerW
   return { usdcRevenuePerBatch, valorPerBatch };
 }
 
+export async function checkUserStakingBalance(ledger: LedgerTest, user: SignerWithAddress, orderBalance: BigInt, esOrderBalance: BigInt) {
+  const userStakingBalance = await ledger.getStakingInfo(user.address);
+  expect(userStakingBalance["orderBalance"]).to.equal(orderBalance);
+  expect(userStakingBalance["esOrderBalance"]).to.equal(esOrderBalance);
+  expect(await ledger.userTotalStakingBalance(user.address)).to.equal(orderBalance.valueOf() + esOrderBalance.valueOf());
+}
+
+export async function checkUserPendingUnstake(ledger: LedgerTest, user: SignerWithAddress, balanceOrder: BigInt, unlockTimestamp: number) {
+  const userPendingUnstake2 = await ledger.userPendingUnstake(user.address);
+  expect(userPendingUnstake2["balanceOrder"]).to.equal(balanceOrder);
+  expect(userPendingUnstake2["unlockTimestamp"]).closeTo(unlockTimestamp, 2);
+}
 //================ CONTRACT STATES ================
 /// Case when just owner stakes and valor emission starts
 export async function ownerStakedAndValorEmissionStarted() {

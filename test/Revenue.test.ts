@@ -1,27 +1,22 @@
 import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
-import { days } from "@nomicfoundation/hardhat-network-helpers/dist/src/helpers/time/duration";
 
 import {
   ledgerFixture,
   amountCloseTo,
   getExpectedUserUsdcPerBatch,
   waitForLastDayOfCurrentBatch,
-  userStakedAndWaitForEmissionStart,
   ownerStakedAndValorEmissionStarted,
   userStakedAndValorEmissionStarted,
   userRedeemHalhOfUserValor,
   userRedeemedAndBatch0Finished,
   userRedeemedBatch0PreparedForClaiming,
   prepareBatchForClaiming,
-  VALOR_PER_DAY,
   VALOR_PER_SECOND,
   VALOR_CHECK_PRECISION,
-  USER_STAKE_AMOUNT,
   CHAIN_ID_0
 } from "./utilities/index";
-import {} from "./utilities/index";
 
 describe("Revenue", function () {
   it("check revenue initial state", async function () {
@@ -45,20 +40,6 @@ describe("Revenue", function () {
     expect(batch0ChainedValorAmount).to.deep.equal([]);
 
     expect(await ledger.getUsdcAmountForBatch(0)).to.deep.equal([]);
-  });
-
-  it("check that Valor emission started after valorEmissionStartTimestamp", async function () {
-    const { ledger, owner, user } = await ledgerFixture();
-
-    await ledger.connect(owner).setValorEmissionStartTimestamp((await helpers.time.latest()) + days(2));
-
-    await userStakedAndWaitForEmissionStart(ledger, user, USER_STAKE_AMOUNT);
-
-    await helpers.time.increaseTo((await helpers.time.latest()) + days(1));
-
-    expect(await ledger.getUserValor(user.address)).to.be.closeTo(VALOR_PER_DAY, VALOR_CHECK_PRECISION);
-    expect(await ledger.getTotalValorEmitted()).to.be.closeTo(VALOR_PER_DAY, VALOR_CHECK_PRECISION);
-    expect(await ledger.getTotalValorAmount()).to.be.closeTo(VALOR_PER_DAY, VALOR_CHECK_PRECISION);
   });
 
   it("redeem valor unsuccessful cases", async function () {
