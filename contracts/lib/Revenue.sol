@@ -155,8 +155,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (batch.fixedValorToUsdcRateScaled == 0) revert BatchValorToUsdcRateIsNotFixed();
         if (batch.claimable) return;
 
-        totalValorRedeemed += batch.redeemedValorAmount;
-        totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
         batch.claimable = true;
 
         emit BatchPreparedToClaim(_batchId);
@@ -215,14 +213,17 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     ///         batch.fixedValorToUsdcRateScaled will be set to current valorToUsdcRateScaled
     function _possiblyFixBatchValorToUsdcRateForPreviousBatch() internal whenNotPaused {
         uint16 curBatchId = getCurrentBatchId();
-        if (curBatchId > 0) {
-            uint16 prevBatchId = curBatchId - 1;
+        while (curBatchId > 0) {
+            curBatchId--;
             // If nobody redeemed valor in the batch, batch will not be created at this moment, let's create it
-            Batch storage prevBatch = _getOrCreateBatch(prevBatchId);
-            if (prevBatch.fixedValorToUsdcRateScaled == 0) {
-                prevBatch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
-                emit BatchValorToUsdcRateIsFixed(prevBatchId, prevBatch.fixedValorToUsdcRateScaled);
-            }
+            Batch storage batch = _getOrCreateBatch(curBatchId);
+            if (batch.fixedValorToUsdcRateScaled == 0) {
+                batch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
+                totalValorRedeemed += batch.redeemedValorAmount;
+                totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
+
+                emit BatchValorToUsdcRateIsFixed(curBatchId, batch.fixedValorToUsdcRateScaled);
+            } else break;
         }
     }
 
