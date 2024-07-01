@@ -23,6 +23,7 @@ export const VALOR_EMISSION_DURATION = 200 * 14 * ONE_DAY_IN_SECONDS;
 export const VALOR_PER_SECOND = VALOR_MAXIMUM_EMISSION / BigInt(VALOR_EMISSION_DURATION);
 export const VALOR_PER_HOUR = VALOR_PER_SECOND * BigInt(ONE_HOUR_IN_SECONDS);
 export const VALOR_PER_DAY = VALOR_PER_SECOND * BigInt(ONE_DAY_IN_SECONDS);
+export const VALOR_PER_BATCH = VALOR_PER_DAY * BigInt(14);
 export const VALOR_TO_USDC_RATE_PRECISION = BigInt(1e27);
 // Let's make precision in 2 seconds Valor emission rate for transactions
 export const VALOR_CHECK_PRECISION = VALOR_PER_SECOND * BigInt(2);

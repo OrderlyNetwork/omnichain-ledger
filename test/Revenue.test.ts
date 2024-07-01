@@ -15,7 +15,10 @@ import {
   prepareBatchForClaiming,
   VALOR_PER_SECOND,
   VALOR_CHECK_PRECISION,
-  CHAIN_ID_0
+  CHAIN_ID_0,
+  waitForBatchEnd,
+  VALOR_PER_BATCH,
+  VALOR_PER_DAY
 } from "./utilities/index";
 
 describe("Revenue", function () {
@@ -238,5 +241,49 @@ describe("Revenue", function () {
     await expect(ledger.connect(owner).batchPreparedToClaim(0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(user).redeemValor(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(user).claimUsdcRevenue(user.address, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+  });
+
+  it("check, that batch is claimable even if dailyUsdcNetFeeRevenue was not called during it", async function () {
+    const { ledger, owner, user } = await userRedeemedAndBatch0Finished();
+
+    await waitForBatchEnd(ledger, 1);
+
+    const usdcRevenue = ((await ledger.getTotalValorAmount()) + VALOR_PER_SECOND) / BigInt(2);
+    const expectedValorToUsdcRateScaled = 500000000000000000000000000n;
+    const tx = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcRevenue);
+    await expect(tx).to.emit(ledger, "BatchValorToUsdcRateIsFixed").withArgs(0, expectedValorToUsdcRateScaled);
+    await expect(tx).to.emit(ledger, "BatchValorToUsdcRateIsFixed").withArgs(1, expectedValorToUsdcRateScaled);
+
+    await ledger.connect(owner).batchPreparedToClaim(0);
+    await ledger.connect(owner).batchPreparedToClaim(1);
+
+    const batch0 = await ledger.getBatchInfo(0);
+    expect(batch0["claimable"]).to.equal(true);
+
+    const batch1 = await ledger.getBatchInfo(1);
+    expect(batch1["claimable"]).to.equal(true);
+
+    await ledger.connect(user).claimUsdcRevenue(user.address, CHAIN_ID_0);
+  });
+
+  it("check, that fixedValorToUsdcRateScaled set properly if no batch prepared to claim called", async function () {
+    const { ledger, owner, user, userRedeemValor } = await userRedeemedAndBatch0Finished();
+
+    // Batch 0 has one day less valor emission. Valor per second is for operation deplay
+    const usdcRevenue0 = (VALOR_PER_BATCH - VALOR_PER_DAY + VALOR_PER_SECOND) / BigInt(2);
+    const expectedValorToUsdcRateScaled0 = 500000000000000000000000000n;
+    const tx0 = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcRevenue0);
+    await expect(tx0)
+      .to.emit(ledger, "BatchValorToUsdcRateIsFixed")
+      .withArgs(0, amountCloseTo(expectedValorToUsdcRateScaled0, VALOR_CHECK_PRECISION));
+
+    await userRedeemHalhOfUserValor(ledger, user, CHAIN_ID_0);
+    await waitForBatchEnd(ledger, 1);
+
+    const usdcRevenue1 = (VALOR_PER_BATCH + VALOR_PER_SECOND) / BigInt(2);
+    const tx1 = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcRevenue1);
+    await expect(tx1)
+      .to.emit(ledger, "BatchValorToUsdcRateIsFixed")
+      .withArgs(1, amountCloseTo(expectedValorToUsdcRateScaled0, VALOR_CHECK_PRECISION));
   });
 });
