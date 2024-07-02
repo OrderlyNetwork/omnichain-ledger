@@ -63,9 +63,6 @@ describe("Valor", function () {
     // Example data from here:
     // https://wootraders.atlassian.net/wiki/spaces/ORDER/pages/632750296/Cefi+upload+revenue#Testdata
 
-    // First example data - should pass
-    expect(await ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.not.be.reverted;
-
     // Second example data - should pass
     const data2: LedgerSignedTypes.UintValueDataStruct = {
       r: "0xa4155dce45b643e9979ba6089635b46351cd2da5e447189eedcd89e01629fcec",
@@ -82,10 +79,22 @@ describe("Valor", function () {
 
     // Change test data to fail
     data2.value = BigInt(data2.value) + BigInt(1);
+    data2.timestamp = BigInt(1710000000000) + BigInt(ONE_DAY_IN_SECONDS) * BigInt(1000);
 
     // Move time forward by one day to allow sequential dailyUsdcNetFeeRevenue call
     await helpers.time.increaseTo((await helpers.time.latest()) + ONE_DAY_IN_SECONDS);
     await expect(ledger.connect(owner).dailyUsdcNetFeeRevenue(data2)).to.be.revertedWithCustomError(ledger, "InvalidSignature");
+
+    // First example data - should pass. Check it second, because it's timestamp later than second example
+    expect(await ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.not.be.reverted;
+  });
+
+  it("should be unable to use the same data twice", async function () {
+    const { ledger, owner } = await ledgerFixture();
+
+    expect(await ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.not.be.reverted;
+
+    await expect(ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.be.revertedWithCustomError(ledger, "TooEarlyUsdcNetFeeRevenueUpdate");
   });
 
   it("check valor emission linear precision with one user", async function () {
@@ -143,5 +152,15 @@ describe("Valor", function () {
     await expect(ledger.connect(owner).setUsdcUpdaterAddress(USDC_UPDATER_ADDRESS)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(owner).dailyUsdcNetFeeRevenue(data1)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(owner).setTotalUsdcInTreasure(100)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
+  });
+
+  it("Only TREASURE_UPDATER_ROLE should be able to call dailyUsdcNetFeeRevenue", async function () {
+    const { ledger, orderTokenOft, owner, user, updater, operator } = await ledgerFixture();
+
+    await expect(ledger.connect(user).dailyUsdcNetFeeRevenue(data1)).to.be.revertedWithCustomError(ledger, "AccessControlUnauthorizedAccount");
+
+    await ledger.connect(owner).grantRole(await ledger.TREASURE_UPDATER_ROLE(), user.address);
+
+    await ledger.connect(user).dailyUsdcNetFeeRevenue(data1);
   });
 });

@@ -153,11 +153,12 @@ abstract contract Valor is LedgerAccessControl {
      *          Supposed to be called from the Ledger contract
      */
     function _dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) internal whenNotPaused onlyRole(TREASURE_UPDATER_ROLE) {
-        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
+        uint64 dataTimestamp = data.timestamp / 1000;
+        if (dataTimestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
 
         Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
 
-        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+        lastUsdcNetFeeRevenueUpdateTimestamp = dataTimestamp;
         totalUsdcInTreasure += data.value;
         _updateValorToUsdcRateScaled();
         emit DailyUsdcNetFeeRevenueUpdated(data.timestamp, data.value, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
