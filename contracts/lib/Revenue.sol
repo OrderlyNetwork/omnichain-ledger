@@ -89,8 +89,8 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== INITIALIZER ========== */
 
-    function revenueInit(address, uint256 _batchStartTimstamp, uint256 _batchDuration) internal onlyInitializing {
-        batchStartTimestamp = _batchStartTimstamp;
+    function revenueInit(address, uint256 _batchStartTimestamp, uint256 _batchDuration) internal onlyInitializing {
+        batchStartTimestamp = _batchStartTimestamp;
         batchDuration = _batchDuration;
         // create first batch
         batches.push();
@@ -277,7 +277,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      *         There shouldn't be more than 3 requests for the user: 2 claimable maximum and current
      *         Two claimable can happen when user redeem valor for the batch while previous one is in grace period
      *         and is not claimable yet.
-     *         So, overal complexity is 3 requests to find claimable batch O(1) + chainNum to collect USDC O(N)
+     *         So, overall complexity is 3 requests to find claimable batch O(1) + chainNum to collect USDC O(N)
      */
     function _collectUserRevenueForClaimableBatch(address _user) private {
         uint256 requestIndex = 0;

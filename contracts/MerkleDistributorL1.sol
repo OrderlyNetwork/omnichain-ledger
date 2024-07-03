@@ -78,10 +78,10 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
     error ZeroClaim();
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.0";
+        return "1.0.1";
     }
 
-    /* ====== UUPS ATHORIZATION ====== */
+    /* ====== UUPS AUTHORIZATION ====== */
 
     /// @notice upgrade the contract
     function _authorizeUpgrade(address) internal override onlyOwner {}

@@ -18,6 +18,7 @@ import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
+// ChainedEventIdCounter does not used anymore. Leaved for now to not break upgradeability. Can be removed before complete redeployment.
 contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEventIdCounter, MerkleDistributor, Valor, Staking, Revenue, Vesting {
     /* ========== STATE VARIABLES ========== */
     address public occAdaptor;
@@ -35,7 +36,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         return "1.0.1";
     }
 
-    /* ====== UUPS ATHORIZATION ====== */
+    /* ====== UUPS AUTHORIZATION ====== */
 
     /// @notice upgrade the contract
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}

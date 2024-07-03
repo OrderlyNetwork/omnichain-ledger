@@ -51,7 +51,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     receive() external payable {}
 
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
-    
+
     /* ========== prevent initialization for implementation contracts ========== */
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -65,6 +65,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         ledgerAccessControlInit(_owner);
 
         orderTokenOft = _oft;
+        orderCollector = _owner;
     }
 
     /// @notice set the chain id to proxy ledger address mapping
