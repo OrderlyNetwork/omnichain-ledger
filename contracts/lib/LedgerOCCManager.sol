@@ -185,6 +185,14 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         // revert("TestOnly: end of lzCompose");
     }
 
+    /**
+     * @notice withdraw eth to
+     * @param to the address to withdraw
+     */
+    function withdrawTo(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        payable(to).transfer(address(this).balance);
+    }
+
     /// gap for upgradeable
     uint256[50] private __gap;
 }
