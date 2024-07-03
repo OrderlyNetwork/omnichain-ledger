@@ -423,4 +423,13 @@ contract LedgerProxyTest is TestHelperOz5 {
         uint256 orderCollectorBalanceAfter = bOFT.balanceOf(orderCollectorAddress);
         assertEq(orderCollectorBalanceAfter, 1 ether);
     }
+
+    function test_withdrawTo() public {
+        uint256 ethAmount = 1 ether;
+        vm.deal(address(proxyA), ethAmount);
+        vm.deal(address(ledgerOCCManager), ethAmount);
+
+        proxyA.withdrawTo(address(this));
+        ledgerOCCManager.withdrawTo(address(this));
+    }
 }
