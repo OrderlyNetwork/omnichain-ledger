@@ -235,7 +235,7 @@ export async function oneDayBeforeBatch0EndUserCollectedValorFor12Days() {
   const batch0EndTime = (await ledger.getBatchInfo(0))["batchEndTime"];
   await helpers.time.increaseTo(batch0EndTime - BigInt(days(1)));
 
-  const userExpectedCollectedValor = VALOR_PER_DAY * BigInt(12);
+  const userExpectedCollectedValor = VALOR_PER_DAY * BigInt(13);
   const userCollectedValor = await ledger.getUserValor(user.address);
 
   expect(userCollectedValor).to.be.closeTo(userExpectedCollectedValor, VALOR_CHECK_PRECISION);

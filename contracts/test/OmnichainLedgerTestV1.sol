@@ -24,10 +24,6 @@ contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
         vestingLinearPeriod = _vestingLinearPeriod;
     }
 
-    function setBatchStartTimestamp(uint256 _batchStartTimestamp) external {
-        batchStartTimestamp = _batchStartTimestamp;
-    }
-
     function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
         _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, _timestamp);
     }
