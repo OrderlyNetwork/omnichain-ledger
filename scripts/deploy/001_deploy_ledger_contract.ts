@@ -12,8 +12,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   if (hre.network.name === "orderlySepolia" || hre.network.name === "hardhat") {
     const { owner } = await getNamedAccounts();
     const occAdaptor = process.env.OCC_ADAPTOR_ADDRESS || ethers.ZeroAddress;
-    const orderCollector = process.env.ORDER_COLLECTOR_ADDRESS || ethers.ZeroAddress;
-    const orderTokenOft = process.env.ORDER_TOKEN_OFT_ADDRESS || ethers.ZeroAddress;
     const maximumValorEmission = process.env.MAXIMUM_VALOR_EMISSION ? BigInt(process.env.MAXIMUM_VALOR_EMISSION) : fullTokens(1_000_000_000);
     const valorEmissioDuration = process.env.VALOR_EMISSION_DURATION
       ? BigInt(process.env.VALOR_EMISSION_DURATION)
@@ -21,8 +19,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const valorPerSecond = maximumValorEmission / valorEmissioDuration;
     console.log("owner:", owner);
     console.log("occAdaptor:", occAdaptor);
-    console.log("orderCollector:", orderCollector);
-    console.log("orderTokenOft:", orderTokenOft);
     console.log("maximumValorEmission:", maximumValorEmission.toString());
     console.log("valorEmissioDuration:", valorEmissioDuration.toString());
     console.log("valorPerSecond:", valorPerSecond.toString());
@@ -52,6 +48,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     } catch (e) {
       console.log("OmnichainLedgerTestV1 already initialized");
     }
+    console.log("OmnichainLedgerTestV1:", OmnichainLedgerTestV1.address);
   }
 
   console.log("Finished running 001-deploy-ledger-contracts");
