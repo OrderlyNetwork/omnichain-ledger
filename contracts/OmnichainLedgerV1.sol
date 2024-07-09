@@ -33,7 +33,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.1";
+        return "1.0.2";
     }
 
     /* ====== UUPS AUTHORIZATION ====== */
