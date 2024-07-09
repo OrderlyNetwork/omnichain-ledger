@@ -18,14 +18,15 @@ import {
   CHAIN_ID_0,
   waitForBatchEnd,
   VALOR_PER_BATCH,
-  VALOR_PER_DAY
+  VALOR_PER_DAY,
+  waitForEmissionStart
 } from "./utilities/index";
 
 describe("Revenue", function () {
   it("check revenue initial state", async function () {
     const { ledger } = await ledgerFixture();
 
-    expect(await ledger.getCurrentBatchId()).to.equal(0);
+    await expect(ledger.getCurrentBatchId()).to.revertedWithCustomError(ledger, "RedemptionIsNotStartedYet");
     const batch0Info = await ledger.getBatchInfo(0);
     const batch0StartTime = batch0Info["batchStartTime"];
     const batch0EndTime = batch0Info["batchEndTime"];
@@ -43,6 +44,13 @@ describe("Revenue", function () {
     expect(batch0ChainedValorAmount).to.deep.equal([]);
 
     expect(await ledger.getUsdcAmountForBatch(0)).to.deep.equal([]);
+  });
+
+  it("check revenue state after Valor emission started", async function () {
+    const { ledger } = await ledgerFixture();
+
+    await waitForEmissionStart(ledger);
+    expect(await ledger.getCurrentBatchId()).to.equal(0);
   });
 
   it("redeem valor unsuccessful cases", async function () {
@@ -270,7 +278,7 @@ describe("Revenue", function () {
     const { ledger, owner, user, userRedeemValor } = await userRedeemedAndBatch0Finished();
 
     // Batch 0 has one day less valor emission. Valor per second is for operation deplay
-    const usdcRevenue0 = (VALOR_PER_BATCH - VALOR_PER_DAY + VALOR_PER_SECOND) / BigInt(2);
+    const usdcRevenue0 = (VALOR_PER_BATCH + VALOR_PER_SECOND) / BigInt(2);
     const expectedValorToUsdcRateScaled0 = 500000000000000000000000000n;
     const tx0 = await ledger.connect(owner).dailyUsdcNetFeeRevenueTestNoSignatureCheck(usdcRevenue0);
     await expect(tx0)

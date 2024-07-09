@@ -55,7 +55,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         merkleDistributorInit(_owner);
         valorInit(_owner, _valorPerSecond, _maximumValorEmission);
         stakingInit(_owner, DEFAULT_UNSTAKE_LOCK_PERIOD);
-        revenueInit(_owner, block.timestamp, DEFAULT_BATCH_DURATION);
+        revenueInit(_owner, DEFAULT_BATCH_DURATION);
         vestingInit(_owner, VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD);
 
         occAdaptor = _occAdaptor;
