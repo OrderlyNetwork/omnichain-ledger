@@ -25,12 +25,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const occAdaptor = await OmnichainLedgerV1.occAdaptor();
   console.log("occAdaptor:", occAdaptor);
 
-  const orderTokenOft = await OmnichainLedgerV1.orderTokenOft();
-  console.log("orderTokenOft:", orderTokenOft);
-
-  const orderCollector = await OmnichainLedgerV1.orderCollector();
-  console.log("orderCollector:", orderCollector);
-
   const valorPerSecond = await OmnichainLedgerV1.valorPerSecond();
   console.log("valorPerSecond:", valorPerSecond.toString());
 
