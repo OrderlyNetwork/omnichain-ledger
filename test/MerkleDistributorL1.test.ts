@@ -619,4 +619,46 @@ describe("MerkleDistributorL1", function () {
       expect(await orderToken.balanceOf(claimerAddress)).to.be.equal(claimerBalanceBefore + claimingAmountBigInt);
     }
   });
+
+  it("token address can be setup later but only once", async function () {
+    const orderTokenCF = await ethers.getContractFactory("OrderToken");
+    const distributorCF = await ethers.getContractFactory("MerkleDistributorL1");
+
+    const [owner, user] = await ethers.getSigners();
+
+    const orderToken = await orderTokenCF.connect(owner).deploy(TOTAL_SUPPLY);
+
+    const distributor = await upgrades.deployProxy(distributorCF, [owner.address, ethers.ZeroAddress], { kind: "uups" });
+
+    const { tree } = prepareMerkleTree([user.address], [INITIAL_SUPPLY_STR]);
+    const startTimestamp = (await helpers.time.latest()) + ONE_DAY_IN_SECONDS;
+    const endTimestamp = startTimestamp + ONE_DAY_IN_SECONDS;
+
+    // Updater should NOT be able to propose a root because the token address is not set
+    await expect(distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid)).to.be.revertedWithCustomError(
+      distributor,
+      "TokenAddressNotSet"
+    );
+
+    expect(await distributor.token()).to.be.equal(ethers.ZeroAddress);
+
+    // Set the token address
+    const tokenAddress = await orderToken.getAddress();
+    await distributor.connect(owner).setTokenAddress(tokenAddress);
+
+    expect(await distributor.token()).to.be.equal(tokenAddress);
+
+    // Updater should be able to propose a root
+    await expect(distributor.connect(owner).proposeRoot(tree.root, startTimestamp, endTimestamp, ipfsCid))
+      .to.emit(distributor, "RootProposed")
+      .withArgs(anyValue, tree.root, startTimestamp, endTimestamp, ipfsCid);
+
+    expect(await distributor.hasPendingRoot()).to.be.equal(true);
+
+    // Check that the proposed root is correct
+    await checkProposedRoot(distributor, tree, startTimestamp, endTimestamp, ipfsCid);
+
+    // Repeated token address setup should be reverted
+    await expect(distributor.connect(owner).setTokenAddress(tokenAddress)).to.be.revertedWithCustomError(distributor, "TokenAddressAlreadySet");
+  });
 });

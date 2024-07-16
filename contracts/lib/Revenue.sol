@@ -9,7 +9,8 @@ import {Valor} from "./Valor.sol";
  * @title Revenue
  * @author Orderly Network
  * @notice Contract that allow users to redeem valor and claim USDC revenue for valor
- *         Revenue is calculated per batch, that is 14 days long; Contract
+ *         Revenue is calculated per batch, that is 14 days long;
+ *         Batches started from valorEmissionStartTimestamp
  *         User can redeem valor only for current batch
  *         User can make several redemption requests for one batch, the amount will be summed
  *         User create redemption request for the chain, that is used in the request
@@ -44,9 +45,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     // Array of batches; batchId is an index in this array
     Batch[] public batches;
-
-    /// @notice The timestamp when the first batch starts
-    uint256 public batchStartTimestamp;
 
     struct BatchedRedemptionRequest {
         uint16 batchId;
@@ -89,8 +87,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /* ========== INITIALIZER ========== */
 
-    function revenueInit(address, uint256 _batchStartTimstamp, uint256 _batchDuration) internal onlyInitializing {
-        batchStartTimestamp = _batchStartTimstamp;
+    function revenueInit(address, uint256 _batchDuration) internal onlyInitializing {
         batchDuration = _batchDuration;
         // create first batch
         batches.push();
@@ -103,9 +100,9 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /// @dev Revert if the redemption is not started yet to prevent redemption before the start
     function getCurrentBatchId() public view returns (uint16) {
         uint256 currentTimestamp = block.timestamp;
-        if (currentTimestamp < batchStartTimestamp) revert RedemptionIsNotStartedYet();
+        if (currentTimestamp < valorEmissionStartTimestamp) revert RedemptionIsNotStartedYet();
 
-        return uint16((currentTimestamp - batchStartTimestamp) / batchDuration);
+        return uint16((currentTimestamp - valorEmissionStartTimestamp) / batchDuration);
     }
 
     /// @notice Returns the batch structure by id without chained valor amount
@@ -116,7 +113,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         view
         returns (uint256 batchStartTime, uint256 batchEndTime, bool claimable, uint256 redeemedValorAmount, uint256 fixedValorToUsdcRateScaled)
     {
-        batchStartTime = batchStartTimestamp + _batchId * batchDuration;
+        batchStartTime = valorEmissionStartTimestamp + _batchId * batchDuration;
         batchEndTime = batchStartTime + batchDuration;
         if (_batchId < batches.length) {
             Batch storage batch = _getBatch(_batchId);
@@ -155,8 +152,6 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
         if (batch.fixedValorToUsdcRateScaled == 0) revert BatchValorToUsdcRateIsNotFixed();
         if (batch.claimable) return;
 
-        totalValorRedeemed += batch.redeemedValorAmount;
-        totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
         batch.claimable = true;
 
         emit BatchPreparedToClaim(_batchId);
@@ -214,15 +209,19 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
     /// @notice Check if previous finished batch has no fixed valor to USDC rate and fix it
     ///         batch.fixedValorToUsdcRateScaled will be set to current valorToUsdcRateScaled
     function _possiblyFixBatchValorToUsdcRateForPreviousBatch() internal whenNotPaused {
+        if (block.timestamp < valorEmissionStartTimestamp) return;
         uint16 curBatchId = getCurrentBatchId();
-        if (curBatchId > 0) {
-            uint16 prevBatchId = curBatchId - 1;
+        while (curBatchId > 0) {
+            curBatchId--;
             // If nobody redeemed valor in the batch, batch will not be created at this moment, let's create it
-            Batch storage prevBatch = _getOrCreateBatch(prevBatchId);
-            if (prevBatch.fixedValorToUsdcRateScaled == 0) {
-                prevBatch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
-                emit BatchValorToUsdcRateIsFixed(prevBatchId, prevBatch.fixedValorToUsdcRateScaled);
-            }
+            Batch storage batch = _getOrCreateBatch(curBatchId);
+            if (batch.fixedValorToUsdcRateScaled == 0) {
+                batch.fixedValorToUsdcRateScaled = valorToUsdcRateScaled;
+                totalValorRedeemed += batch.redeemedValorAmount;
+                totalUsdcInTreasure -= (batch.redeemedValorAmount * batch.fixedValorToUsdcRateScaled) / VALOR_TO_USDC_RATE_PRECISION;
+
+                emit BatchValorToUsdcRateIsFixed(curBatchId, batch.fixedValorToUsdcRateScaled);
+            } else break;
         }
     }
 
@@ -276,7 +275,7 @@ abstract contract Revenue is LedgerAccessControl, ChainedEventIdCounter, Valor {
      *         There shouldn't be more than 3 requests for the user: 2 claimable maximum and current
      *         Two claimable can happen when user redeem valor for the batch while previous one is in grace period
      *         and is not claimable yet.
-     *         So, overal complexity is 3 requests to find claimable batch O(1) + chainNum to collect USDC O(N)
+     *         So, overall complexity is 3 requests to find claimable batch O(1) + chainNum to collect USDC O(N)
      */
     function _collectUserRevenueForClaimableBatch(address _user) private {
         uint256 requestIndex = 0;

@@ -62,6 +62,6 @@ library LedgerSignedTypes {
         bytes32 s;
         uint8 v;
         uint256 value;
-        uint64 timestamp;
+        uint64 timestamp; // timestamp in milliseconds
     }
 }

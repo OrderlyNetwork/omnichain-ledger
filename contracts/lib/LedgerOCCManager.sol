@@ -51,7 +51,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     receive() external payable {}
 
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
-    
+
     /* ========== prevent initialization for implementation contracts ========== */
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -65,6 +65,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         ledgerAccessControlInit(_owner);
 
         orderTokenOft = _oft;
+        orderCollector = _owner;
     }
 
     /// @notice set the chain id to proxy ledger address mapping
@@ -183,6 +184,14 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(message);
 
         // revert("TestOnly: end of lzCompose");
+    }
+
+    /**
+     * @notice withdraw eth to
+     * @param to the address to withdraw
+     */
+    function withdrawTo(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        payable(to).transfer(address(this).balance);
     }
 
     /// gap for upgradeable

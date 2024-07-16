@@ -202,7 +202,7 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         }
 
         uint256 vestedTime = block.timestamp - _vestingRequest.unlockTimestamp;
-        if (vestedTime > vestingLinearPeriod) {
+        if (vestedTime >= vestingLinearPeriod) {
             return _vestingRequest.esOrderAmount;
         }
 

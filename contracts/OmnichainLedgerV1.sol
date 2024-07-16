@@ -18,6 +18,7 @@ import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 // lz imports
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
+// ChainedEventIdCounter does not used anymore. Leaved for now to not break upgradeability. Can be removed before complete redeployment.
 contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEventIdCounter, MerkleDistributor, Valor, Staking, Revenue, Vesting {
     /* ========== STATE VARIABLES ========== */
     address public occAdaptor;
@@ -32,10 +33,10 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.1";
+        return "1.0.2";
     }
 
-    /* ====== UUPS ATHORIZATION ====== */
+    /* ====== UUPS AUTHORIZATION ====== */
 
     /// @notice upgrade the contract
     function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
@@ -54,7 +55,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         merkleDistributorInit(_owner);
         valorInit(_owner, _valorPerSecond, _maximumValorEmission);
         stakingInit(_owner, DEFAULT_UNSTAKE_LOCK_PERIOD);
-        revenueInit(_owner, block.timestamp, DEFAULT_BATCH_DURATION);
+        revenueInit(_owner, DEFAULT_BATCH_DURATION);
         vestingInit(_owner, VESTING_LOCK_PERIOD, VESTING_LINEAR_PERIOD);
 
         occAdaptor = _occAdaptor;

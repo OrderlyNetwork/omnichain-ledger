@@ -83,6 +83,7 @@ abstract contract Valor is LedgerAccessControl {
         valorPerSecond = _valorPerSecond;
         maximumValorEmission = _maximumValorEmission;
         valorEmissionStartTimestamp = block.timestamp + 1 days;
+        lastValorUpdateTimestamp = valorEmissionStartTimestamp;
     }
 
     /* ========== VIEWS ========== */
@@ -109,6 +110,7 @@ abstract contract Valor is LedgerAccessControl {
         if (block.timestamp > valorEmissionStartTimestamp) revert ValorEmissionAlreadyStarted();
         if (block.timestamp > _valorEmissionStartTimestamp) revert ValorEmissionCouldNotStartInThePast();
         valorEmissionStartTimestamp = _valorEmissionStartTimestamp;
+        lastValorUpdateTimestamp = _valorEmissionStartTimestamp;
     }
 
     /**
@@ -124,7 +126,7 @@ abstract contract Valor is LedgerAccessControl {
     /* ========== INTERNAL FUNCTIONS ========== */
 
     /// @notice Emit the valor token
-    function _doValorEmission() public whenNotPaused returns (uint256 valorEmitted) {
+    function _doValorEmission() internal whenNotPaused returns (uint256 valorEmitted) {
         valorEmitted = _getValorPendingEmission();
         if (valorEmitted > 0) {
             totalValorEmitted += valorEmitted;
@@ -134,7 +136,7 @@ abstract contract Valor is LedgerAccessControl {
 
     /// @notice Get the amount of valor, that should be emitted to the moment since the last update
     function _getValorPendingEmission() internal view returns (uint256 valorPendingEmission) {
-        if (block.timestamp <= valorEmissionStartTimestamp || block.timestamp <= lastValorUpdateTimestamp) return 0;
+        if (block.timestamp <= lastValorUpdateTimestamp) return 0;
 
         uint256 secondsElapsed = block.timestamp - lastValorUpdateTimestamp;
         valorPendingEmission = secondsElapsed * valorPerSecond;
@@ -151,11 +153,12 @@ abstract contract Valor is LedgerAccessControl {
      *          Supposed to be called from the Ledger contract
      */
     function _dailyUsdcNetFeeRevenue(LedgerSignedTypes.UintValueData calldata data) internal whenNotPaused onlyRole(TREASURE_UPDATER_ROLE) {
-        if (block.timestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
+        uint64 dataTimestamp = data.timestamp / 1000;
+        if (dataTimestamp < lastUsdcNetFeeRevenueUpdateTimestamp + 12 hours) revert TooEarlyUsdcNetFeeRevenueUpdate();
 
         Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
 
-        lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+        lastUsdcNetFeeRevenueUpdateTimestamp = dataTimestamp;
         totalUsdcInTreasure += data.value;
         _updateValorToUsdcRateScaled();
         emit DailyUsdcNetFeeRevenueUpdated(data.timestamp, data.value, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);

@@ -35,4 +35,36 @@ task("mdl1-propose-root", "Propose new root to the Merkle Distributor L1 contrac
     console.log(`Proposed root: ${proposedRoot}`);
   });
 
+task("mdl1-transfer-ownership", "Transfer ownership of the Merkle Distributor L1 contract")
+  .addParam("contractAddress", "Address of Merkle Distributor L1", undefined, types.string, true)
+  .addParam("to", "Address to grant ownership to", undefined, types.string)
+  .setAction(async (taskArgs, hre) => {
+    console.log(`Running on ${hre.network.name}`);
+    const contractAddress = getContractAddress(taskArgs.contractAddress);
+    const owner = await hre.ethers.getNamedSigner("owner");
+
+    const MerkleDistributorL1 = (await hre.ethers.getContractAtWithSignerAddress(
+      "MerkleDistributorL1",
+      contractAddress,
+      owner.address
+    )) as unknown as MerkleDistributorL1;
+
+    const MerkleDistributorL1Address = await MerkleDistributorL1.getAddress();
+    console.log(`MerkleDistributorL1 address: ${MerkleDistributorL1Address}`);
+
+    const currentOwner = await MerkleDistributorL1.owner();
+    console.log(`Current owner: ${currentOwner}`);
+
+    if (currentOwner !== owner.address) {
+      console.log("Current owner is not the same as the owner address");
+      return;
+    }
+
+    console.log("Transferring ownership to %s", taskArgs.to);
+    const tx = await MerkleDistributorL1.connect(owner).transferOwnership(taskArgs.to);
+
+    const newOwner = await MerkleDistributorL1.owner();
+    console.log(`New owner: ${newOwner}`);
+  });
+
 export {};

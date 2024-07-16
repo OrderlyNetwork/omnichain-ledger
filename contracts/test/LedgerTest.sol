@@ -11,6 +11,10 @@ contract LedgerTest is OmnichainLedgerV1 {
         return 1;
     }
 
+    function getTotalValorEmittedStoreValue() external view returns (uint256) {
+        return totalValorEmitted;
+    }
+
     function claimRewards(
         uint32 _distributionId,
         address _user,

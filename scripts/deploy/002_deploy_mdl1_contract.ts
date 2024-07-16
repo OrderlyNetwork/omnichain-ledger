@@ -21,7 +21,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
 
     if (!orderTokenAddress) {
-      throw new Error("MDL1_ORDER_TOKEN_ADDRESS is required");
+      orderTokenAddress = ethers.ZeroAddress;
     }
 
     const MerkleDistributorL1 = await deployContract(hre, "MerkleDistributorL1", [], "proxyNoInit");
@@ -31,6 +31,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     } catch (e) {
       console.log("MerkleDistributorL1 already initialized");
     }
+
+    console.log("MerkleDistributorL1:", MerkleDistributorL1.address);
   }
 
   console.log("Finished running 002-deploy-mdl1-contract");

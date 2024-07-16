@@ -22,7 +22,7 @@ import {Valor} from "./Valor.sol";
  */
 abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     uint256 internal constant DEFAULT_UNSTAKE_LOCK_PERIOD = 7 days;
-    uint256 internal constant ACC_VALOR_PER_SHARE_PRECISION = 1e18;
+    uint256 internal constant ACC_VALOR_PER_SHARE_PRECISION = 1e21;
 
     struct StakingInfo {
         uint256[2] balance; // Amount of staken $ORDER and es$ORDER
@@ -79,7 +79,6 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     function stakingInit(address, uint256 _unstakeLockPeriod) internal onlyInitializing {
         unstakeLockPeriod = _unstakeLockPeriod;
-        lastValorUpdateTimestamp = block.timestamp;
     }
 
     /* ========== VIEW FUNCTIONS ========== */

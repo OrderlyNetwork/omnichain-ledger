@@ -260,6 +260,14 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         }
     }
 
+    /**
+     * @notice withdraw function for native token
+     * @param to the address to withdraw to
+     */
+    function withdrawTo(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        payable(to).transfer(address(this).balance);
+    }
+
     /// @notice fallback to receive
     receive() external payable {}
 }

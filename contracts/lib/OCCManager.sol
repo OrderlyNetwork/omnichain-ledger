@@ -96,13 +96,13 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
 
         SendParam memory sendParam = buildOCCVaultMsg(message);
 
-        MessagingFee memory msgFee = MessagingFee(msg.value, 0);
-
         /// @dev test only
         _msgPayload = sendParam.composeMsg;
         _options = sendParam.extraOptions;
 
         uint256 lzFee = msg.value - payloadType2BackwardFee[message.payloadType];
+
+        MessagingFee memory msgFee = MessagingFee(lzFee, 0);
 
         (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: lzFee}(sendParam, msgFee, msg.sender);
         chainedEventId += 1;

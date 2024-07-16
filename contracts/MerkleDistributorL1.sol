@@ -76,12 +76,14 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
     error DistributionStillActive();
     error InvalidMerkleProof();
     error ZeroClaim();
+    error TokenAddressNotSet();
+    error TokenAddressAlreadySet();
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.0";
+        return "1.0.2";
     }
 
-    /* ====== UUPS ATHORIZATION ====== */
+    /* ====== UUPS AUTHORIZATION ====== */
 
     /// @notice upgrade the contract
     function _authorizeUpgrade(address) internal override onlyOwner {}
@@ -191,6 +193,8 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
         uint256 _endTimestamp,
         bytes calldata _ipfsCid
     ) external whenNotPaused nonReentrant onlyOwner {
+        if (token == address(0)) revert TokenAddressNotSet();
+
         if (_merkleRoot == bytes32(0)) revert ProposedMerkleRootIsZero();
 
         if (_startTimestamp < block.timestamp) revert StartTimestampIsInThePast();
@@ -294,5 +298,11 @@ contract MerkleDistributorL1 is Initializable, UUPSUpgradeable, OwnableUpgradeab
     function withdraw() external onlyOwner {
         if (activeRoot.endTimestamp == 0 || block.timestamp <= activeRoot.endTimestamp) revert DistributionStillActive();
         IERC20(token).safeTransfer(owner(), IERC20(token).balanceOf(address(this)));
+    }
+
+    /// @notice Set the token address
+    function setTokenAddress(IERC20 _token) external onlyOwner {
+        if (token != address(0)) revert TokenAddressAlreadySet();
+        token = address(_token);
     }
 }
