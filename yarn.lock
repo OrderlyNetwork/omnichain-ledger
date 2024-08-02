@@ -6016,17 +6016,13 @@ optionator@^0.9.3:
 
 "orderly-network-config@git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git":
   version "1.0.0"
-  resolved "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git#b628fb694361bb5d8a6b0be7ab5b7fb0311298a1"
+  resolved "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/network_config.git#7b6926b081f1401cd5545e7b40d87dc54711d95b"
   dependencies:
     cross-env "^7.0.3"
     ethers "^6.11.1"
     jsdom "^24.0.0"
     jsdom-global "^3.0.2"
     ts-node "^10.9.2"
-
-"orderly-omnichain-occ@git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git":
-  version "0.0.1"
-  resolved "git+ssh://git@gitlab.com/orderlynetwork/orderly-v2/omnichain-occ.git#6b7b7c599b6521090de319bca1e65c6f5febdc11"
 
 ordinal@^1.0.3:
   version "1.0.3"
