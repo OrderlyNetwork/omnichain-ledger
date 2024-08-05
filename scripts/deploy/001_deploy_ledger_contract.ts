@@ -8,29 +8,36 @@ import { AddressLike } from "ethers";
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { ethers, getNamedAccounts } = hre;
 
-  // Deploy OmnichainLedgerV1 to orderlySepolia (Ledger) network or hardhat (localhost) network for testing
-  if (hre.network.name === "orderlySepolia" || hre.network.name === "hardhat") {
-    const { owner } = await getNamedAccounts();
-    const occAdaptor = process.env.OCC_ADAPTOR_ADDRESS || ethers.ZeroAddress;
-    const maximumValorEmission = process.env.MAXIMUM_VALOR_EMISSION ? BigInt(process.env.MAXIMUM_VALOR_EMISSION) : fullTokens(1_000_000_000);
-    const valorEmissioDuration = process.env.VALOR_EMISSION_DURATION
-      ? BigInt(process.env.VALOR_EMISSION_DURATION)
-      : BigInt(200 * 14 * ONE_DAY_IN_SECONDS);
-    const valorPerSecond = maximumValorEmission / valorEmissioDuration;
-    console.log("owner:", owner);
-    console.log("occAdaptor:", occAdaptor);
-    console.log("maximumValorEmission:", maximumValorEmission.toString());
-    console.log("valorEmissioDuration:", valorEmissioDuration.toString());
-    console.log("valorPerSecond:", valorPerSecond.toString());
-    const OmnichainLedgerV1 = await deployContract(hre, "OmnichainLedgerV1", [], "proxyNoInit");
-    const OmnichainLedgerV1Contract = await ethers.getContract<OmnichainLedgerV1>("OmnichainLedgerV1");
-    try {
-      await OmnichainLedgerV1Contract.initialize(owner as AddressLike, occAdaptor as AddressLike, valorPerSecond, maximumValorEmission);
-    } catch (e) {
-      console.log("OmnichainLedgerV1 already initialized");
-    }
-    console.log("OmnichainLedgerV1:", OmnichainLedgerV1.address);
+  if (hre.network.name !== "orderly" && hre.network.name !== "orderlySepolia" && hre.network.name !== "hardhat") {
+    console.log("Skipping 001-deploy-ledger-contracts");
+    return true;
+  }
 
+  const { owner } = await getNamedAccounts();
+  const occAdaptor = process.env.OCC_ADAPTOR_ADDRESS || ethers.ZeroAddress;
+  const maximumValorEmission = process.env.MAXIMUM_VALOR_EMISSION ? BigInt(process.env.MAXIMUM_VALOR_EMISSION) : fullTokens(1_000_000_000);
+  const valorEmissioDuration = process.env.VALOR_EMISSION_DURATION
+    ? BigInt(process.env.VALOR_EMISSION_DURATION)
+    : BigInt(200 * 14 * ONE_DAY_IN_SECONDS);
+  const valorPerSecond = maximumValorEmission / valorEmissioDuration;
+  console.log("owner:", owner);
+  console.log("occAdaptor:", occAdaptor);
+  console.log("maximumValorEmission:", maximumValorEmission.toString());
+  console.log("valorEmissioDuration:", valorEmissioDuration.toString());
+  console.log("valorPerSecond:", valorPerSecond.toString());
+
+  console.log("Deploying OmnichainLedgerV1 to ", hre.network.name);
+
+  const OmnichainLedgerV1 = await deployContract(hre, "OmnichainLedgerV1", [], "proxyNoInit");
+  const OmnichainLedgerV1Contract = await ethers.getContract<OmnichainLedgerV1>("OmnichainLedgerV1");
+  try {
+    await OmnichainLedgerV1Contract.initialize(owner as AddressLike, occAdaptor as AddressLike, valorPerSecond, maximumValorEmission);
+  } catch (e) {
+    console.log("OmnichainLedgerV1 already initialized");
+  }
+  console.log("OmnichainLedgerV1:", OmnichainLedgerV1.address);
+
+  if (hre.network.name !== "orderly") {
     // Deploy OmnichainLedgerTestV1 with adjustable batchDuration, unstakeLockPeriod, vestingLockPeriod, vestingLinearPeriod for testing purposes
     const OmnichainLedgerTestV1 = await deployContract(hre, "OmnichainLedgerTestV1", [], "proxyNoInit");
     const OmnichainLedgerTestV1Contract = await ethers.getContract<OmnichainLedgerTestV1>("OmnichainLedgerTestV1");

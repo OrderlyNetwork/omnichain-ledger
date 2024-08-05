@@ -84,6 +84,8 @@ const config: HardhatUserConfig = {
     orderlySepolia: getHardhatNetworkConfig("orderlySepolia"),
     optimismSepolia: getHardhatNetworkConfig("optimismSepolia"),
     polygonMumbai: getHardhatNetworkConfig("polygonMumbai"),
+    ethereum: getHardhatNetworkConfig("ethereum"),
+    orderly: getHardhatNetworkConfig("orderly"),
     polygon: getHardhatNetworkConfig("polygon"),
     sepolia: getHardhatNetworkConfig("sepolia")
   },
@@ -93,6 +95,8 @@ const config: HardhatUserConfig = {
       orderlySepolia: getHardhatApiKey("orderlySepolia") || "orderlySepolia",
       optimismSepolia: getHardhatApiKey("optimismSepolia"),
       polygonMumbai: getHardhatApiKey("polygonMumbai"),
+      ethereum: getHardhatApiKey("ethereum"),
+      orderly: getHardhatApiKey("orderly"),
       polygon: getHardhatApiKey("polygon"),
       sepolia: getHardhatApiKey("sepolia")
     },
@@ -101,6 +105,8 @@ const config: HardhatUserConfig = {
       getHardhatEtherscanConfig("orderlySepolia"),
       getHardhatEtherscanConfig("optimismSepolia"),
       getHardhatEtherscanConfig("polygonMumbai"),
+      getHardhatEtherscanConfig("ethereum"),
+      getHardhatEtherscanConfig("orderly"),
       getHardhatEtherscanConfig("polygon"),
       getHardhatEtherscanConfig("sepolia")
     ]
@@ -121,6 +127,9 @@ const config: HardhatUserConfig = {
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS ? true : false
+  },
+  sourcify: {
+    enabled: true
   }
 };
 
