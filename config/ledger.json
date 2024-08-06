@@ -38,7 +38,7 @@
       "proxy": "0xf4EFdE916687eFBa271b1eDf436B206b285bc478"
     },
     "ledger_occ_manager": {
-      "impl": "0xcFBd86e5c9279126F9A58fECFF808c218401133b",
+      "impl": "0x9A8d11F903aCac6b612C20cDA32835eaa7E26bdd",
       "proxy": "0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53"
     },
     "ledger_proxy": {
