@@ -4,17 +4,24 @@ pragma solidity ^0.8.22;
 import "forge-std/Script.sol";
 import "./BaseScript.sol";
 import "./ConfigScript.sol";
+import "./Utils.sol";
 
 import "../../contracts/lib/LedgerOCCManager.sol";
 
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LedgerOCCManagerSetup is BaseScript, ConfigScript {
+    using StringUtils for string;
 
     function run() external {
 
-        string memory network = "orderlysepolia";
         string memory env = vm.envString("FS_LedgerOCCManagerSetup_env");
+        string memory network;
+        if (env.equal("production")) {
+            network = "orderly";
+        } else {
+            network = "orderlysepolia";
+        }
 
         DeployData memory ledgerOcc = readLedger(env, "ledger_occ_manager");
         DeployData memory ledger = readLedger(env, "ledger");
