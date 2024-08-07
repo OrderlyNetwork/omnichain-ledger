@@ -85,4 +85,25 @@
     ts-node scripts/ts_foundry/run.ts --method LedgerOCCManagerAddNewChain --env qa --newNetwork basesepolia --broadcast
     ```
 
-6. update contract addressed in confluence: https://wootraders.atlassian.net/wiki/spaces/ORDER/pages/623083691/Contracts+Address+For+TGE
+6. update contract addressed in information board
+
+# Ledger OCC Manager Deployment SOP
+
+1. finish foundry script setup like above
+
+2. run deploy scripts
+    example:
+    ```bash
+    ts-node scripts/ts_foundry/run.ts --method LedgerOCCManagerDeploy --env qa --network sepolia --broadcast
+    ```
+3. setup ledger occ manager
+    example:
+    ```bash
+    ts-node scripts/ts_foundry/run.ts --method LedgerOCCManagerSetup --env qa --network sepolia --broadcast
+    ```
+4. verify contracts
+    example:
+    ```bash
+    ts-node scripts/ts_foundry/run.ts --method verifyContract --env qa --network sepolia --contract ledger_occ_manager --compilerVersion 0.8.22
+    ```
+5. update contract addressed in information board
