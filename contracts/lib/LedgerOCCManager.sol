@@ -194,6 +194,14 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         payable(to).transfer(address(this).balance);
     }
 
+    /**
+     * @notice withdraw all order
+     * @param to the address to withdraw
+     */
+    function withdrawOrderTo(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        IERC20(orderTokenOft).safeTransfer(to, IERC20(orderTokenOft).balanceOf(address(this)));
+    }
+
     /// gap for upgradeable
     uint256[50] private __gap;
 }
