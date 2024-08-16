@@ -81,7 +81,37 @@ It will deploy OmnichainLedgerV1 and OmnichainLedgerTestV1 contracts.
 - Make owner call `setOccAdaptor` function to set OCC Adaptor address if not set during deployment.
 - `valorEmissionStartTimestamp` is set to 24 hours after deployment timestamp by default. It can be set later by owner call `setValorEmissionStartTimestamp` function. But only before currently set timestamp passed. After Valor emission started, it can't be changed.
 
-## Scripts for calling contract functions:
+## After deployment:
+
+### MerkleDistributorL1 setup:
+#### Set token address:
+- MDL1 contract can distribut only one particular token. Token address can be set during deployment or later by owner call `setTokenAddress(IERC20 _token)`. This function can be called only once and only if token address is not set during deployment.
+
+#### Propose Merkle root:
+- To create distribution MDL1 contract should be provided with Merkle root by owner call `function proposeRoot(bytes32 _merkleRoot, uint256 _startTimestamp, uint256 _endTimestamp, bytes calldata _ipfsCid)`. Distribution will start after `_startTimestamp` passed and will be active until `_endTimestamp` passed. If _endTimestamp is set to 0, distribution will be active forever. _ipfsCid is optional parameter, it can be empty or `0x` if not used.
+- Merkle root can be proposed more than once to support distribution of cummulatively added rewards. In this case Merkle root can be proposed every epoch. Each new root should contain all previous rewards and users to give users ability to claim rewards from previous epochs. Amounts of rewards for each user should be cummulatively increased by n-th epoch. Contract stores already claimed amounts for each user and if user already claimed reward from previous epoch, he will not be able to claim it again. Proposed Merkle root will become active after `_startTimestamp` passed for it.
+
+#### Provide liquidity:
+- It is off-chain owner responsibility to provide enough liquidity for distribution. Tokens should be transferred to MDL1 contract address before distribution starts. If there is not enough tokens on contract balance, users will not be able to claim rewards.
+
+### OmnichainLedgerV1 setup:
+#### Set up:
+- To function properly, OmnichainLedgerV1 contract should be provided with OCC Adaptor address. It can be set by owner call `setOccAdaptor(IOmnichainAdaptor _occAdaptor)`. It can be called more than once.
+- Set Valor emission start timestamp. By default, Valor emission starts 24 hours after deployment timestamp. It can be set by owner call `setValorEmissionStartTimestamp(uint256 _valorEmissionStartTimestamp)`. But only before currently set timestamp passed. After Valor emission started, it can't be changed.
+- Minimal forever stake. To prevent edge cases with zero stakes, contract should be provided with minimal stake amount, that will be never withdrawn. It can be done as usual stake from one of vault chains. It can be as minimal as 0.01 ORDER. Minimal forever stake should be done before Valor emission started.
+
+#### Create reward distribution:
+OmniChainLedgerV1 contract supports distribution of two types of tokens: $ORDER and es$ORDER (record based).
+- To create reward distribution, owner should call function `createDistribution(uint32 _distributionId, LedgerToken _token, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid)`, provideing unique distribution id, token type, and Merkle root. Distribution will start after `_startTimestamp` passed. _ipfsCid is optional parameter, it can be empty or `0x` if not used. After distribution created, it's impossible to change it's token type.
+- Each distribution supports cummulative distribution of rewards. Owner can propose Merkle root for the same distribution id by calling `proposeRoot(uint32 _distributionId, bytes32 _merkleRoot, uint256 _startTimestamp, bytes calldata _ipfsCid)`. Each new root should contain all previous rewards and users to give users ability to claim rewards from previous epochs. Amounts of rewards for each user should be cummulatively increased by n-th epoch. Contract stores already claimed amounts for each user and if user already claimed reward from previous epoch, he will not be able to claim it again. Proposed Merkle root will become active after `_startTimestamp` passed for it.
+
+#### Provide liquidity:
+- It is off-chain owner responsibility to provide enough liquidity for $ORDER distribution. Tokens should be transferred to OmnichainLedgerV1 contract address before distribution starts. If there is not enough tokens on contract balance, users will not be able to claim rewards. For es$ORDER token type, it is not necessary to provide liquidity, because such tokens are record based and a kind of virtual.
+
+#### Calling dailyUsdcNetFeeRevenue function:
+- `dailyUsdcNetFeeRevenue` function suppose to be called daily by operator to update daily USDC net fee revenue. It also updates `valorToUsdcRateScaled` that is a kind of exchange rate between Valor and USDC. Also it updates `fixedValorToUsdcRateScaled` for Valor redemption batches. It is important, that this function should be called at least one time before first batch ends (14 days after Valor emission started).
+
+### Scripts for calling contract functions:
 
 > **NOTE:** All scripts required specification of contract address and network.
 > Network should be specified as a parameter `--network <network-name>`
