@@ -62,10 +62,12 @@ task("ledger-decode-occvaultmessage", "Decode provided data from message")
 
     const dataBytes = hexToBytes(dataString);
     console.log("Data: %s\n", bytesToHex(dataBytes));
-    const dataWithoutPrefix = dataBytes.slice(76);
+    const dataWithoutPrefix = dataBytes.slice(76+32);
     // const dataWithoutPrefix = dataBytes;
 
     console.log("Data without prefix: %s\n", bytesToHex(dataWithoutPrefix));
+    // print length of data
+    console.log("Data length: %s", dataWithoutPrefix.length);
 
     const decoded = defaultAbiCoder.decode(
       [
