@@ -4,6 +4,7 @@ import { LedgerRoles, getLedgerContract, getLedgerTokenNum, ledgerGrantRole, led
 import { getContractAddress } from "../utils/common";
 import { check } from "prettier";
 import { defaultAbiCoder } from "@ethersproject/abi";
+import { hexToBytes, bytesToHex } from "ethereum-cryptography/utils";
 
 task("ledger-create-distribution", "Create a new distribution with the given token and propose Merkle root for it")
   .addParam("contractAddress", "Address of the contract", undefined, types.string, true)
@@ -39,7 +40,7 @@ task("ledger-create-distribution", "Create a new distribution with the given tok
 task("ledger-decode-occvaultmessage", "Decode provided data from message")
   .addParam("data", "Data to decode", undefined, types.string, true)
   .setAction(async (taskArgs, hre) => {
-    const data = taskArgs.data;
+    const dataString = taskArgs.data;
 
 
     //   struct OCCVaultMessage {
@@ -59,7 +60,8 @@ task("ledger-decode-occvaultmessage", "Decode provided data from message")
     //     bytes payload;
     // }
 
-    const dataWithoutPrefix = data.slice(76);
+    const dataBytes = hexToBytes(dataString);
+    const dataWithoutPrefix = dataBytes.slice(76);
     // const dataWithoutPrefix = data;
     const decoded = defaultAbiCoder.decode(
       [
