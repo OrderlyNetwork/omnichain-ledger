@@ -3,6 +3,7 @@ import { task } from "hardhat/config";
 import { LedgerRoles, getLedgerContract, getLedgerTokenNum, ledgerGrantRole, ledgerRevokeRole } from "../utils/ledger";
 import { getContractAddress } from "../utils/common";
 import { check } from "prettier";
+import { defaultAbiCoder } from "@ethersproject/abi";
 
 task("ledger-create-distribution", "Create a new distribution with the given token and propose Merkle root for it")
   .addParam("contractAddress", "Address of the contract", undefined, types.string, true)
@@ -35,4 +36,44 @@ task("ledger-create-distribution", "Create a new distribution with the given tok
     console.log("Proposed root: %s", proposedRoot);
   });
 
-export {};
+task("ledger-decode-occvaultmessage", "Decode provided data from message")
+  .addParam("data", "Data to decode", undefined, types.string, true)
+  .setAction(async (taskArgs, hre) => {
+    const data = taskArgs.data;
+
+
+    //   struct OCCVaultMessage {
+    //     /// @dev the event id for the message, different id for different chains
+    //     uint256 chainedEventId;
+    //     /// @dev the source chain id, the sender can omit this field
+    //     uint256 srcChainId;
+    //     /// @dev the symbol of the token
+    //     LedgerToken token;
+    //     /// @dev the amount of token
+    //     uint256 tokenAmount;
+    //     /// @dev the address of the sender
+    //     address sender;
+    //     /// @dev payloadType is the type of the payload
+    //     uint8 payloadType;
+    //     /// @dev payload is the data to be sent
+    //     bytes payload;
+    // }
+
+    const dataWithoutPrefix = data.slice(76);
+    // const dataWithoutPrefix = data;
+    const decoded = defaultAbiCoder.decode(
+      [
+        "uint256",
+        "uint256",
+        "uint8",
+        "uint256",
+        "address",
+        "uint8",
+        "bytes",
+      ],
+      dataWithoutPrefix
+    );
+    console.log(decoded);
+  });
+
+export { };
