@@ -1,4 +1,4 @@
-import { Contract } from "ethers";
+import { ethers } from "hardhat";
 import { expect } from "chai";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import * as helpers from "@nomicfoundation/hardhat-network-helpers";
@@ -279,5 +279,74 @@ describe("Staking", function () {
       ledger,
       "EnforcedPause"
     );
+  });
+
+  it("Staking: check batchGetUserValor with one user", async function () {
+    const { ledger, user } = await userStakedAndValorEmissionStarted();
+
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Only one user staked, so user receives all valor emission for the day.
+    expect(await ledger.batchGetUserValor([user.address])).to.deep.equal([VALOR_PER_DAY]);
+  });
+
+  it("Staking: check batchGetUserValor with multiple users", async function () {
+    const { ledger, owner, user, updater } = await ledgerFixture();
+
+    // $ORDER and es$ORDER should be counted as well
+    await ledger.connect(user).stake(user.address, CHAIN_ID_0, LedgerToken.ORDER, USER_STAKE_AMOUNT / BigInt(2));
+    await ledger.connect(user).stake(user.address, CHAIN_ID_0, LedgerToken.ESORDER, USER_STAKE_AMOUNT / BigInt(2));
+    await ledger.connect(updater).stake(updater.address, CHAIN_ID_0, LedgerToken.ORDER, USER_STAKE_AMOUNT);
+    await ledger.connect(owner).stake(owner.address, CHAIN_ID_0, LedgerToken.ESORDER, USER_STAKE_AMOUNT);
+
+    await waitForEmissionStart(ledger);
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+    // Three users staked equal amount in total, so they should receive the same amount of valor.
+    // But they can be a bit greater due to a bit of time difference between user stakes.
+    expect(await ledger.batchGetUserValor([user.address, updater.address, owner.address])).to.deep.equal([
+      VALOR_PER_DAY / BigInt(3),
+      VALOR_PER_DAY / BigInt(3),
+      VALOR_PER_DAY / BigInt(3),
+    ]);
+  });
+
+  it("Staking: check batchGetUserValor with ten users", async function () {
+    const { ledger, owner } = await ledgerFixture();
+
+    const userCount = 10;
+    const userStakeAmount = USER_STAKE_AMOUNT / BigInt(userCount);
+    const userAddresses = [];
+    for (let i = 0; i < userCount; i++) {
+      const user = ethers.Wallet.createRandom().address;
+      userAddresses.push(user);
+      await ledger.connect(owner).stake(user, CHAIN_ID_0, LedgerToken.ORDER, userStakeAmount);
+    }
+
+    await waitForEmissionStart(ledger);
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+
+    const userValor = await ledger.batchGetUserValor(userAddresses);
+    for (let i = 0; i < userCount; i++) {
+      expect(userValor[i]).to.closeTo(VALOR_PER_DAY / BigInt(userCount), VALOR_CHECK_PRECISION);
+    }
+  });
+
+  it("Staking: check batchGetUserValor for many users", async function () {
+    const { ledger } = await ledgerFixture();
+
+    const userCount = 100;
+    const userAddresses = [];
+    for (let i = 0; i < userCount; i++) {
+      const user = ethers.Wallet.createRandom().address;
+      console.log(user);
+      userAddresses.push(user);
+    }
+
+    await waitForEmissionStart(ledger);
+    await helpers.time.increase(ONE_DAY_IN_SECONDS);
+
+    console.log("Call batchGetUserValor");
+    const userValor = await ledger.batchGetUserValor(userAddresses);
+    console.log("batchGetUserValor done");
+    expect(userValor.length).to.equal(userCount);
   });
 });

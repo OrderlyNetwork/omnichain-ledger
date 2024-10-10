@@ -108,6 +108,15 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         return _getPendingValor(_user) + collectedValor[_user];
     }
 
+    /// @notice Get the pending amount of valor for a list of users
+    function batchGetUserValor(address[] calldata _users) external view returns (uint256[] memory) {
+        uint256[] memory result = new uint256[](_users.length);
+        for (uint256 i = 0; i < _users.length; i++) {
+            result[i] = _getPendingValor(_users[i]) + collectedValor[_users[i]];
+        }
+        return result;
+    }
+
     /// @notice Calculate and update valor per share changed over time
     /// This function actually emits valor to users
     function updateValorVars() public whenNotPaused {
