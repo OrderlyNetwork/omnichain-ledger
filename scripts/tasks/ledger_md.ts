@@ -1,10 +1,11 @@
 import { types } from "hardhat/config";
 import { task } from "hardhat/config";
-import { LedgerRoles, getLedgerContract, getLedgerTokenNum, ledgerGrantRole, ledgerRevokeRole } from "../utils/ledger";
+import { getLedgerContract, getLedgerTokenNum } from "../utils/ledger";
 import { getContractAddress } from "../utils/common";
-import { check } from "prettier";
+import { deployContract } from "../utils/deploy";
 import { defaultAbiCoder } from "@ethersproject/abi";
-import { hexToBytes, bytesToHex } from "ethereum-cryptography/utils";
+import { hexToBytes, } from "ethereum-cryptography/utils";
+import { OmnichainLedgerV1 } from "../../types";
 
 task("ledger-create-distribution", "Create a new distribution with the given token and propose Merkle root for it")
   .addParam("contractAddress", "Address of the contract", undefined, types.string, true)
@@ -182,6 +183,44 @@ task("ledger-decode-occvaultmessage", "Decode provided data from message")
     })();
 
     console.log("Payload:", payload);
+  });
+
+task("deploy-ol-impl", "Deploy and verify OmnichainLedgerV1 implementation")
+  .setAction(async (taskArgs, hre) => {
+    const { ethers, getNamedAccounts } = hre;
+
+    if (hre.network.name !== "orderly" && hre.network.name !== "orderlySepolia" && hre.network.name !== "hardhat") {
+      console.log("OmniChainLedgerV1 implementation deployment is only supported on orderly and orderlySepolia networks");
+      return true;
+    }
+
+    const { deployer } = await getNamedAccounts();
+    const owner = process.env.MULTISIG_OWNER || deployer;
+    const occAdaptor = process.env.OCC_ADAPTOR_ADDRESS || ethers.ZeroAddress;
+    const maximumValorEmission = process.env.MAXIMUM_VALOR_EMISSION ? BigInt(process.env.MAXIMUM_VALOR_EMISSION) :
+      BigInt(1_000_000_000) * BigInt(10) ** BigInt(18);
+    const ONE_DAY_IN_SECONDS = 86400;
+    const valorEmissioDuration = process.env.VALOR_EMISSION_DURATION
+      ? BigInt(process.env.VALOR_EMISSION_DURATION)
+      : BigInt(200 * 14 * ONE_DAY_IN_SECONDS);
+    const valorPerSecond = maximumValorEmission / valorEmissioDuration;
+    console.log("owner:", owner);
+    console.log("occAdaptor:", occAdaptor);
+    console.log("maximumValorEmission:", maximumValorEmission.toString());
+    console.log("valorEmissioDuration:", valorEmissioDuration.toString());
+    console.log("valorPerSecond:", valorPerSecond.toString());
+
+    console.log("Deploying OmnichainLedgerV1 impl to ", hre.network.name);
+
+    const OmnichainLedgerV1 = await deployContract(hre, "OmnichainLedgerV1", []);
+    const OmnichainLedgerV1Contract = await ethers.getContract<OmnichainLedgerV1>("OmnichainLedgerV1");
+    try {
+      await OmnichainLedgerV1Contract.initialize(owner, occAdaptor, valorPerSecond, maximumValorEmission);
+    } catch (e) {
+      console.log("OmnichainLedgerV1 already initialized");
+    }
+    console.log("OmnichainLedgerV1:", OmnichainLedgerV1?.address);
+
   });
 
 export { };
