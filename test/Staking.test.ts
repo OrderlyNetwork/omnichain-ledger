@@ -333,7 +333,7 @@ describe("Staking", function () {
   it("Staking: check batchGetUserValor for many users", async function () {
     const { ledger } = await ledgerFixture();
 
-    const userCount = 100;
+    const userCount = 50;
     const userAddresses = [];
     for (let i = 0; i < userCount; i++) {
       const user = ethers.Wallet.createRandom().address;

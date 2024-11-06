@@ -86,10 +86,6 @@ contract LedgerTest is OmnichainLedgerV1 {
         esOrderAmountToStakeBack = _cancelVestingRequest(_user, chainedEventId(), _chainId, _requestId);
     }
 
-    function cancelAllVestingRequests(address _user, uint256 _chainId) external returns (uint256 esOrderAmountToStakeBack) {
-        esOrderAmountToStakeBack = _cancelAllVestingRequests(_user, chainedEventId(), _chainId);
-    }
-
     function claimVestingRequest(
         address _user,
         uint256 _chainId,

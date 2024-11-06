@@ -33,7 +33,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.3";
+        return "1.0.4";
     }
 
     /* ====== UUPS AUTHORIZATION ====== */
@@ -123,11 +123,6 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.srcChainId,
                 cancelVestingRequestPayload.requestId
             );
-            _stake(message.sender, message.chainedEventId, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
-        }
-        // ========== CancelAllVestingRequests ==========
-        else if (message.payloadType == uint8(PayloadDataType.CancelAllVestingRequests)) {
-            uint256 esOrderAmountToReStake = _cancelAllVestingRequests(message.sender, message.chainedEventId, message.srcChainId);
             _stake(message.sender, message.chainedEventId, message.srcChainId, LedgerToken.ESORDER, esOrderAmountToReStake);
         }
         // ========== ClaimVestingRequest ==========

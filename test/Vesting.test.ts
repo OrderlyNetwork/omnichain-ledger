@@ -68,26 +68,6 @@ describe("Vesting", function () {
     await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
   });
 
-  it("user can cancel all vesting requests", async function () {
-    const { ledger, user } = await ledgerFixture();
-
-    const vestingAmount = USER_STAKE_AMOUNT;
-    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
-    await ledger.connect(user).createVestingRequest(user.address, CHAIN_ID_0, vestingAmount);
-
-    // Both requests can be calculated, so, they are created
-    expect(await ledger.connect(user).calculateVestingOrderAmount(user.address, 0)).to.be.equal(0);
-    expect(await ledger.connect(user).calculateVestingOrderAmount(user.address, 1)).to.be.equal(0);
-
-    const tx = await ledger.connect(user).cancelAllVestingRequests(user.address, CHAIN_ID_0);
-    await expect(tx).to.emit(ledger, "VestingCanceled").withArgs(anyValue, CHAIN_ID_0, user.address, 0, vestingAmount);
-    await expect(tx).to.emit(ledger, "VestingCanceled").withArgs(anyValue, CHAIN_ID_0, user.address, 1, vestingAmount);
-
-    // After canceling all requests, they can't be calculated
-    await expect(ledger.calculateVestingOrderAmount(user.address, 0)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
-    await expect(ledger.calculateVestingOrderAmount(user.address, 1)).to.be.revertedWithCustomError(ledger, "UserDontHaveVestingRequest");
-  });
-
   it("user can claim vesting request after lock period", async function () {
     const { ledger, user } = await ledgerFixture();
 
@@ -167,7 +147,6 @@ describe("Vesting", function () {
     await ledger.connect(owner).pause();
     await expect(ledger.connect(user).createVestingRequest(user.address, 0, 1000)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(user).cancelVestingRequest(user.address, 0, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
-    await expect(ledger.connect(user).cancelAllVestingRequests(user.address, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
     await expect(ledger.connect(user).claimVestingRequest(user.address, 0, 0)).to.be.revertedWithCustomError(ledger, "EnforcedPause");
   });
 });

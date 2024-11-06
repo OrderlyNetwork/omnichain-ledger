@@ -134,25 +134,6 @@ abstract contract Vesting is LedgerAccessControl, ChainedEventIdCounter {
         emit VestingCanceled(_chainedEventId, _chainId, _user, _requestId, esOrderAmountToStakeBack);
     }
 
-    /// @notice Cancel all vesting requests for user
-    /// Caller should stake back es$ORDER tokens
-    function _cancelAllVestingRequests(
-        address _user,
-        uint256 _chainedEventId,
-        uint256 _chainId
-    ) internal whenNotPaused nonReentrant returns (uint256 esOrderAmountToStakeBack) {
-        UserVestingInfo memory userVestingInfo = userVestingInfos[_user];
-
-        for (uint256 i = 0; i < userVestingInfo.requests.length; i++) {
-            uint256 esOrderAmount = userVestingInfo.requests[i].esOrderAmount;
-            esOrderAmountToStakeBack += esOrderAmount;
-
-            emit VestingCanceled(_chainedEventId, _chainId, _user, userVestingInfo.requests[i].requestId, esOrderAmount);
-        }
-
-        delete userVestingInfos[_user];
-    }
-
     /// @notice Withdraw $ORDER tokens for user
     /// @dev User can withdraw $ORDER tokens only after locking period passed
     function _claimVestingRequest(
