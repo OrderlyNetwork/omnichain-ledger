@@ -81,9 +81,11 @@ const getTokenFromIndex = (index: number): keyof typeof LedgerToken => {
 
 // Payload decoding functions
 const decodeClaimReward = (payload: string) => {
+  const payloadBytes = hexToBytes(payload);
+  const payloadWithoutPrefix = payloadBytes.slice(32);
   const [distributionId, cumulativeAmount, merkleProof] = defaultAbiCoder.decode(
-    ["uint32", "uint256", "bytes32"],
-    payload
+    ["uint32", "uint256", "bytes32[]"],
+    payloadWithoutPrefix
   );
   return {
     distributionId,
