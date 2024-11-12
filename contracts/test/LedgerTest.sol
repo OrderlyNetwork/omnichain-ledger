@@ -62,6 +62,10 @@ contract LedgerTest is OmnichainLedgerV1 {
         _stake(_user, chainedEventId(), _chainId, _token, _amount);
     }
 
+    function unstakeOrderNow(address _user, uint256 _chainId, uint256 _amount) external {
+        _unstakeOrderNow(_user, chainedEventId(), _chainId, _amount);
+    }
+
     function createOrderUnstakeRequest(address _user, uint256 _chainId, uint256 _amount) external {
         _createOrderUnstakeRequest(_user, chainedEventId(), _chainId, _amount);
     }

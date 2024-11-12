@@ -23,6 +23,7 @@ import {Valor} from "./Valor.sol";
 abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     uint256 internal constant DEFAULT_UNSTAKE_LOCK_PERIOD = 7 days;
     uint256 internal constant ACC_VALOR_PER_SHARE_PRECISION = 1e21;
+    uint8 internal constant UNSTAKE_NOW_COLLECT_PERCENT = 5;
 
     struct StakingInfo {
         uint256[2] balance; // Amount of staken $ORDER and es$ORDER
@@ -60,6 +61,15 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
     /// @notice Emitted when user withdraws $ORDER tokens
     event OrderWithdrawn(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
+
+    /// @notice Emitted when user withdraws $ORDER tokens immediately
+    event OrderWithdrawnNow(
+        uint256 indexed chainedEventId,
+        uint256 indexed chainId,
+        address indexed staker,
+        uint256 withdrawnAmount,
+        uint256 collectedAmount
+    );
 
     /// @notice Emitted when user unstakes es$ORDER tokens
     event EsOrderUnstake(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
@@ -147,6 +157,30 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         totalStakedAmount += _amount;
 
         emit Staked(_chainedEventId, _chainId, _user, _amount, _token);
+    }
+
+    /// @notice Unstake and withdraw $ORDER tokens immediately with a penalty
+    /// 5% of withdrawn amount will be collected
+    function _unstakeOrderNow(
+        address _user,
+        uint256 _chainedEventId,
+        uint256 _chainId,
+        uint256 _amount
+    ) internal nonReentrant whenNotPaused returns (uint256 orderAmountForWithdraw, uint256 orderAmountForCollect) {
+        if (_amount == 0) revert AmountIsZero();
+
+        if (userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] < _amount) revert StakingBalanceInsufficient(LedgerToken.ORDER);
+
+        _updateValorVarsAndCollectUserValor(_user);
+
+        userStakingInfo[_user].balance[uint256(LedgerToken.ORDER)] -= _amount;
+        userStakingInfo[_user].valorDebt = _getUserTotalValorDebt(_user);
+        totalStakedAmount -= _amount;
+
+        orderAmountForCollect = (_amount * UNSTAKE_NOW_COLLECT_PERCENT) / 100; // 5% of withdrawn amount
+        orderAmountForWithdraw = _amount - orderAmountForCollect;
+
+        emit OrderWithdrawnNow(_chainedEventId, _chainId, _user, orderAmountForWithdraw, orderAmountForCollect);
     }
 
     /// @notice Create unstaking request for `_amount` of $ORDER tokens

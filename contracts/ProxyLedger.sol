@@ -152,19 +152,20 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param amount the amount to send
      * @param user the user to send
      * @param payloadType the payload type
-    *  2: CreateOrderUnstakeRequest,
-    *  3: CancelOrderUnstakeRequest,
-    *  4: WithdrawOrder,
-    *  5: EsOrderUnstakeAndVest,
-    *  6: CancelVestingRequest,
-    *  7: CancelAllVestingRequests,
-    *  8: ClaimVestingRequest,
-    *  9: RedeemValor,
-    *  10: ClaimUsdcRevenue,
+     *  2: CreateOrderUnstakeRequest,
+     *  3: CancelOrderUnstakeRequest,
+     *  4: WithdrawOrder,
+     *  5: EsOrderUnstakeAndVest,
+     *  6: CancelVestingRequest,
+     *  7: CancelAllVestingRequests,
+     *  8: ClaimVestingRequest,
+     *  9: RedeemValor,
+     *  10: ClaimUsdcRevenue,
+     *  15: UnstakeOrderNow
      */
     function buildOCCMessage(uint256 amount, address user, uint8 payloadType) internal view returns (OCCVaultMessage memory) {
         // require correct payloadType
-        require(payloadType >= 2 && payloadType <= 10, "UnsupportedPayloadType");
+        require((payloadType >= 2 && payloadType <= 10) || payloadType == 15, "UnsupportedPayloadType");
         return
             OCCVaultMessage({
                 chainedEventId: chainedEventId,

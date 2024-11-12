@@ -87,6 +87,11 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         else if (message.payloadType == uint8(PayloadDataType.Stake)) {
             _stake(message.sender, message.chainedEventId, message.srcChainId, message.token, message.tokenAmount);
         }
+        // ========== UnstakeOrderNow ==========
+        else if (message.payloadType == uint8(PayloadDataType.UnstakeOrderNow)) {
+            LedgerPayloadTypes.UnstakeOrderNow memory unstakeOrderNowPayload = abi.decode(message.payload, (LedgerPayloadTypes.UnstakeOrderNow));
+            _ledgerUnstakeOrderNow(message.sender, message.chainedEventId, message.srcChainId, unstakeOrderNowPayload.amount);
+        }
         // ========== CreateOrderUnstakeRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest)) {
             LedgerPayloadTypes.CreateOrderUnstakeRequest memory createOrderUnstakeRequestPayload = abi.decode(
@@ -192,6 +197,27 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 });
                 ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
             }
+        }
+    }
+
+    /// @notice Withdrawn $ORDER tokens are sent back to the user wallet on the source chain
+    /// $ORDER amount for collect will be sent to the collector address
+    function _ledgerUnstakeOrderNow(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal {
+        (uint256 orderAmountForWithdraw, uint256 orderAmountForCollect) = _unstakeOrderNow(_user, _chainedEventId, _chainId, _amount);
+        if (orderAmountForWithdraw != 0) {
+            OCCLedgerMessage memory message = OCCLedgerMessage({
+                dstChainId: _chainId,
+                token: LedgerToken.ORDER,
+                tokenAmount: orderAmountForWithdraw,
+                receiver: _user,
+                payloadType: uint8(PayloadDataType.WithdrawOrderBackward),
+                payload: "0x0"
+            });
+            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
+        }
+
+        if (orderAmountForCollect != 0) {
+            ILedgerOCCManager(occAdaptor).collectUnvestedOrders(orderAmountForCollect);
         }
     }
 

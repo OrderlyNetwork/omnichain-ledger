@@ -20,7 +20,9 @@ enum PayloadDataType {
     ClaimRewardBackward,
     WithdrawOrderBackward,
     ClaimVestingRequestBackward,
-    ClaimUsdcRevenueBackward
+    ClaimUsdcRevenueBackward,
+    /* ====== New Payloads ====== */
+    UnstakeOrderNow
 }
 
 // Suppose that in the OCCVaultMessage, the sender and chainId can be used to get the chainId and user address for all the calls
@@ -52,6 +54,10 @@ library LedgerPayloadTypes {
     }
 
     struct RedeemValor {
+        uint256 amount;
+    }
+
+    struct UnstakeOrderNow {
         uint256 amount;
     }
 }
