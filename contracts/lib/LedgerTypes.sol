@@ -5,24 +5,24 @@ import {LedgerToken} from "./OCCTypes.sol";
 
 enum PayloadDataType {
     /* ====== Payloads From vault side ====== */
-    ClaimReward,
-    Stake,
-    CreateOrderUnstakeRequest,
-    CancelOrderUnstakeRequest,
-    WithdrawOrder,
-    EsOrderUnstakeAndVest,
-    CancelVestingRequest,
-    CancelAllVestingRequests,
-    ClaimVestingRequest,
-    RedeemValor,
-    ClaimUsdcRevenue,
+    ClaimReward, // 0
+    Stake, // 1
+    CreateOrderUnstakeRequest, // 2
+    CancelOrderUnstakeRequest, // 3
+    WithdrawOrder, // 4
+    EsOrderUnstakeAndVest, // 5
+    CancelVestingRequest, // 6
+    CancelAllVestingRequests, // 7 Not supported anymore. Do not remove for backward compatibility
+    ClaimVestingRequest, // 8
+    RedeemValor, // 9
+    ClaimUsdcRevenue, // 10
     /* ====== Backward Payloads from ledger side ====== */
-    ClaimRewardBackward,
-    WithdrawOrderBackward,
-    ClaimVestingRequestBackward,
-    ClaimUsdcRevenueBackward,
+    ClaimRewardBackward, // 11
+    WithdrawOrderBackward, // 12
+    ClaimVestingRequestBackward, // 13
+    ClaimUsdcRevenueBackward, // 14
     /* ====== New Payloads ====== */
-    UnstakeOrderNow
+    UnstakeOrderNow // 15
 }
 
 // Suppose that in the OCCVaultMessage, the sender and chainId can be used to get the chainId and user address for all the calls
