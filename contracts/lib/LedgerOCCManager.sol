@@ -49,10 +49,16 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
     uint32 public solanaEid;
 
+    event NewSolanaUser(bytes32 indexed solanaAddress, address indexed evmAddress);
+
     /// @dev modifier that only allow ledger to call
     modifier onlyLedger() {
         require(msg.sender == ledgerAddr, "OnlyLedger");
         _;
+    }
+
+    function VERSION() external pure virtual returns (string memory) {
+        return "1.0.5";
     }
 
     // for receive native token
@@ -268,6 +274,8 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             evmAddress = calculateUserSolana2EvmAddress(solanaAddress);
             userSolana2EvmAddress[solanaAddress] = evmAddress;
             userEvm2SolanaAddress[evmAddress] = solanaAddress;
+
+            emit NewSolanaUser(solanaAddress, evmAddress);
         }
     }
 
