@@ -12,7 +12,7 @@ import {Staking} from "./lib/Staking.sol";
 import {Vesting} from "./lib/Vesting.sol";
 import {Revenue} from "./lib/Revenue.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
-import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {EvmVaultMessage, EvmLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
 import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 
 // lz imports
@@ -70,7 +70,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     /* ========== EXTERNAL FUNCTIONS ========== */
 
     /// @notice Receives message from OCCAdapter and dispatch it
-    function ledgerRecvFromVault(OCCVaultMessage memory message) external onlyOCCAdaptor {
+    function ledgerRecvFromVault(EvmVaultMessage memory message) external onlyOCCAdaptor {
         // ========== ClaimReward ==========
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
@@ -187,7 +187,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
             if (token == LedgerToken.ESORDER) {
                 _stake(_user, _chainedEventId, _srcChainId, token, claimedAmount);
             } else if (token == LedgerToken.ORDER) {
-                OCCLedgerMessage memory message = OCCLedgerMessage({
+                EvmLedgerMessage memory message = EvmLedgerMessage({
                     dstChainId: _srcChainId,
                     token: LedgerToken.ORDER,
                     tokenAmount: claimedAmount,
@@ -205,7 +205,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     function _ledgerUnstakeOrderNow(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal {
         (uint256 orderAmountForWithdraw, uint256 orderAmountForCollect) = _unstakeOrderNow(_user, _chainedEventId, _chainId, _amount);
         if (orderAmountForWithdraw != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.ORDER,
                 tokenAmount: orderAmountForWithdraw,
@@ -225,7 +225,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     function _ledgerWithdrawOrder(address _user, uint256 _chainedEventId, uint256 _chainId) internal {
         uint256 orderAmountForWithdraw = _withdrawOrder(_user, _chainedEventId, _chainId);
         if (orderAmountForWithdraw != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.ORDER,
                 tokenAmount: orderAmountForWithdraw,
@@ -241,7 +241,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     function _ledgerClaimUsdcRevenue(address _user, uint256 _chainedEventId, uint256 _chainId) internal {
         uint256 usdcRevenueAmount = _claimUsdcRevenue(_user, _chainedEventId, _chainId);
         if (usdcRevenueAmount != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.USDC,
                 tokenAmount: usdcRevenueAmount,
@@ -258,7 +258,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) = _claimVestingRequest(_user, _chainedEventId, _chainId, _requestId);
 
         if (claimedOrderAmount != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.ORDER,
                 tokenAmount: claimedOrderAmount,

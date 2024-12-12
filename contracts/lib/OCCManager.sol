@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 // project imports
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
-import {OCCVaultMessage, OCCLedgerMessage} from "./OCCTypes.sol";
+import {OCCVaultMessage, EvmVaultMessage, OCCLedgerMessage} from "./OCCTypes.sol";
 
 // oz imports
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -54,7 +54,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
      * @notice construct OCCVaultMessage for send through Layerzero
      * @param message The message to be sent.
      */
-    function buildOCCVaultMsg(OCCVaultMessage memory message) internal view returns (SendParam memory sendParam) {
+    function buildOCCVaultMsg(EvmVaultMessage memory message) internal view returns (SendParam memory sendParam) {
         /// set the source chain id
         message.srcChainId = myChainId;
 
@@ -69,13 +69,23 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
             _oftGas = 2000000;
         }
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
+        OCCVaultMessage memory occVaultMsg = OCCVaultMessage({
+            chainedEventId: chainedEventId,
+            srcChainId: message.srcChainId,
+            token: message.token,
+            tokenAmount: message.tokenAmount,
+            sender: OFTComposeMsgCodec.addressToBytes32(message.sender),
+            payloadType: message.payloadType,
+            payload: message.payload
+        });
+
         sendParam = SendParam({
             dstEid: chainId2Eid[ledgerChainId],
             to: bytes32(uint256(uint160(ledgerAddr))),
             amountLD: message.tokenAmount,
             minAmountLD: message.tokenAmount,
             extraOptions: options,
-            composeMsg: abi.encode(message),
+            composeMsg: abi.encode(occVaultMsg),
             oftCmd: bytes("")
         });
     }
@@ -84,7 +94,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
      * @notice Sends a message from vault to ledger chain
      * @param message The message being sent.
      */
-    function vaultSendToLedger(OCCVaultMessage memory message) internal {
+    function vaultSendToLedger(EvmVaultMessage memory message) internal {
         if (message.tokenAmount > 0) {
             address erc20TokenAddr = IOFT(orderTokenOft).token();
             IERC20(erc20TokenAddr).safeTransferFrom(message.sender, address(this), message.tokenAmount);
@@ -112,7 +122,7 @@ abstract contract VaultOCCManager is LedgerAccessControl, OCCAdapterDatalayout {
      * @notice estimate the Layerzero fee for sending a message from vault to ledger chain in native token
      * @param message The message being sent.
      */
-    function estimateCCFeeFromVaultToLedger(OCCVaultMessage memory message) internal view returns (uint256) {
+    function estimateCCFeeFromVaultToLedger(EvmVaultMessage memory message) internal view returns (uint256) {
         SendParam memory sendParam = buildOCCVaultMsg(message);
         uint256 lzFee = IOFT(orderTokenOft).quoteSend(sendParam, false).nativeFee;
         uint256 backwardFee = payloadType2BackwardFee[message.payloadType];
