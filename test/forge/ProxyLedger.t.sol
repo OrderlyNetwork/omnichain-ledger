@@ -33,6 +33,8 @@ import "../../contracts/lib/LedgerOCCManager.sol";
 // md imports
 import "./MerkleHelper.sol";
 
+import {Base58} from "../utilities/Base58Helper.sol";
+
 interface ILzReceipt {
     function getLzSendReceipt() external returns (MessagingReceipt memory, OFTReceipt memory, bytes memory, bytes memory);
 }
@@ -431,5 +433,62 @@ contract LedgerProxyTest is TestHelperOz5 {
 
         proxyA.withdrawTo(address(this));
         ledgerOCCManager.withdrawTo(address(this));
+    }
+
+    // Helper function to convert bytes to bytes32
+    function bytesToBytes32(bytes memory source) internal pure returns (bytes32 result) {
+        if (source.length == 0) {
+            return 0x0;
+        }
+
+        assembly {
+            result := mload(add(source, 32))
+        }
+    }
+
+    function test_solana_address_conversion() public view {
+        bytes32[] memory solanaAddressesBytes32 = new bytes32[](4);
+        solanaAddressesBytes32[0] = 0x0000000000000000000000000000000000000000000000000000000000000000;
+        solanaAddressesBytes32[1] = 0x1111111111111111111111111111111111111111111111111111111111111111;
+        solanaAddressesBytes32[2] = 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA;
+        solanaAddressesBytes32[3] = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+
+        for (uint i = 0; i < solanaAddressesBytes32.length; i++) {
+            console.log("solanaAddressBytes32: ");
+            console.logBytes32(solanaAddressesBytes32[i]);
+
+            // Convert Solana address to EVM address
+            address evmAddress = ledgerOCCManager.calculateUserSolana2EvmAddress(solanaAddressesBytes32[i]);
+
+            console.log("evmAddress: ");
+            console.log(evmAddress);
+        }
+
+        // Example set of real Solana 32-byte addresses as strings
+        string[3] memory solanaAddressesStr = [
+            "76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6",
+            "2mk17sMDoTrxWKYm2hCVpD4pQcbSG2mnQdQzfdHVTKey",
+            "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa"
+        ];
+
+        for (uint i = 0; i < solanaAddressesStr.length; i++) {
+            // Decode the Base58 encoded string to bytes
+            bytes memory decodedBytes = Base58.decodeFromString(solanaAddressesStr[i]);
+
+            // Convert the string to bytes32
+            bytes32 solanaAddressBytes32 = bytesToBytes32(decodedBytes);
+
+            // Log the results using Foundry's console.log
+            console.log("solanaAddressStr: ");
+            console.log(solanaAddressesStr[i]);
+            console.log("solanaAddressBytes32: ");
+            console.logBytes32(solanaAddressBytes32);
+
+            // Convert Solana address to EVM address
+            address evmAddress = ledgerOCCManager.calculateUserSolana2EvmAddress(solanaAddressBytes32);
+
+            console.log("evmAddress: ");
+            console.log(evmAddress);
+        }
     }
 }
