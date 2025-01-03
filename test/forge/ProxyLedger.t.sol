@@ -465,10 +465,11 @@ contract LedgerProxyTest is TestHelperOz5 {
         }
 
         // Example set of real Solana 32-byte addresses as strings
-        string[3] memory solanaAddressesStr = [
+        string[4] memory solanaAddressesStr = [
             "76y77prsiCMvXMjuoZ5VRrhG5qYBrUMYTE5WgHqgjEn6",
             "2mk17sMDoTrxWKYm2hCVpD4pQcbSG2mnQdQzfdHVTKey",
-            "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa"
+            "rU4eMA4wSoXLUodsLJWTJyQhAhdYps5rf4SRwpT7nHa",
+            "DEQsSTjyRHHLN9nQ6BDhJy9aTbLDaRiFmsVLJhEV8bQE"
         ];
 
         for (uint i = 0; i < solanaAddressesStr.length; i++) {
