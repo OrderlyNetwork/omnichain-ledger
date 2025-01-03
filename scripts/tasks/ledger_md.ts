@@ -66,7 +66,7 @@ enum LedgerToken {
 interface OCCVaultMessage {
   chainedEventId: bigint;
   srcChainId: bigint;
-  token: number;
+  token: LedgerToken;
   tokenAmount: bigint;
   sender: string;
   payloadType: number;
@@ -74,22 +74,34 @@ interface OCCVaultMessage {
 }
 
 // Function to convert uint8 to LedgerToken
-const getTokenFromIndex = (index: number): keyof typeof LedgerToken => {
-  const tokens = Object.keys(LedgerToken);
-  return tokens[index] as keyof typeof LedgerToken;
-};
+const getTokenFromIndex = (index: number): LedgerToken => {
+  const tokens = [
+    LedgerToken.ORDER,
+    LedgerToken.ESORDER,
+    LedgerToken.USDC,
+    LedgerToken.PLACEHOLDER
+  ];
+
+  return tokens[index] || LedgerToken.PLACEHOLDER;
+}
 
 // Payload decoding functions
-const decodeClaimReward = (payload: string) => {
+interface ClaimReward {
+  distributionId: number;
+  cumulativeAmount: string;
+  merkleProof: string[];
+}
+
+const decodeClaimReward = (payload: string): ClaimReward => {
   const payloadBytes = hexToBytes(payload);
-  const payloadWithoutPrefix = payloadBytes.slice(32);
-  const [distributionId, cumulativeAmount, merkleProof] = defaultAbiCoder.decode(
-    ["uint32", "uint256", "bytes32[]"],
-    payloadWithoutPrefix
-  );
+  const [[distributionId, cumulativeAmount, merkleProof]] = defaultAbiCoder.decode(
+    ["tuple(uint32,uint256,bytes32[])"],
+    payloadBytes
+  ) as [[number, bigint, string[]]];
+
   return {
     distributionId,
-    cumulativeAmount: BigInt(cumulativeAmount).toString(),
+    cumulativeAmount: cumulativeAmount.toString(),
     merkleProof,
   };
 };
@@ -127,45 +139,45 @@ task("ledger-decode-occvaultmessage", "Decode provided data from message")
 
     const dataBytes = hexToBytes(dataString);
     // console.log("Data: %s\n", bytesToHex(dataBytes));
-    const dataWithoutPrefix = dataBytes.slice(76 + 32);
+    const dataWithoutPrefix = dataBytes.slice(76);
+    // const dataWithoutPrefix = dataBytes;
     // console.log("Data without prefix: %s\n", bytesToHex(dataWithoutPrefix));
     // console.log("Data length: %s", dataWithoutPrefix.length);
 
-    const decoded = defaultAbiCoder.decode(
-      [
-        "uint256",
-        "uint256",
-        "uint8",
-        "uint256",
-        "address",
-        "uint8",
-        "bytes",
-      ],
+    const [[chainedEventId, srcChainId, token, tokenAmount, sender, payloadType, payload]] = defaultAbiCoder.decode(
+      ["tuple(uint256,uint256,uint8,uint256,bytes32,uint8,bytes)"],
       dataWithoutPrefix
-    );
+    ) as [[
+      bigint, // chainedEventId
+      bigint, // srcChainId
+      number, // token
+      bigint, // tokenAmount
+      string, // sender
+      number, // payloadType
+      string  // payload
+    ]];
 
     const occVaultMessage: OCCVaultMessage = {
-      chainedEventId: BigInt(decoded[0]),
-      srcChainId: BigInt(decoded[1]),
-      token: decoded[2],
-      tokenAmount: BigInt(decoded[3]),
-      sender: decoded[4],
-      payloadType: decoded[5],
-      payload: decoded[6],
-    };
+      chainedEventId,
+      srcChainId,
+      token: getTokenFromIndex(token),
+      tokenAmount,
+      sender,
+      payloadType,
+      payload,
+    }
 
     // console.log("occVaultMessage: %s\n", occVaultMessage);
 
-    const token = getTokenFromIndex(occVaultMessage.token);
     console.log("Decoded OCCVaultMessage:");
     console.log("chainedEventId: %s", occVaultMessage.chainedEventId.toString());
     console.log("srcChainId: %s", occVaultMessage.srcChainId.toString());
-    console.log("token: %s", LedgerToken[token]);
+    console.log("token: %s", LedgerToken[occVaultMessage.token]);
     console.log("tokenAmount: %s", occVaultMessage.tokenAmount.toString());
     console.log("sender: %s", occVaultMessage.sender);
     console.log("payloadType: %s", PayloadType[occVaultMessage.payloadType]);
 
-    const payload = (() => {
+    const decodedPayload = (() => {
       switch (occVaultMessage.payloadType) {
         case PayloadType.CLAIM_REWARD:
           return decodeClaimReward(occVaultMessage.payload);
@@ -184,7 +196,7 @@ task("ledger-decode-occvaultmessage", "Decode provided data from message")
       }
     })();
 
-    console.log("Payload:", payload);
+    console.log("Payload:", decodedPayload);
   });
 
 task("deploy-ol-impl", "Deploy and verify OmnichainLedgerV1 implementation")
