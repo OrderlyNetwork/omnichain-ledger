@@ -146,7 +146,7 @@ describe("Staking", function () {
     const unlockTimestamp = (await helpers.time.latest()) + ONE_WEEK_IN_SECONDS;
     // Check the OrderUnstakeRequested event is emitted correctly
     await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount);
-    await expect(tx1).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount, unlockTimestamp);
+    await expect(tx1).to.emit(ledger, "OrderUnstakeAmount").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount, unlockTimestamp);
 
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount, esOrderStakingAmount);
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
@@ -165,7 +165,7 @@ describe("Staking", function () {
     const tx2 = await ledger.connect(user).withdrawOrder(user.address, CHAIN_ID_0);
     // Check the OrderWithdrawn event is emitted correctly
     await expect(tx2).to.emit(ledger, "OrderWithdrawn").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount);
-    await expect(tx2).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, 0, 0);
+    await expect(tx2).to.emit(ledger, "OrderUnstakeAmount").withArgs(anyValue, CHAIN_ID_0, user.address, 0, 0);
   });
 
   it("user can cancel order unstake request", async function () {
@@ -189,7 +189,7 @@ describe("Staking", function () {
     const tx = await ledger.connect(user).cancelOrderUnstakeRequest(user.address, CHAIN_ID_0);
     // Check the OrderUnstakeCancelled event is emitted correctly
     await expect(tx).to.emit(ledger, "OrderUnstakeCancelled").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount);
-    await expect(tx).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, 0, 0);
+    await expect(tx).to.emit(ledger, "OrderUnstakeAmount").withArgs(anyValue, CHAIN_ID_0, user.address, 0, 0);
     await checkUserStakingBalance(ledger, user, orderStakingAmount, BigInt(0));
     await checkUserPendingUnstake(ledger, user, BigInt(0), 0);
 
@@ -235,7 +235,7 @@ describe("Staking", function () {
     const tx1 = await ledger.connect(user).createOrderUnstakeRequest(user.address, CHAIN_ID_0, orderUnstakingAmount1);
     const unlockTimestamp1 = (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS;
     await expect(tx1).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount1);
-    await expect(tx1).to.emit(ledger, "OrderUnstakeAmount").withArgs(user.address, orderUnstakingAmount1, unlockTimestamp1);
+    await expect(tx1).to.emit(ledger, "OrderUnstakeAmount").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount1, unlockTimestamp1);
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1, BigInt(0));
     await checkUserPendingUnstake(ledger, user, orderUnstakingAmount1, (await helpers.time.latest()) + 7 * ONE_DAY_IN_SECONDS);
 
@@ -245,7 +245,7 @@ describe("Staking", function () {
     await expect(tx2).to.emit(ledger, "OrderUnstakeRequested").withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount2);
     await expect(tx2)
       .to.emit(ledger, "OrderUnstakeAmount")
-      .withArgs(user.address, orderUnstakingAmount1 + orderUnstakingAmount2, unlockTimestamp2);
+      .withArgs(anyValue, CHAIN_ID_0, user.address, orderUnstakingAmount1 + orderUnstakingAmount2, unlockTimestamp2);
     await checkUserStakingBalance(ledger, user, orderStakingAmount - orderUnstakingAmount1 - orderUnstakingAmount2, BigInt(0));
     await checkUserPendingUnstake(
       ledger,
