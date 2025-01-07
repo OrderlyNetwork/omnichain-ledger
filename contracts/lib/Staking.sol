@@ -180,7 +180,6 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userPendingUnstake[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
 
         emit OrderUnstakeRequested(_chainedEventId, _chainId, _user, _amount);
-        emit OrderUnstakeAmount(_user, userPendingUnstake[_user].balanceOrder, userPendingUnstake[_user].unlockTimestamp);
         emit OrderUnstakeAmountV2(
             _chainedEventId,
             _chainId,
@@ -210,7 +209,6 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
         userPendingUnstake[_user].balanceOrder = 0;
         userPendingUnstake[_user].unlockTimestamp = 0;
-        emit OrderUnstakeAmount(_user, 0, 0);
         emit OrderUnstakeAmountV2(_chainedEventId, _chainId, _user, 0, 0);
     }
 
@@ -230,7 +228,6 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
             userPendingUnstake[_user].balanceOrder = 0;
             userPendingUnstake[_user].unlockTimestamp = 0;
-            emit OrderUnstakeAmount(_user, 0, 0);
             emit OrderUnstakeAmountV2(_chainedEventId, _chainId, _user, 0, 0);
         }
     }
