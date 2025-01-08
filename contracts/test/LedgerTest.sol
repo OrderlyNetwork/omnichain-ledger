@@ -28,7 +28,9 @@ contract LedgerTest is OmnichainLedgerV1 {
             chainedEventId(),
             _srcChainId,
             _cumulativeAmount,
-            _merkleProof
+            _merkleProof,
+            bytes32(0),
+            true
         );
 
         if (claimedAmount != 0) {

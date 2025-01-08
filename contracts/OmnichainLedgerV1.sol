@@ -80,7 +80,21 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.chainedEventId,
                 message.srcChainId,
                 claimRewardPayload.cumulativeAmount,
-                claimRewardPayload.merkleProof
+                claimRewardPayload.merkleProof,
+                bytes32(0),
+                true
+            );
+        } else if (message.payloadType == uint8(PayloadDataType.ClaimRewardSolana)) {
+            LedgerPayloadTypes.ClaimRewardSolana memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimRewardSolana));
+            _ledgerClaimRewards(
+                claimRewardPayload.distributionId,
+                message.sender,
+                message.chainedEventId,
+                message.srcChainId,
+                claimRewardPayload.cumulativeAmount,
+                new bytes32[](0),
+                claimRewardPayload.merkleRoot,
+                false
             );
         }
         // ========== Stake ==========
@@ -172,7 +186,9 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         uint256 _chainedEventId,
         uint256 _srcChainId,
         uint256 _cumulativeAmount,
-        bytes32[] memory _merkleProof
+        bytes32[] memory _merkleProof,
+        bytes32 _merkleRoot,
+        bool _withProof
     ) internal {
         (LedgerToken token, uint256 claimedAmount) = _claimRewards(
             _distributionId,
@@ -180,7 +196,9 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
             _chainedEventId,
             _srcChainId,
             _cumulativeAmount,
-            _merkleProof
+            _merkleProof,
+            _merkleRoot,
+            _withProof
         );
 
         if (claimedAmount != 0) {

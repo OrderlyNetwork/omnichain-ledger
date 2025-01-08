@@ -22,7 +22,8 @@ enum PayloadDataType {
     ClaimVestingRequestBackward, // 13
     ClaimUsdcRevenueBackward, // 14
     /* ====== New Payloads ====== */
-    UnstakeOrderNow // 15
+    UnstakeOrderNow, // 15
+    ClaimRewardSolana // 16
 }
 
 // Suppose that in the OCCVaultMessage, the sender and chainId can be used to get the chainId and user address for all the calls
@@ -35,6 +36,12 @@ library LedgerPayloadTypes {
         uint32 distributionId;
         uint256 cumulativeAmount;
         bytes32[] merkleProof;
+    }
+
+    struct ClaimRewardSolana {
+        uint32 distributionId;
+        uint256 cumulativeAmount;
+        bytes32 merkleRoot;
     }
 
     struct CreateOrderUnstakeRequest {
