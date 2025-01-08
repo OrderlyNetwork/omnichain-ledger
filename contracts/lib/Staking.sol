@@ -75,7 +75,17 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
     event EsOrderUnstake(uint256 indexed chainedEventId, uint256 indexed chainId, address indexed staker, uint256 amount);
 
     /// @notice Emitted for _createOrderUnstakeRequest, _cancelOrderUnstakeRequest and _withdrawOrder functions
+    /// deprecated Use OrderUnstakeAmountV2 instead
     event OrderUnstakeAmount(address indexed staker, uint256 totalUnstakedAmount, uint256 unlockTimestamp);
+
+    /// @notice Emitted for _createOrderUnstakeRequest, _cancelOrderUnstakeRequest and _withdrawOrder functions
+    event OrderUnstakeAmountV2(
+        uint256 indexed chainedEventId,
+        uint256 indexed chainId,
+        address indexed staker,
+        uint256 totalUnstakedAmount,
+        uint256 unlockTimestamp
+    );
 
     /* ========== ERRORS ========== */
 
@@ -204,7 +214,13 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
         userPendingUnstake[_user].unlockTimestamp = block.timestamp + unstakeLockPeriod;
 
         emit OrderUnstakeRequested(_chainedEventId, _chainId, _user, _amount);
-        emit OrderUnstakeAmount(_user, userPendingUnstake[_user].balanceOrder, userPendingUnstake[_user].unlockTimestamp);
+        emit OrderUnstakeAmountV2(
+            _chainedEventId,
+            _chainId,
+            _user,
+            userPendingUnstake[_user].balanceOrder,
+            userPendingUnstake[_user].unlockTimestamp
+        );
     }
 
     /// @notice Cancel unstaking request for $ORDER tokens and re-stake them
@@ -227,7 +243,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
         userPendingUnstake[_user].balanceOrder = 0;
         userPendingUnstake[_user].unlockTimestamp = 0;
-        emit OrderUnstakeAmount(_user, 0, 0);
+        emit OrderUnstakeAmountV2(_chainedEventId, _chainId, _user, 0, 0);
     }
 
     /// @notice Withdraw unstaked $ORDER tokens. Contract does not tansfer tokens to user, it just returns amount of tokens to Ledger
@@ -246,7 +262,7 @@ abstract contract Staking is LedgerAccessControl, ChainedEventIdCounter, Valor {
 
             userPendingUnstake[_user].balanceOrder = 0;
             userPendingUnstake[_user].unlockTimestamp = 0;
-            emit OrderUnstakeAmount(_user, 0, 0);
+            emit OrderUnstakeAmountV2(_chainedEventId, _chainId, _user, 0, 0);
         }
     }
 
