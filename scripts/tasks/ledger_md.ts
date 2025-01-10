@@ -75,14 +75,11 @@ interface OCCVaultMessage {
 
 // Function to convert uint8 to LedgerToken
 const getTokenFromIndex = (index: number): LedgerToken => {
-  const tokens = [
-    LedgerToken.ORDER,
-    LedgerToken.ESORDER,
-    LedgerToken.USDC,
-    LedgerToken.PLACEHOLDER
-  ];
+  if (index < 0 || index > 2) {
+    return LedgerToken.PLACEHOLDER;
+  }
 
-  return tokens[index] || LedgerToken.PLACEHOLDER;
+  return index;
 }
 
 // Payload decoding functions
@@ -191,6 +188,8 @@ task("ledger-decode-occvaultmessage", "Decode provided data from message")
           return decodeClaimVestingRequest(occVaultMessage.payload);
         case PayloadType.REDEEM_VALOR:
           return decodeRedeemValor(occVaultMessage.payload);
+        case PayloadType.STAKE:
+          return "Stake payload (empty)";
         default:
           return "Unsupported payload type";
       }

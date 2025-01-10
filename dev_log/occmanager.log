@@ -138,3 +138,58 @@ waiting for result...
 already verified: OmnichainLedgerTestV1_Proxy (0x716Af1CEB1033f1630b9e8f251394e2eA8A6EeBC), skipping.
 already verified: OmnichainLedgerTestV1 (0x716Af1CEB1033f1630b9e8f251394e2eA8A6EeBC), skipping.
 Done in 75.70s.
+
+================================================================================================================================================================================
+> forge script scripts/foundry/UpgradeLedgerOCCManager.s.sol --broadcast
+[⠊] Compiling...
+[⠑] Compiling 110 files with Solc 0.8.22
+[⠰] Solc 0.8.22 finished in 8.65s
+Compiler run successful!
+Script ran successfully.
+Gas used: 2777664
+
+== Logs ==
+  [UpgradeLedgerOCCManager]env:  solana
+  [UpgradeLedgerOCCManager]network:  orderlysepolia
+  [UpgradeLedgerOCCManager]ledgerOccAddress:  0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 4460
+
+Estimated gas price: 0.000000501 gwei
+
+Estimated total gas used for script: 3820238
+
+Estimated amount required: 0.000000001913939238 ETH
+
+==========================
+
+##### 4460
+✅  [Success]Hash: 0xf8c1af13a6345cee28ec2c042f1367c3d546de38d4ee87081383952e9f76b897
+Contract Address: 0x74eA7992a1DD4AeCBDd5FCe9fDBeaDbe892a7b95
+Block: 22486975
+Paid: 0.000000000727030536 ETH (2896536 gas * 0.000000251 gwei)
+
+
+##### 4460
+✅  [Success]Hash: 0x0211efffa6f4af93c4bcd115b208fe24ab655d10b43acaf7ec0f9f138709ca58
+Block: 22486975
+Paid: 0.00000000000958067 ETH (38170 gas * 0.000000251 gwei)
+
+✅ Sequence #1 on 4460 | Total Paid: 0.000000000736611206 ETH (2934706 gas * avg 0.000000251 gwei)
+                                                                                                                                                                                                                  
+
+==========================
+
+ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.
+
+Transactions saved to: /proj/orderly/proj/orderly-v2/omnichain-ledger/broadcast/UpgradeLedgerOCCManager.s.sol/4460/run-latest.json
+
+Sensitive values saved to: /proj/orderly/proj/orderly-v2/omnichain-ledger/forge-cache/UpgradeLedgerOCCManager.s.sol/4460/run-latest.json
+
+================================================================================================================================================================================
+
+forge verify-contract --rpc-url https://testnet-rpc.orderly.org --verifier blockscout --verifier-url 'https://testnet-explorer.orderly.org/api/' 0x74eA7992a1DD4AeCBDd5FCe9fDBeaDbe892a7b95 contracts/lib/LedgerOCCManager.sol:LedgerOCCManager

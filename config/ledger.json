@@ -5,7 +5,7 @@
       "proxy": "0x716Af1CEB1033f1630b9e8f251394e2eA8A6EeBC"
     },
     "ledger_occ_manager": {
-      "impl": "0x6728F06e2b2cd711cf737c120B961E14AC021Da5",
+      "impl": "0x74eA7992a1DD4AeCBDd5FCe9fDBeaDbe892a7b95",
       "proxy": "0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc"
     },
     "ledger_proxy": {
