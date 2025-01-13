@@ -5,6 +5,7 @@ pragma solidity 0.8.22;
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
 import {OCCVaultMessage, EvmVaultMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./OCCTypes.sol";
+import {PayloadDataType} from "./LedgerTypes.sol";
 
 // oz imports
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -50,8 +51,6 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     uint32 public solanaEid;
 
     event NewSolanaUser(bytes32 indexed solanaAddress, address indexed evmAddress);
-    event SolanaSender(bytes32 indexed solanaSender);
-    event Sender2(address indexed sender2);
 
     /// @dev modifier that only allow ledger to call
     modifier onlyLedger() {
@@ -222,24 +221,33 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         bytes calldata /*_extraData*/
     ) external payable {
         uint32 srcEid = _message.srcEid();
+        bytes memory _composeMsgContent = _message.composeMsg();
+        OCCVaultMessage memory occVaultMessage = abi.decode(_composeMsgContent, (OCCVaultMessage));
+
         if (srcEid == solanaEid) {
             bytes32 remoteSender = _message.composeFrom();
-            emit SolanaSender(remoteSender);
+            require(remoteSender == occVaultMessage.sender, "LedgerOCCManager: composeMsg sender check failed");
+
+            uint256 amountLD = _message.amountLD();
+            if (PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake) {
+                require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
+                require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
+            } else {
+                require(amountLD == 0, "LedgerOCCManager: composeMsg amount should be zero for this payload");
+                require(
+                    occVaultMessage.token == LedgerToken.PLACEHOLDER,
+                    "LedgerOCCManager: composeMsg token should be PLACEHOLDER for this payload"
+                );
+            }
         } else {
             address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
             require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
         }
 
-        bytes memory _composeMsgContent = _message.composeMsg();
-
-        OCCVaultMessage memory occVaultMessage = abi.decode(_composeMsgContent, (OCCVaultMessage));
-
         // In case of Solana user, we need to convert Solana address to EVM address and store it
         address sender = srcEid == solanaEid
             ? getEvmBySolanaAddress(occVaultMessage.sender)
             : OFTComposeMsgCodec.bytes32ToAddress(occVaultMessage.sender);
-
-        emit Sender2(sender);
 
         // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
         EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
