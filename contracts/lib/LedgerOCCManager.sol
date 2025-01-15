@@ -6,6 +6,7 @@ import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
 import {OCCVaultMessage, EvmVaultMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./OCCTypes.sol";
 import {PayloadDataType} from "./LedgerTypes.sol";
+import {ILedgerOapp} from "./ILedgerOApp.sol";
 
 // oz imports
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -50,11 +51,20 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
     uint32 public solanaEid;
 
+    /// @dev ledger Oapp address
+    address public ledgerOappAddr;
+
     event NewSolanaUser(bytes32 indexed solanaAddress, address indexed evmAddress);
 
     /// @dev modifier that only allow ledger to call
     modifier onlyLedger() {
         require(msg.sender == ledgerAddr, "OnlyLedger");
+        _;
+    }
+
+    /// @dev modifier that only allow ledgerOapp to call
+    modifier onlyLedgerOapp() {
+        require(msg.sender == ledgerOappAddr, "OnlyLedgerOapp");
         _;
     }
 
@@ -102,6 +112,10 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         solanaEid = _solanaEid;
     }
 
+    function setLedgerOappAddr(address _ledgerOappAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        ledgerOappAddr = _ledgerOappAddr;
+    }
+
     /**
      * @notice construct OCCLedgerMessage for send through Layerzero
      * @param message The message to be sent.
@@ -120,13 +134,14 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         uint32 dstEid = chainId2Eid[message.dstChainId];
         uint256 amount = message.token == LedgerToken.ORDER ? message.tokenAmount : 0;
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
 
         if (dstEid == solanaEid) {
             // For Solana chain we send OFT directly to user, so we need to convert EVM address to Solana address
             // Also skip composeMsg for Solana chain
+            bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0);
             bytes32 receiver = userEvm2SolanaAddress[message.receiver];
             require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
+
             sendParam = SendParam({
                 dstEid: dstEid,
                 to: receiver,
@@ -137,6 +152,8 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
                 oftCmd: bytes("")
             });
         } else {
+            bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
+
             // Ledger operates by EvmVaultMessage, but LZ operates by OCCVaultMessage, so we need to convert it
             OCCLedgerMessage memory occMessage = OCCLedgerMessage({
                 dstChainId: message.dstChainId,
@@ -164,16 +181,32 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      * @param message The message being sent.
      */
     function ledgerSendToVault(EvmLedgerMessage memory message) external payable onlyLedger {
-        SendParam memory sendParam = buildOCCLedgerMsg(message);
-        uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
+        // Here we have special case for Solana chain when ClaimUsdcRevenueBackward payload is sent
+        if (message.dstChainId == solanaEid && message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
+            bytes32 receiver = userEvm2SolanaAddress[message.receiver];
+            require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
 
-        MessagingFee memory msgFee = MessagingFee(fee, 0);
+            OCCLedgerMessage memory occMessage = OCCLedgerMessage({
+                dstChainId: message.dstChainId,
+                token: message.token,
+                tokenAmount: message.tokenAmount,
+                receiver: receiver,
+                payloadType: message.payloadType,
+                payload: message.payload
+            });
+            ILedgerOapp(ledgerOappAddr).ledgerOappSend(occMessage);
+        } else {
+            SendParam memory sendParam = buildOCCLedgerMsg(message);
+            uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
 
-        /// @dev test only
-        _msgPayload = sendParam.composeMsg;
-        _options = sendParam.extraOptions;
+            MessagingFee memory msgFee = MessagingFee(fee, 0);
 
-        (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: fee}(sendParam, msgFee, address(this));
+            /// @dev test only
+            _msgPayload = sendParam.composeMsg;
+            _options = sendParam.extraOptions;
+
+            (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: fee}(sendParam, msgFee, address(this));
+        }
     }
 
     /**
@@ -265,6 +298,28 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         // revert("TestOnly: end of lzCompose");
     }
 
+    function ledgerOappReceive(OCCVaultMessage calldata _message) external onlyLedgerOapp {
+        // For now only ClaimReward payload is supported
+        require(_message.payloadType == uint8(PayloadDataType.ClaimReward), "LedgerOCCManager: unsupported payload type");
+
+        // Now we can receive message here only from Solana, so,
+        // we need to convert Solana address to EVM address and store it
+        address sender = getEvmBySolanaAddress(_message.sender);
+
+        // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
+        EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
+            chainedEventId: _message.chainedEventId,
+            srcChainId: _message.srcChainId,
+            token: _message.token,
+            tokenAmount: _message.tokenAmount,
+            sender: sender,
+            payloadType: _message.payloadType,
+            payload: _message.payload
+        });
+
+        ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
+    }
+
     /**
      * @notice withdraw eth to
      * @param to the address to withdraw
@@ -301,5 +356,5 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     }
 
     /// gap for upgradeable
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 }

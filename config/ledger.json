@@ -5,8 +5,12 @@
       "proxy": "0x716Af1CEB1033f1630b9e8f251394e2eA8A6EeBC"
     },
     "ledger_occ_manager": {
-      "impl": "0x38B3FEdDe3B3c4766681D106DE27C4214F32F408",
+      "impl": "0x09E010D4A080b239855681031DeeE70cC77CDFD6",
       "proxy": "0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc"
+    },
+    "ledger_oapp": {
+      "impl": "0x92665c42b221Ad7162c7a762791e81B2BB228303",
+      "proxy": "0xF2BC568E4bD0F7437C77FA982F4b51786086872a"
     },
     "ledger_proxy": {
       "arbsepolia": {
@@ -41,6 +45,10 @@
       "impl": "0x6fe4a788452011f2F831e013E4Ae4278b0278F29",
       "proxy": "0xb846DF606b592B9646db03aE2568951651D9D5BC"
     },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
+    },
     "ledger_proxy": {
       "arbsepolia": {
         "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
@@ -73,6 +81,10 @@
     "ledger_occ_manager": {
       "impl": "0x37Bcd2C6244371dacB4f5C2082e7D9006CD3f4CA",
       "proxy": "0xb846DF606b592B9646db03aE2568951651D9D5BC"
+    },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_proxy": {
       "arbsepolia": {
@@ -110,6 +122,10 @@
       "impl": "0x9A8d11F903aCac6b612C20cDA32835eaa7E26bdd",
       "proxy": "0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53"
     },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
+    },
     "ledger_proxy": {
       "arbsepolia": {
         "impl": "0xD7D22Fd785a1952cCae0800Dc6DAD47F64b47A6e",
@@ -142,6 +158,10 @@
     "ledger_occ_manager": {
       "impl": "0xF3a873795EA6F91e9C02fb97dF5cAC0d47411218",
       "proxy": "0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1"
+    },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_proxy": {
       "arbsepolia": {
@@ -176,6 +196,10 @@
       "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_occ_manager": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
+    },
+    "ledger_oapp": {
       "impl": "0x0000000000000000000000000000000000000000",
       "proxy": "0x0000000000000000000000000000000000000000"
     },

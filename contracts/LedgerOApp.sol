@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.22;
+
+import {OCCVaultMessage, EvmVaultMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
+
+import {OAppUpgradeable, MessagingFee, Origin} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
+import {OptionsBuilder} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+
+/**
+ * @title LedgerOApp for handle OApp message (claimReward) between ledger and Solana
+ * @dev This contract also used to send OApp message from ledger to Solana to transfer USDC to user
+ */
+contract LedgerOApp is OAppUpgradeable {
+    /// @dev OCCManager address
+    address public occManagerAddr;
+
+    /// @dev fee for message send to Solana mapping
+    mapping(uint8 => uint256) public payloadType2OappFee;
+
+    uint128 public defaultOappGas;
+
+    /// @dev modifier that only allow OCCManager to call
+    modifier onlyOCCManager() {
+        require(msg.sender == occManagerAddr, "OnlyLedger");
+        _;
+    }
+
+    function VERSION() external pure virtual returns (string memory) {
+        return "1.0.0";
+    }
+
+    /* ========== Constructor and initializer ========== */
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @dev Initialize the OApp with the provided endpoint and owner.
+     * @param _endpoint The address of the LOCAL LayerZero endpoint.
+     * @param _owner The address of the owner of the OApp.
+     */
+    function initialize(address _endpoint, address _owner) public initializer {
+        __initializeOApp(_endpoint, _owner);
+    }
+
+    /* ========== Owner functions ========== */
+    function setOCCManagerAddr(address _occManagerAddr) external onlyOwner {
+        occManagerAddr = _occManagerAddr;
+    }
+
+    function setPayloadType2OappFee(uint8 payloadType, uint256 oappFee) external onlyOwner {
+        payloadType2OappFee[payloadType] = oappFee;
+    }
+
+    function setDefaultOappGas(uint128 _defaultOappGas) external onlyOwner {
+        defaultOappGas = _defaultOappGas;
+    }
+
+    /* ========== Oapp functions ========== */
+    /**
+     * @notice Receive Oapp message from Solana Proxy and send to OCCManagervm.parseAddress
+     */
+    function _lzReceive(
+        Origin calldata /*_origin*/,
+        bytes32 /*_guid*/,
+        bytes calldata _message,
+        address /*_executor*/,
+        bytes calldata /*_extraData*/
+    ) internal override {
+        OCCVaultMessage memory occVaultMessage = abi.decode(_message, (OCCVaultMessage));
+        ILedgerOCCManager(occManagerAddr).ledgerOappReceive(occVaultMessage);
+    }
+
+    /**
+     * @notice Send message to Solana Proxy
+     * @dev Only OCCManager can call this function
+     */
+    function ledgerOappSend(OCCLedgerMessage calldata _message) external onlyOCCManager {
+        bytes memory encodedMessage = abi.encode(_message);
+        uint128 oappGas = defaultOappGas;
+        if (oappGas == 0) {
+            oappGas = 2000000;
+        }
+        bytes memory options = OptionsBuilder.newOptions();
+        OptionsBuilder.addExecutorLzReceiveOption(options, oappGas, 0);
+        uint256 fee = estimateOappFeeFromLedgerToSolana(_message);
+        MessagingFee memory msgFee = MessagingFee(fee, 0);
+
+        _lzSend(uint32(_message.dstChainId), encodedMessage, options, msgFee, payable(this));
+    }
+
+    /**
+     * @notice estimate the Layerzero fee for sending a message from ledger to Solana chain in _lzSend
+     */
+    function estimateOappFeeFromLedgerToSolana(OCCLedgerMessage memory _message) internal view returns (uint256) {
+        return payloadType2OappFee[_message.payloadType];
+    }
+
+    fallback() external payable {}
+
+    receive() external payable {}
+
+    /// gap for upgradeable
+    uint256[50] private __gap;
+}
