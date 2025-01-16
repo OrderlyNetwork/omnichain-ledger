@@ -1,7 +1,7 @@
 {
   "solana": {
     "ledger": {
-      "impl": "0x7bA1889ca1626375BC90eE158C55C090B57FE1A3",
+      "impl": "0x3f797EA0eE509891dafd90cc2283f240BA560F1f",
       "proxy": "0x716Af1CEB1033f1630b9e8f251394e2eA8A6EeBC"
     },
     "ledger_occ_manager": {
