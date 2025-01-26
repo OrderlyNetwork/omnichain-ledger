@@ -182,7 +182,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      */
     function ledgerSendToVault(EvmLedgerMessage memory message) external payable onlyLedger {
         // Here we have special case for Solana chain when ClaimUsdcRevenueBackward payload is sent
-        if (message.dstChainId == solanaEid && message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
+        if (chainId2Eid[message.dstChainId] == solanaEid && message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             bytes32 receiver = userEvm2SolanaAddress[message.receiver];
             require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
 

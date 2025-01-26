@@ -20,6 +20,9 @@ contract LedgerOApp is OAppUpgradeable {
 
     uint128 public defaultOappGas;
 
+    /// @dev mapping from chainId to eid
+    mapping(uint256 => uint32) public chainId2Eid;
+
     /// @dev modifier that only allow OCCManager to call
     modifier onlyOCCManager() {
         require(msg.sender == occManagerAddr, "OnlyLedger");
@@ -59,6 +62,10 @@ contract LedgerOApp is OAppUpgradeable {
         defaultOappGas = _defaultOappGas;
     }
 
+    function setChainId2Eid(uint256 chainId, uint32 eid) external onlyOwner {
+        chainId2Eid[chainId] = eid;
+    }
+
     /* ========== Oapp functions ========== */
     /**
      * @notice Receive Oapp message from Solana Proxy and send to OCCManagervm.parseAddress
@@ -89,7 +96,7 @@ contract LedgerOApp is OAppUpgradeable {
         uint256 fee = estimateOappFeeFromLedgerToSolana(_message);
         MessagingFee memory msgFee = MessagingFee(fee, 0);
 
-        _lzSend(uint32(_message.dstChainId), encodedMessage, options, msgFee, payable(this));
+        _lzSend(chainId2Eid[_message.dstChainId], encodedMessage, options, msgFee, payable(this));
     }
 
     /**
