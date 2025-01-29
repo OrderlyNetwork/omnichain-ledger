@@ -54,6 +54,8 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     /// @dev ledger Oapp address
     address public ledgerOappAddr;
 
+    uint256 public solanaChainEventId;
+
     event NewSolanaUser(bytes32 indexed solanaAddress, address indexed evmAddress);
 
     /// @dev modifier that only allow ledger to call
@@ -284,7 +286,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
         EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
-            chainedEventId: occVaultMessage.chainedEventId,
+            chainedEventId: srcEid == solanaEid ? ++solanaChainEventId : occVaultMessage.chainedEventId,
             srcChainId: occVaultMessage.srcChainId,
             token: occVaultMessage.token,
             tokenAmount: occVaultMessage.tokenAmount,
@@ -308,7 +310,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
         EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
-            chainedEventId: _message.chainedEventId,
+            chainedEventId: chainId2Eid[_message.srcChainId] == solanaEid ? ++solanaChainEventId : _message.chainedEventId,
             srcChainId: _message.srcChainId,
             token: _message.token,
             tokenAmount: _message.tokenAmount,
@@ -356,5 +358,5 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     }
 
     /// gap for upgradeable
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 }
