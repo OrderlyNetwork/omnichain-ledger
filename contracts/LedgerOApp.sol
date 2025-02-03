@@ -3,7 +3,7 @@ pragma solidity ^0.8.22;
 
 import {SolanaVaultMessage, OCCVaultMessage, EvmVaultMessage, SolanaLedgerMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
 import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
-
+import {SolanaProxyMsgCodec} from "./lib/MsgCodec.sol";
 import {OAppUpgradeable, MessagingFee, Origin} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
 import {OptionsBuilder} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
@@ -28,6 +28,8 @@ contract LedgerOApp is OAppUpgradeable {
 
     /// @dev solana eid
     uint32 public solanaEid;
+
+    using SolanaProxyMsgCodec for bytes;
 
     /// @dev modifier that only allow OCCManager to call
     modifier onlyOCCManager() {
@@ -89,9 +91,9 @@ contract LedgerOApp is OAppUpgradeable {
         bytes calldata /*_extraData*/
     ) internal override {
         if (_origin.srcEid == solanaEid) {
-        SolanaVaultMessage memory solanaVaultMessage = abi.decode(_message, (SolanaVaultMessage));
+        SolanaVaultMessage memory solanaVaultMessage = _message.decodeSolanaVaultMessage();
         OCCVaultMessage memory occVaultMessage = OCCVaultMessage({
-            chainedEventId: 0,
+            chainedEventId: 0,                  // @dev: chainEventId will update in OCCManager for solana proxy
             srcChainId: eid2ChainId[solanaEid],
             token: solanaVaultMessage.token,
             tokenAmount: uint256(0),        
