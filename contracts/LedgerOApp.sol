@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import {OCCVaultMessage, EvmVaultMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {SolanaVaultMessage, OCCVaultMessage, EvmVaultMessage, SolanaLedgerMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
 import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 
 import {OAppUpgradeable, MessagingFee, Origin} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
@@ -82,14 +82,27 @@ contract LedgerOApp is OAppUpgradeable {
      * @notice Receive Oapp message from Solana Proxy and send to OCCManagervm.parseAddress
      */
     function _lzReceive(
-        Origin calldata /*_origin*/,
+        Origin calldata _origin,
         bytes32 /*_guid*/,
         bytes calldata _message,
         address /*_executor*/,
         bytes calldata /*_extraData*/
     ) internal override {
-        OCCVaultMessage memory occVaultMessage = abi.decode(_message, (OCCVaultMessage));
-        ILedgerOCCManager(occManagerAddr).ledgerOappReceive(occVaultMessage);
+        if (_origin.srcEid == solanaEid) {
+        SolanaVaultMessage memory solanaVaultMessage = abi.decode(_message, (SolanaVaultMessage));
+        OCCVaultMessage memory occVaultMessage = OCCVaultMessage({
+            chainedEventId: 0,
+            srcChainId: eid2ChainId[solanaEid],
+            token: solanaVaultMessage.token,
+            tokenAmount: uint256(0),        
+            sender: solanaVaultMessage.sender,
+            payloadType: solanaVaultMessage.payloadType,
+            payload: solanaVaultMessage.payload
+        });
+            ILedgerOCCManager(occManagerAddr).ledgerOappReceive(occVaultMessage);
+        } else {
+            revert("LedgerOApp: only Solana chain supported");
+        }
     }
 
     /**
@@ -97,7 +110,12 @@ contract LedgerOApp is OAppUpgradeable {
      * @dev Only OCCManager can call this function
      */
     function ledgerOappSend(OCCLedgerMessage calldata _message) external onlyOCCManager {
-        bytes memory encodedMessage = abi.encode(_message);
+        SolanaLedgerMessage memory solanaLedgerMessage = SolanaLedgerMessage({
+            token: _message.token,
+            receiver: _message.receiver,
+            payloadType: _message.payloadType,
+            payload: _message.payload
+        });
         uint128 oappGas = defaultOappGas;
         if (oappGas == 0) {
             oappGas = 2000000;
@@ -107,7 +125,7 @@ contract LedgerOApp is OAppUpgradeable {
         uint256 fee = estimateOappFeeFromLedgerToSolana(_message);
         MessagingFee memory msgFee = MessagingFee(fee, 0);
 
-        _lzSend(chainId2Eid[_message.dstChainId], encodedMessage, options, msgFee, payable(this));
+        _lzSend(chainId2Eid[_message.dstChainId], abi.encode(solanaLedgerMessage), options, msgFee, payable(this));
     }
 
     /**

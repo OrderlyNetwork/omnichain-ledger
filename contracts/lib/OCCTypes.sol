@@ -71,3 +71,24 @@ struct OCCLedgerMessage {
     /// @dev payload is the data to be sent
     bytes payload;
 }
+
+struct SolanaVaultMessage {
+    LedgerToken token;
+    /// @dev the address of the sender
+    bytes32 sender;
+    /// @dev payloadType is the type of the payload
+    uint8 payloadType;
+    /// @dev payload
+    bytes payload;
+}
+
+struct SolanaLedgerMessage {
+    /// @dev the symbol of the token
+    LedgerToken token;
+    /// @dev the address of the receiver
+    bytes32 receiver;
+    /// @dev payloadType is the type of the payload
+    uint8 payloadType;
+    /// @dev payload
+    bytes payload;
+}
