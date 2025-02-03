@@ -23,6 +23,12 @@ contract LedgerOApp is OAppUpgradeable {
     /// @dev mapping from chainId to eid
     mapping(uint256 => uint32) public chainId2Eid;
 
+    /// @dev mapping from eid to chainId
+    mapping(uint32 => uint256) public eid2ChainId;
+
+    /// @dev solana eid
+    uint32 public solanaEid;
+
     /// @dev modifier that only allow OCCManager to call
     modifier onlyOCCManager() {
         require(msg.sender == occManagerAddr, "OnlyLedger");
@@ -64,6 +70,11 @@ contract LedgerOApp is OAppUpgradeable {
 
     function setChainId2Eid(uint256 chainId, uint32 eid) external onlyOwner {
         chainId2Eid[chainId] = eid;
+        eid2ChainId[eid] = chainId;
+    }
+
+    function setSolanaEid(uint32 _solanaEid) external onlyOwner {
+        solanaEid = _solanaEid;
     }
 
     /* ========== Oapp functions ========== */
@@ -111,5 +122,5 @@ contract LedgerOApp is OAppUpgradeable {
     receive() external payable {}
 
     /// gap for upgradeable
-    uint256[50] private __gap;
+    uint256[48] private __gap;
 }
