@@ -71,7 +71,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     }
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.5";
+        return "1.0.6";
     }
 
     // for receive native token
@@ -181,6 +181,9 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     /**
      * @notice Sends a message from ledger to vault
      * @param message The message being sent.
+     * @dev If the message is sent to Solana chain and related to non-OFT token transfer (e.g. ClaimUsdcRevenueBackward), we will send OCCLedgerMessage to Solana Proxy through OApp;
+     * @dev If the message is sent to Solana chain and related to OFT token transfer (e.g. ClaimRewardBackward, WithdrawOrderBackward, ClaimVestingRequestBackward, UnstakeOrderNow), we will send OFT directly to user;
+     * @dev If the message is sent to other EVM chains, we will send OCCLedgerMessage to the proxy ledger address using composeMsg through OFT contracts.
      */
     function ledgerSendToVault(EvmLedgerMessage memory message) external payable onlyLedger {
         // Here we have special case for Solana chain when ClaimUsdcRevenueBackward payload is sent
@@ -264,16 +267,10 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             require(remoteSender == occVaultMessage.sender, "LedgerOCCManager: composeMsg sender check failed");
 
             uint256 amountLD = _message.amountLD();
-            if (PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake) {
-                require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
-                require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
-            } else {
-                require(amountLD == 0, "LedgerOCCManager: composeMsg amount should be zero for this payload");
-                require(
-                    occVaultMessage.token == LedgerToken.PLACEHOLDER,
-                    "LedgerOCCManager: composeMsg token should be PLACEHOLDER for this payload"
-                );
-            }
+            require(PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake, "LedgerOCCManager: Only Stake payload is supported through Solana OFT channel");
+            require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
+            require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
+             
         } else {
             address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
             require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
@@ -300,9 +297,34 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         // revert("TestOnly: end of lzCompose");
     }
 
+    // Message Types from Solana to Orderly throung Solana Proxy -> LedgerOapp
+    // /* ====== Payloads From vault side ====== */
+    // CreateOrderUnstakeRequest, // 2
+    // CancelOrderUnstakeRequest, // 3
+    // WithdrawOrder, // 4
+    // EsOrderUnstakeAndVest, // 5
+    // CancelVestingRequest, // 6
+    // CancelAllVestingRequests, // 7 Not supported anymore. Do not remove for backward compatibility
+    // ClaimVestingRequest, // 8
+    // RedeemValor, // 9
+    // ClaimUsdcRevenue, // 10   
+    // UnstakeOrderNow, // 15
+    // ClaimRewardSolana, // 16
     function ledgerOappReceive(OCCVaultMessage calldata _message) external onlyLedgerOapp {
-        // For now only ClaimReward payload is supported
-        require(_message.payloadType == uint8(PayloadDataType.ClaimReward), "LedgerOCCManager: unsupported payload type");
+        uint8 payloadType = _message.payloadType;
+        require(payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest)
+             || payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest)
+             || payloadType == uint8(PayloadDataType.WithdrawOrder)
+             || payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest)
+             || payloadType == uint8(PayloadDataType.CancelVestingRequest)
+             || payloadType == uint8(PayloadDataType.CancelAllVestingRequests)
+             || payloadType == uint8(PayloadDataType.ClaimVestingRequest)
+             || payloadType == uint8(PayloadDataType.RedeemValor)
+             || payloadType == uint8(PayloadDataType.ClaimUsdcRevenue)
+             || payloadType == uint8(PayloadDataType.UnstakeOrderNow)
+             || payloadType == uint8(PayloadDataType.ClaimRewardSolana),
+            "LedgerOCCManager: unsupported payload type"
+        );
 
         // Now we can receive message here only from Solana, so,
         // we need to convert Solana address to EVM address and store it
