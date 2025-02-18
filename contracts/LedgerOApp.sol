@@ -6,7 +6,7 @@ import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 import {SolanaProxyMsgCodec} from "./lib/MsgCodec.sol";
 import {OAppUpgradeable, MessagingFee, Origin} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppUpgradeable.sol";
 import {OptionsBuilder} from "./layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
-
+import {PayloadDataType} from "./lib/LedgerTypes.sol";
 /**
  * @title LedgerOApp for handle OApp message (claimReward) between ledger and Solana
  * @dev This contract also used to send OApp message from ledger to Solana to transfer USDC to user
@@ -30,6 +30,7 @@ contract LedgerOApp is OAppUpgradeable {
     uint32 public solanaEid;
 
     using SolanaProxyMsgCodec for bytes;
+    using OptionsBuilder for bytes;
 
     /// @dev modifier that only allow OCCManager to call
     modifier onlyOCCManager() {
@@ -116,18 +117,17 @@ contract LedgerOApp is OAppUpgradeable {
             token: _message.token,
             receiver: _message.receiver,
             payloadType: _message.payloadType,
-            payload: _message.payload
+            payload: abi.encode(_message.tokenAmount)
         });
+        bytes memory message = SolanaProxyMsgCodec.encodeSolanaLedgerMessage(solanaLedgerMessage);
         uint128 oappGas = defaultOappGas;
         if (oappGas == 0) {
-            oappGas = 2000000;
+            oappGas = 800000;
         }
-        bytes memory options = OptionsBuilder.newOptions();
-        OptionsBuilder.addExecutorLzReceiveOption(options, oappGas, 0);
-        uint256 fee = estimateOappFeeFromLedgerToSolana(_message);
-        MessagingFee memory msgFee = MessagingFee(fee, 0);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(oappGas, 0); 
+        MessagingFee memory msgFee = _quote(solanaEid, message, options, false);
 
-        _lzSend(chainId2Eid[_message.dstChainId], abi.encode(solanaLedgerMessage), options, msgFee, payable(this));
+        _lzSend(solanaEid, message, options, msgFee, payable(this));
     }
 
     /**
