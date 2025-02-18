@@ -190,6 +190,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         if (chainId2Eid[message.dstChainId] == solanaEid && message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             bytes32 receiver = userEvm2SolanaAddress[message.receiver];
             require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
+            require(message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward), "unsupported payload type");
 
             OCCLedgerMessage memory occMessage = OCCLedgerMessage({
                 dstChainId: message.dstChainId,
@@ -270,6 +271,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             require(PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake, "LedgerOCCManager: Only Stake payload is supported through Solana OFT channel");
             require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
             require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
+            require(occVaultMessage.srcChainId == eid2ChainId[srcEid], "LedgerOCCManager: composeMsg srcChainId check failed");
              
         } else {
             address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
