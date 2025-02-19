@@ -264,15 +264,19 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         OCCVaultMessage memory occVaultMessage = abi.decode(_composeMsgContent, (OCCVaultMessage));
 
         if (srcEid == solanaEid) {
+            require(msg.sender == lzEndpoint && _from == orderTokenOft, "LedgerOCCManager: lzCompose sender check failed");
+
             bytes32 remoteSender = _message.composeFrom();
             require(remoteSender == occVaultMessage.sender, "LedgerOCCManager: composeMsg sender check failed");
 
             uint256 amountLD = _message.amountLD();
-            require(PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake, "LedgerOCCManager: Only Stake payload is supported through Solana OFT channel");
+            require(
+                PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake,
+                "LedgerOCCManager: Only Stake payload is supported through Solana OFT channel"
+            );
             require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
             require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
             require(occVaultMessage.srcChainId == eid2ChainId[srcEid], "LedgerOCCManager: composeMsg srcChainId check failed");
-             
         } else {
             address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
             require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
@@ -309,22 +313,23 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     // CancelAllVestingRequests, // 7 Not supported anymore. Do not remove for backward compatibility
     // ClaimVestingRequest, // 8
     // RedeemValor, // 9
-    // ClaimUsdcRevenue, // 10   
+    // ClaimUsdcRevenue, // 10
     // UnstakeOrderNow, // 15
     // ClaimRewardSolana, // 16
     function ledgerOappReceive(OCCVaultMessage calldata _message) external onlyLedgerOapp {
         uint8 payloadType = _message.payloadType;
-        require(payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest)
-             || payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest)
-             || payloadType == uint8(PayloadDataType.WithdrawOrder)
-             || payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest)
-             || payloadType == uint8(PayloadDataType.CancelVestingRequest)
-             || payloadType == uint8(PayloadDataType.CancelAllVestingRequests)
-             || payloadType == uint8(PayloadDataType.ClaimVestingRequest)
-             || payloadType == uint8(PayloadDataType.RedeemValor)
-             || payloadType == uint8(PayloadDataType.ClaimUsdcRevenue)
-             || payloadType == uint8(PayloadDataType.UnstakeOrderNow)
-             || payloadType == uint8(PayloadDataType.ClaimRewardSolana),
+        require(
+            payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest) ||
+                payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest) ||
+                payloadType == uint8(PayloadDataType.WithdrawOrder) ||
+                payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest) ||
+                payloadType == uint8(PayloadDataType.CancelVestingRequest) ||
+                payloadType == uint8(PayloadDataType.CancelAllVestingRequests) ||
+                payloadType == uint8(PayloadDataType.ClaimVestingRequest) ||
+                payloadType == uint8(PayloadDataType.RedeemValor) ||
+                payloadType == uint8(PayloadDataType.ClaimUsdcRevenue) ||
+                payloadType == uint8(PayloadDataType.UnstakeOrderNow) ||
+                payloadType == uint8(PayloadDataType.ClaimRewardSolana),
             "LedgerOCCManager: unsupported payload type"
         );
 
