@@ -217,3 +217,19 @@ OmnichainLedger contract can trust to the Merkle root, that is used as proof in 
 
 - it is calculated in the trusted environment (Proxy contract)
 - channel, that it receibed by, locked to LedgerOapp, that paired only with Proxy contract on the Solana side.
+
+### Tests for Solana support
+
+There is a set of tests for Solana support in the `test/forge/LedgerSolana.t.sol` file. They are testing Solana-specific requests from OCCManager entry point to the OmnichainLedger contract and sending back messages. There are tests for all supported payload types, that are used for Solana support.
+
+To run tests for Solana support, you have to run:
+
+```shell
+forge test --match-contract LedgerSolanaTest
+```
+
+Specific test for Solana-specific reward claim:
+
+```shell
+forge test -vvvv --match-test test_solana_oapp_receive_fail_cases
+```
