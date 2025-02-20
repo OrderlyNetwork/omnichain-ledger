@@ -1,44 +1,52 @@
 {
-    "play": {
-        "sepolia": "0x42A1D4a8459bB5B0FeA4f923A576d1A4e6290Db5",
-        "arbsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "opsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "amoy": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "basesepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "fuji": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "orderlysepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903"
-    },
-    "dev": {
-        "sepolia": "0x42A1D4a8459bB5B0FeA4f923A576d1A4e6290Db5",
-        "arbsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "opsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "amoy": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "basesepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "fuji": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
-        "orderlysepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903"
-    },
-    "qa": {
-        "sepolia": "0xaEc5B1E45E8383926ef5095Da0a4a1da95C3D4cc",
-        "arbsepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
-        "opsepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
-        "amoy": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
-        "basesepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
-        "orderlysepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18"
-    },
-    "staging": {
-        "sepolia": "0x4E2ECA66576aCdCB56AA4acE314f812Bdc097A4A",
-        "arbsepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
-        "opsepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
-        "amoy": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
-        "basesepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
-        "orderlysepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8"
-    },
-    "production": {
-        "ethereum": "0x0000000000000000000000000000000000000000",
-        "arbitrum": "0x0000000000000000000000000000000000000000",
-        "optimism": "0x0000000000000000000000000000000000000000",
-        "polygon": "0x0000000000000000000000000000000000000000",
-        "base": "0x0000000000000000000000000000000000000000",
-        "orderly": "0x0000000000000000000000000000000000000000"
-    }
+  "solana": {
+    "ethereum": "0x0000000000000000000000000000000000000000",
+    "arbitrum": "0x0000000000000000000000000000000000000000",
+    "optimism": "0x0000000000000000000000000000000000000000",
+    "polygon": "0x0000000000000000000000000000000000000000",
+    "base": "0x0000000000000000000000000000000000000000",
+    "orderlysepolia": "0x964b7F81aDc098469e1c10A26eA24C1EAbf8d9F2"
+  },
+  "play": {
+    "sepolia": "0x42A1D4a8459bB5B0FeA4f923A576d1A4e6290Db5",
+    "arbsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "opsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "amoy": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "basesepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "fuji": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "orderlysepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903"
+  },
+  "dev": {
+    "sepolia": "0x42A1D4a8459bB5B0FeA4f923A576d1A4e6290Db5",
+    "arbsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "opsepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "amoy": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "basesepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "fuji": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903",
+    "orderlysepolia": "0xe2eB2df1CA9D90c8501049bAEEEf57f111782903"
+  },
+  "qa": {
+    "sepolia": "0xaEc5B1E45E8383926ef5095Da0a4a1da95C3D4cc",
+    "arbsepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+    "opsepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+    "amoy": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+    "basesepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18",
+    "orderlysepolia": "0x562874e9fcb02Ae6164781EcFb4AeAa169E99B18"
+  },
+  "staging": {
+    "sepolia": "0x4E2ECA66576aCdCB56AA4acE314f812Bdc097A4A",
+    "arbsepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+    "opsepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+    "amoy": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+    "basesepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8",
+    "orderlysepolia": "0x2921a94509a17aebC1bB4d5bb35e3919Cd2a0BA8"
+  },
+  "production": {
+    "ethereum": "0x0000000000000000000000000000000000000000",
+    "arbitrum": "0x0000000000000000000000000000000000000000",
+    "optimism": "0x0000000000000000000000000000000000000000",
+    "polygon": "0x0000000000000000000000000000000000000000",
+    "base": "0x0000000000000000000000000000000000000000",
+    "orderly": "0x0000000000000000000000000000000000000000"
+  }
 }

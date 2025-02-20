@@ -287,14 +287,20 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     /* ========== USER FUNCTIONS ========== */
 
     /**
-     * @notice Check Merkle proof and claim the remaining unclaimed rewards for a user.
+     * @notice Claim the remaining unclaimed rewards for a user.
+     *         Should be provided either Merkle proof or pre-calculated Merkle root.
+     *         In most cases, Merkle proof should be provided.
+     *         But in case of claiming rewards from Solana chain, we can't send full Merkle proof.
+     *         Pre-calculated root from Solana Proxy will be sent instead of proof.
+     *         We can trust to this pre-calculated root as it was calculated by our own contract on Solana chain.
+     *         So, all we need to do is to check this root and claim the rewards.
      *         Will propogate pending Merkle root updates before claiming if startTimestamp for pending root has passed.
      *         Return the type of token and claimable amount.
      *         Caller (Ledger contract) should transfer the token to the user or stake if token is record based.
      *
      *  Reverts if there is no active distribution for the _distributionId.
      *  Reverts if no active Merkle root is set for the _distributionId.
-     *  Reverts if the provided Merkle proof is invalid.
+     *  Reverts if the provided Merkle proof or pre-calculated root is invalid.
      */
     function _claimRewards(
         uint32 _distributionId,
@@ -302,7 +308,9 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
         uint256 _chainedEventId,
         uint256 _srcChainId,
         uint256 _cumulativeAmount,
-        bytes32[] memory _merkleProof
+        bytes32[] memory _merkleProof,
+        bytes32 _merkleRoot,
+        bool _withProof
     ) internal whenNotPaused nonReentrant returns (LedgerToken token, uint256 claimableAmount) {
         if (canUpdateRoot(_distributionId)) {
             updateRoot(_distributionId);
@@ -316,11 +324,16 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
             // Get the active Merkle root.
             MerkleTree storage activeMerkleTree = activeDistributions[_distributionId].merkleTree;
             if (activeMerkleTree.merkleRoot == bytes32(0)) revert NoActiveMerkleRoot();
-            bytes32 merkleRoot = activeMerkleTree.merkleRoot;
+            bytes32 activeMerkleRoot = activeMerkleTree.merkleRoot;
 
-            // Verify the Merkle proof.
-            bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_user, _cumulativeAmount))));
-            if (!MerkleProof.verify(_merkleProof, merkleRoot, leaf)) revert InvalidMerkleProof();
+            if (_withProof) {
+                // Verify the Merkle proof.
+                bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_user, _cumulativeAmount))));
+                if (!MerkleProof.verify(_merkleProof, activeMerkleRoot, leaf)) revert InvalidMerkleProof();
+            } else {
+                // Verify pre-calculated Merkle root.
+                if (!(_merkleRoot == activeMerkleRoot)) revert InvalidMerkleProof();
+            }
         }
 
         // Note: If next operation reverts, then there was an error in the Merkle tree, since the cumulative
@@ -336,7 +349,6 @@ abstract contract MerkleDistributor is LedgerAccessControl, ChainedEventIdCounte
     }
 
     /* ========== PRIVATE FUNCTIONS ========== */
-
     /**
      * @notice Check params and propose root for the distribution.
      */

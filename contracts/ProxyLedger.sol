@@ -12,7 +12,7 @@ import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/li
 import {IOFT} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 
 import {VaultOCCManager} from "./lib/OCCManager.sol";
-import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {EvmVaultMessage, OCCLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
 import {LedgerPayloadTypes, PayloadDataType} from "./lib/LedgerTypes.sol";
 
 /**
@@ -27,6 +27,10 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     event WithdrawOrderTokenTransferred(address indexed user, uint256 amount);
     event ClaimUsdcRevenueTransferred(address indexed user, uint256 amount);
     event ClaimVestingRequestTransferred(address indexed user, uint256 amount);
+
+    function VERSION() external pure virtual returns (string memory) {
+        return "1.0.5";
+    }
 
     /* ========== prevent initialization for implementation contracts ========== */
 
@@ -63,9 +67,9 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         address user,
         uint256 cumulativeAmount,
         bytes32[] memory merkleProof
-    ) internal view returns (OCCVaultMessage memory) {
+    ) internal view returns (EvmVaultMessage memory) {
         return
-            OCCVaultMessage({
+            EvmVaultMessage({
                 chainedEventId: chainedEventId,
                 srcChainId: 0,
                 token: LedgerToken.PLACEHOLDER,
@@ -85,7 +89,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param merkleProof the merkle proof
      */
     function claimReward(uint32 distributionId, uint256 cumulativeAmount, bytes32[] memory merkleProof) external payable whenNotPaused {
-        OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, msg.sender, cumulativeAmount, merkleProof);
+        EvmVaultMessage memory message = buildClaimRewardMessage(distributionId, msg.sender, cumulativeAmount, merkleProof);
         vaultSendToLedger(message);
     }
 
@@ -102,7 +106,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         uint256 cumulativeAmount,
         bytes32[] memory merkleProof
     ) external view returns (uint256) {
-        OCCVaultMessage memory message = buildClaimRewardMessage(distributionId, user, cumulativeAmount, merkleProof);
+        EvmVaultMessage memory message = buildClaimRewardMessage(distributionId, user, cumulativeAmount, merkleProof);
         return estimateCCFeeFromVaultToLedger(message);
     }
 
@@ -113,9 +117,9 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param amount the amount to stake
      * @param sender the sender of the stake
      */
-    function buildStakeOrderMessage(uint256 amount, address sender) internal view returns (OCCVaultMessage memory) {
+    function buildStakeOrderMessage(uint256 amount, address sender) internal view returns (EvmVaultMessage memory) {
         return
-            OCCVaultMessage({
+            EvmVaultMessage({
                 chainedEventId: chainedEventId,
                 srcChainId: 0,
                 token: LedgerToken.ORDER,
@@ -131,7 +135,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param amount the amount to stake
      */
     function stakeOrder(uint256 amount) external payable whenNotPaused {
-        OCCVaultMessage memory message = buildStakeOrderMessage(amount, msg.sender);
+        EvmVaultMessage memory message = buildStakeOrderMessage(amount, msg.sender);
         vaultSendToLedger(message);
     }
 
@@ -141,7 +145,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param sender the sender of the stake
      */
     function quoteStakeOrder(uint256 amount, address sender) external view returns (uint256) {
-        OCCVaultMessage memory message = buildStakeOrderMessage(amount, sender);
+        EvmVaultMessage memory message = buildStakeOrderMessage(amount, sender);
         return estimateCCFeeFromVaultToLedger(message);
     }
 
@@ -152,21 +156,22 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param amount the amount to send
      * @param user the user to send
      * @param payloadType the payload type
-    *  2: CreateOrderUnstakeRequest,
-    *  3: CancelOrderUnstakeRequest,
-    *  4: WithdrawOrder,
-    *  5: EsOrderUnstakeAndVest,
-    *  6: CancelVestingRequest,
-    *  7: CancelAllVestingRequests,
-    *  8: ClaimVestingRequest,
-    *  9: RedeemValor,
-    *  10: ClaimUsdcRevenue,
+     *  2: CreateOrderUnstakeRequest,
+     *  3: CancelOrderUnstakeRequest,
+     *  4: WithdrawOrder,
+     *  5: EsOrderUnstakeAndVest,
+     *  6: CancelVestingRequest,
+     *  7: CancelAllVestingRequests,
+     *  8: ClaimVestingRequest,
+     *  9: RedeemValor,
+     *  10: ClaimUsdcRevenue,
+     *  15: UnstakeOrderNow
      */
-    function buildOCCMessage(uint256 amount, address user, uint8 payloadType) internal view returns (OCCVaultMessage memory) {
+    function buildEvmVaultMessage(uint256 amount, address user, uint8 payloadType) internal view returns (EvmVaultMessage memory) {
         // require correct payloadType
-        require(payloadType >= 2 && payloadType <= 10, "UnsupportedPayloadType");
+        require((payloadType >= 2 && payloadType <= 10) || payloadType == 15, "UnsupportedPayloadType");
         return
-            OCCVaultMessage({
+            EvmVaultMessage({
                 chainedEventId: chainedEventId,
                 srcChainId: 0,
                 token: LedgerToken.PLACEHOLDER,
@@ -183,7 +188,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param payloadType the payload type
      */
     function sendUserRequest(uint256 amount, uint8 payloadType) external payable whenNotPaused {
-        OCCVaultMessage memory occMsg = buildOCCMessage(amount, msg.sender, payloadType);
+        EvmVaultMessage memory occMsg = buildEvmVaultMessage(amount, msg.sender, payloadType);
         vaultSendToLedger(occMsg);
     }
 
@@ -194,7 +199,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
      * @param payloadType the payload type
      */
     function quoteSendUserRequest(uint256 amount, address user, uint8 payloadType) external view returns (uint256) {
-        OCCVaultMessage memory occMsg = buildOCCMessage(amount, user, payloadType);
+        EvmVaultMessage memory occMsg = buildEvmVaultMessage(amount, user, payloadType);
         return estimateCCFeeFromVaultToLedger(occMsg);
     }
 
@@ -229,32 +234,33 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
     }
 
     function vaultRecvFromLedger(OCCLedgerMessage memory message) internal {
+        address receiver = OFTComposeMsgCodec.bytes32ToAddress(message.receiver);
         if (message.payloadType == uint8(PayloadDataType.ClaimRewardBackward)) {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimRewardBackward");
 
-            IERC20(IOFT(orderTokenOft).token()).safeTransfer(message.receiver, message.tokenAmount);
+            IERC20(IOFT(orderTokenOft).token()).safeTransfer(receiver, message.tokenAmount);
 
-            emit ClaimRewardTokenTransferred(message.receiver, message.tokenAmount);
+            emit ClaimRewardTokenTransferred(receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.WithdrawOrderBackward)) {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidWithdrawOrderBackward");
 
-            IERC20(IOFT(orderTokenOft).token()).safeTransfer(message.receiver, message.tokenAmount);
+            IERC20(IOFT(orderTokenOft).token()).safeTransfer(receiver, message.tokenAmount);
 
-            emit WithdrawOrderTokenTransferred(message.receiver, message.tokenAmount);
+            emit WithdrawOrderTokenTransferred(receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.ClaimVestingRequestBackward)) {
             // require token is order, and amount > 0
             require(message.token == LedgerToken.ORDER && message.tokenAmount > 0, "InvalidClaimVestingRequestBackward");
 
-            IERC20(IOFT(orderTokenOft).token()).safeTransfer(message.receiver, message.tokenAmount);
+            IERC20(IOFT(orderTokenOft).token()).safeTransfer(receiver, message.tokenAmount);
 
-            emit ClaimVestingRequestTransferred(message.receiver, message.tokenAmount);
+            emit ClaimVestingRequestTransferred(receiver, message.tokenAmount);
         } else if (message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             require(message.token == LedgerToken.USDC && message.tokenAmount > 0, "InvalidClaimUsdcRevenueBackward");
-            IERC20(usdcAddr).safeTransfer(message.receiver, message.tokenAmount);
+            IERC20(usdcAddr).safeTransfer(receiver, message.tokenAmount);
 
-            emit ClaimUsdcRevenueTransferred(message.receiver, message.tokenAmount);
+            emit ClaimUsdcRevenueTransferred(receiver, message.tokenAmount);
         } else {
             revert("UnsupportedPayloadType");
         }

@@ -12,7 +12,7 @@ import {Staking} from "./lib/Staking.sol";
 import {Vesting} from "./lib/Vesting.sol";
 import {Revenue} from "./lib/Revenue.sol";
 import {MerkleDistributor} from "./lib/MerkleDistributor.sol";
-import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
+import {EvmVaultMessage, EvmLedgerMessage, LedgerToken} from "./lib/OCCTypes.sol";
 import {ILedgerOCCManager} from "./lib/ILedgerOCCManager.sol";
 
 // lz imports
@@ -33,7 +33,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     function VERSION() external pure virtual returns (string memory) {
-        return "1.0.5";
+        return "1.0.6";
     }
 
     /* ====== UUPS AUTHORIZATION ====== */
@@ -70,7 +70,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     /* ========== EXTERNAL FUNCTIONS ========== */
 
     /// @notice Receives message from OCCAdapter and dispatch it
-    function ledgerRecvFromVault(OCCVaultMessage memory message) external onlyOCCAdaptor {
+    function ledgerRecvFromVault(EvmVaultMessage memory message) external onlyOCCAdaptor {
         // ========== ClaimReward ==========
         if (message.payloadType == uint8(PayloadDataType.ClaimReward)) {
             LedgerPayloadTypes.ClaimReward memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimReward));
@@ -80,12 +80,31 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
                 message.chainedEventId,
                 message.srcChainId,
                 claimRewardPayload.cumulativeAmount,
-                claimRewardPayload.merkleProof
+                claimRewardPayload.merkleProof,
+                bytes32(0),
+                true
+            );
+        } else if (message.payloadType == uint8(PayloadDataType.ClaimRewardSolana)) {
+            LedgerPayloadTypes.ClaimRewardSolana memory claimRewardPayload = abi.decode(message.payload, (LedgerPayloadTypes.ClaimRewardSolana));
+            _ledgerClaimRewards(
+                claimRewardPayload.distributionId,
+                message.sender,
+                message.chainedEventId,
+                message.srcChainId,
+                claimRewardPayload.cumulativeAmount,
+                new bytes32[](0),
+                claimRewardPayload.merkleRoot,
+                false
             );
         }
         // ========== Stake ==========
         else if (message.payloadType == uint8(PayloadDataType.Stake)) {
             _stake(message.sender, message.chainedEventId, message.srcChainId, message.token, message.tokenAmount);
+        }
+        // ========== UnstakeOrderNow ==========
+        else if (message.payloadType == uint8(PayloadDataType.UnstakeOrderNow)) {
+            LedgerPayloadTypes.UnstakeOrderNow memory unstakeOrderNowPayload = abi.decode(message.payload, (LedgerPayloadTypes.UnstakeOrderNow));
+            _ledgerUnstakeOrderNow(message.sender, message.chainedEventId, message.srcChainId, unstakeOrderNowPayload.amount);
         }
         // ========== CreateOrderUnstakeRequest ==========
         else if (message.payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest)) {
@@ -167,7 +186,9 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         uint256 _chainedEventId,
         uint256 _srcChainId,
         uint256 _cumulativeAmount,
-        bytes32[] memory _merkleProof
+        bytes32[] memory _merkleProof,
+        bytes32 _merkleRoot,
+        bool _withProof
     ) internal {
         (LedgerToken token, uint256 claimedAmount) = _claimRewards(
             _distributionId,
@@ -175,14 +196,16 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
             _chainedEventId,
             _srcChainId,
             _cumulativeAmount,
-            _merkleProof
+            _merkleProof,
+            _merkleRoot,
+            _withProof
         );
 
         if (claimedAmount != 0) {
             if (token == LedgerToken.ESORDER) {
                 _stake(_user, _chainedEventId, _srcChainId, token, claimedAmount);
             } else if (token == LedgerToken.ORDER) {
-                OCCLedgerMessage memory message = OCCLedgerMessage({
+                EvmLedgerMessage memory message = EvmLedgerMessage({
                     dstChainId: _srcChainId,
                     token: LedgerToken.ORDER,
                     tokenAmount: claimedAmount,
@@ -196,10 +219,31 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     }
 
     /// @notice Withdrawn $ORDER tokens are sent back to the user wallet on the source chain
+    /// $ORDER amount for collect will be sent to the collector address
+    function _ledgerUnstakeOrderNow(address _user, uint256 _chainedEventId, uint256 _chainId, uint256 _amount) internal {
+        (uint256 orderAmountForWithdraw, uint256 orderAmountForCollect) = _unstakeOrderNow(_user, _chainedEventId, _chainId, _amount);
+        if (orderAmountForWithdraw != 0) {
+            EvmLedgerMessage memory message = EvmLedgerMessage({
+                dstChainId: _chainId,
+                token: LedgerToken.ORDER,
+                tokenAmount: orderAmountForWithdraw,
+                receiver: _user,
+                payloadType: uint8(PayloadDataType.WithdrawOrderBackward),
+                payload: "0x0"
+            });
+            ILedgerOCCManager(occAdaptor).ledgerSendToVault(message);
+        }
+
+        if (orderAmountForCollect != 0) {
+            ILedgerOCCManager(occAdaptor).collectUnvestedOrders(orderAmountForCollect);
+        }
+    }
+
+    /// @notice Withdrawn $ORDER tokens are sent back to the user wallet on the source chain
     function _ledgerWithdrawOrder(address _user, uint256 _chainedEventId, uint256 _chainId) internal {
         uint256 orderAmountForWithdraw = _withdrawOrder(_user, _chainedEventId, _chainId);
         if (orderAmountForWithdraw != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.ORDER,
                 tokenAmount: orderAmountForWithdraw,
@@ -215,7 +259,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
     function _ledgerClaimUsdcRevenue(address _user, uint256 _chainedEventId, uint256 _chainId) internal {
         uint256 usdcRevenueAmount = _claimUsdcRevenue(_user, _chainedEventId, _chainId);
         if (usdcRevenueAmount != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.USDC,
                 tokenAmount: usdcRevenueAmount,
@@ -232,7 +276,7 @@ contract OmnichainLedgerV1 is LedgerAccessControl, UUPSUpgradeable, ChainedEvent
         (uint256 claimedOrderAmount, uint256 unclaimedOrderAmount) = _claimVestingRequest(_user, _chainedEventId, _chainId, _requestId);
 
         if (claimedOrderAmount != 0) {
-            OCCLedgerMessage memory message = OCCLedgerMessage({
+            EvmLedgerMessage memory message = EvmLedgerMessage({
                 dstChainId: _chainId,
                 token: LedgerToken.ORDER,
                 tokenAmount: claimedOrderAmount,

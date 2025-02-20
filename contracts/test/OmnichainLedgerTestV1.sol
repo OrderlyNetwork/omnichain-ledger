@@ -24,20 +24,25 @@ contract OmnichainLedgerTestV1 is OmnichainLedgerV1 {
         vestingLinearPeriod = _vestingLinearPeriod;
     }
 
-    function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
-        _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, _timestamp);
-    }
+    // function dailyUsdcNetFeeRevenueTestNoSignatureCheck(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
+    //     _dailyUsdcNetFeeRevenueTest(_usdcNetFeeRevenue, _timestamp);
+    // }
 
     function dailyUsdcNetFeeRevenueTestNoTimeCheck(LedgerSignedTypes.UintValueData calldata data) external onlyRole(TREASURE_UPDATER_ROLE) {
         Signature.verifyUintValueSignature(data, usdcUpdaterAddress);
-        _dailyUsdcNetFeeRevenueTest(data.value, data.timestamp);
-    }
 
-    function _dailyUsdcNetFeeRevenueTest(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
         lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
-        totalUsdcInTreasure += _usdcNetFeeRevenue;
+        totalUsdcInTreasure += data.value;
         _updateValorToUsdcRateScaled();
-        emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
+        emit DailyUsdcNetFeeRevenueUpdated(data.timestamp, data.value, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
         _possiblyFixBatchValorToUsdcRateForPreviousBatch();
     }
+
+    // function _dailyUsdcNetFeeRevenueTest(uint256 _usdcNetFeeRevenue, uint256 _timestamp) public onlyRole(TREASURE_UPDATER_ROLE) {
+    //     lastUsdcNetFeeRevenueUpdateTimestamp = block.timestamp;
+    //     totalUsdcInTreasure += _usdcNetFeeRevenue;
+    //     _updateValorToUsdcRateScaled();
+    //     emit DailyUsdcNetFeeRevenueUpdated(_timestamp, _usdcNetFeeRevenue, totalUsdcInTreasure, getTotalValorAmount(), valorToUsdcRateScaled);
+    //     _possiblyFixBatchValorToUsdcRateForPreviousBatch();
+    // }
 }

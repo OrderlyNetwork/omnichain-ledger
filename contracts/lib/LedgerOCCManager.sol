@@ -4,7 +4,9 @@ pragma solidity 0.8.22;
 // project imports
 import {LedgerAccessControl} from "./LedgerAccessControl.sol";
 import {OCCAdapterDatalayout} from "./OCCAdapterDatalayout.sol";
-import {OCCVaultMessage, OCCLedgerMessage, LedgerToken} from "./OCCTypes.sol";
+import {OCCVaultMessage, EvmVaultMessage, OCCLedgerMessage, EvmLedgerMessage, LedgerToken} from "./OCCTypes.sol";
+import {PayloadDataType} from "./LedgerTypes.sol";
+import {ILedgerOapp} from "./ILedgerOApp.sol";
 
 // oz imports
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -20,7 +22,7 @@ import {IOAppComposer} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interf
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
 interface ILedgerReceiver {
-    function ledgerRecvFromVault(OCCVaultMessage memory message) external;
+    function ledgerRecvFromVault(EvmVaultMessage memory message) external;
 }
 
 /**
@@ -41,10 +43,35 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     /// @dev Address, that will collect unvested $ORDER when user prematurely withdraws
     address public orderCollector;
 
+    /// @dev mapping Solana address to EVM address for Solana users
+    mapping(bytes32 => address) public userSolana2EvmAddress;
+
+    /// @dev mapping EVM address to Solana address for Solana users
+    mapping(address => bytes32) public userEvm2SolanaAddress;
+
+    uint32 public solanaEid;
+
+    /// @dev ledger Oapp address
+    address public ledgerOappAddr;
+
+    uint256 public solanaChainEventId;
+
+    event NewSolanaUser(bytes32 indexed solanaAddress, address indexed evmAddress);
+
     /// @dev modifier that only allow ledger to call
     modifier onlyLedger() {
         require(msg.sender == ledgerAddr, "OnlyLedger");
         _;
+    }
+
+    /// @dev modifier that only allow ledgerOapp to call
+    modifier onlyLedgerOapp() {
+        require(msg.sender == ledgerOappAddr, "OnlyLedgerOapp");
+        _;
+    }
+
+    function VERSION() external pure virtual returns (string memory) {
+        return "1.0.6";
     }
 
     // for receive native token
@@ -83,11 +110,19 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         orderCollector = _orderCollector;
     }
 
+    function setSolanaEid(uint32 _solanaEid) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        solanaEid = _solanaEid;
+    }
+
+    function setLedgerOappAddr(address _ledgerOappAddr) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        ledgerOappAddr = _ledgerOappAddr;
+    }
+
     /**
      * @notice construct OCCLedgerMessage for send through Layerzero
      * @param message The message to be sent.
      */
-    function buildOCCLedgerMsg(OCCLedgerMessage memory message) internal view returns (SendParam memory sendParam) {
+    function buildOCCLedgerMsg(EvmLedgerMessage memory message) internal view returns (SendParam memory sendParam) {
         /// build options
         uint8 _payloadType = message.payloadType;
         uint128 _dstGas = payloadType2DstGas[_payloadType];
@@ -99,35 +134,85 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             _oftGas = 2000000;
         }
 
+        uint32 dstEid = chainId2Eid[message.dstChainId];
         uint256 amount = message.token == LedgerToken.ORDER ? message.tokenAmount : 0;
 
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
-        sendParam = SendParam({
-            dstEid: chainId2Eid[message.dstChainId],
-            to: bytes32(uint256(uint160(chainId2ProxyLedgerAddr[message.dstChainId]))),
-            amountLD: amount,
-            minAmountLD: amount,
-            extraOptions: options,
-            composeMsg: abi.encode(message),
-            oftCmd: bytes("")
-        });
+        if (dstEid == solanaEid) {
+            // For Solana chain we send OFT directly to user, so we need to convert EVM address to Solana address
+            // Also skip composeMsg for Solana chain
+            bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0);
+            bytes32 receiver = userEvm2SolanaAddress[message.receiver];
+            require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
+
+            sendParam = SendParam({
+                dstEid: dstEid,
+                to: receiver,
+                amountLD: amount,
+                minAmountLD: amount,
+                extraOptions: options,
+                composeMsg: bytes(""),
+                oftCmd: bytes("")
+            });
+        } else {
+            bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0).addExecutorLzComposeOption(0, _dstGas, 0);
+
+            // Ledger operates by EvmVaultMessage, but LZ operates by OCCVaultMessage, so we need to convert it
+            OCCLedgerMessage memory occMessage = OCCLedgerMessage({
+                dstChainId: message.dstChainId,
+                token: message.token,
+                tokenAmount: message.tokenAmount,
+                receiver: OFTComposeMsgCodec.addressToBytes32(message.receiver),
+                payloadType: message.payloadType,
+                payload: message.payload
+            });
+
+            sendParam = SendParam({
+                dstEid: dstEid,
+                to: bytes32(uint256(uint160(chainId2ProxyLedgerAddr[message.dstChainId]))),
+                amountLD: amount,
+                minAmountLD: amount,
+                extraOptions: options,
+                composeMsg: abi.encode(occMessage),
+                oftCmd: bytes("")
+            });
+        }
     }
 
     /**
      * @notice Sends a message from ledger to vault
      * @param message The message being sent.
+     * @dev If the message is sent to Solana chain and related to non-OFT token transfer (e.g. ClaimUsdcRevenueBackward), we will send OCCLedgerMessage to Solana Proxy through OApp;
+     * @dev If the message is sent to Solana chain and related to OFT token transfer (e.g. ClaimRewardBackward, WithdrawOrderBackward, ClaimVestingRequestBackward, UnstakeOrderNow), we will send OFT directly to user;
+     * @dev If the message is sent to other EVM chains, we will send OCCLedgerMessage to the proxy ledger address using composeMsg through OFT contracts.
      */
-    function ledgerSendToVault(OCCLedgerMessage memory message) external payable onlyLedger {
-        SendParam memory sendParam = buildOCCLedgerMsg(message);
-        uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
+    function ledgerSendToVault(EvmLedgerMessage memory message) external payable onlyLedger {
+        // Here we have special case for Solana chain when ClaimUsdcRevenueBackward payload is sent
+        if (chainId2Eid[message.dstChainId] == solanaEid && message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
+            bytes32 receiver = userEvm2SolanaAddress[message.receiver];
+            require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
+            require(message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward), "unsupported payload type");
 
-        MessagingFee memory msgFee = MessagingFee(fee, 0);
+            OCCLedgerMessage memory occMessage = OCCLedgerMessage({
+                dstChainId: message.dstChainId,
+                token: message.token,
+                tokenAmount: message.tokenAmount,
+                receiver: receiver,
+                payloadType: message.payloadType,
+                payload: message.payload
+            });
+            ILedgerOapp(ledgerOappAddr).ledgerOappSend(occMessage);
+        } else {
+            SendParam memory sendParam = buildOCCLedgerMsg(message);
+            uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
 
-        /// @dev test only
-        _msgPayload = sendParam.composeMsg;
-        _options = sendParam.extraOptions;
+            MessagingFee memory msgFee = MessagingFee(fee, 0);
 
-        (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: fee}(sendParam, msgFee, address(this));
+            /// @dev test only
+            _msgPayload = sendParam.composeMsg;
+            _options = sendParam.extraOptions;
+
+            (_msgReceipt, _oftReceipt) = IOFT(orderTokenOft).send{value: fee}(sendParam, msgFee, address(this));
+        }
     }
 
     /**
@@ -142,7 +227,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      * @notice estimate the Layerzero fee for sending a message from ledger to vault chain in native token
      * @param message The message being sent.
      */
-    function estimateCCFeeFromLedgerToVault(OCCLedgerMessage memory message) internal view returns (uint256) {
+    function estimateCCFeeFromLedgerToVault(EvmLedgerMessage memory message) internal view returns (uint256) {
         SendParam memory sendParam = buildOCCLedgerMsg(message);
         return IOFT(orderTokenOft).quoteSend(sendParam, false).nativeFee;
     }
@@ -175,15 +260,95 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         bytes calldata /*_extraData*/
     ) external payable {
         uint32 srcEid = _message.srcEid();
-        address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
-        require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
-
         bytes memory _composeMsgContent = _message.composeMsg();
+        OCCVaultMessage memory occVaultMessage = abi.decode(_composeMsgContent, (OCCVaultMessage));
 
-        OCCVaultMessage memory message = abi.decode(_composeMsgContent, (OCCVaultMessage));
-        ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(message);
+        if (srcEid == solanaEid) {
+            require(msg.sender == lzEndpoint && _from == orderTokenOft, "LedgerOCCManager: lzCompose sender check failed");
+
+            bytes32 remoteSender = _message.composeFrom();
+            require(remoteSender == occVaultMessage.sender, "LedgerOCCManager: composeMsg sender check failed");
+
+            uint256 amountLD = _message.amountLD();
+            require(
+                PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake,
+                "LedgerOCCManager: Only Stake payload is supported through Solana OFT channel"
+            );
+            require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
+            require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
+            require(occVaultMessage.srcChainId == eid2ChainId[srcEid], "LedgerOCCManager: composeMsg srcChainId check failed");
+        } else {
+            address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
+            require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
+        }
+
+        // In case of Solana user, we need to convert Solana address to EVM address and store it
+        address sender = srcEid == solanaEid
+            ? getEvmBySolanaAddress(occVaultMessage.sender)
+            : OFTComposeMsgCodec.bytes32ToAddress(occVaultMessage.sender);
+
+        // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
+        EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
+            chainedEventId: srcEid == solanaEid ? ++solanaChainEventId : occVaultMessage.chainedEventId,
+            srcChainId: occVaultMessage.srcChainId,
+            token: occVaultMessage.token,
+            tokenAmount: occVaultMessage.tokenAmount,
+            sender: sender,
+            payloadType: occVaultMessage.payloadType,
+            payload: occVaultMessage.payload
+        });
+
+        ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
 
         // revert("TestOnly: end of lzCompose");
+    }
+
+    // Message Types from Solana to Orderly throung Solana Proxy -> LedgerOapp
+    // /* ====== Payloads From vault side ====== */
+    // CreateOrderUnstakeRequest, // 2
+    // CancelOrderUnstakeRequest, // 3
+    // WithdrawOrder, // 4
+    // EsOrderUnstakeAndVest, // 5
+    // CancelVestingRequest, // 6
+    // CancelAllVestingRequests, // 7 Not supported anymore. Do not remove for backward compatibility
+    // ClaimVestingRequest, // 8
+    // RedeemValor, // 9
+    // ClaimUsdcRevenue, // 10
+    // UnstakeOrderNow, // 15
+    // ClaimRewardSolana, // 16
+    function ledgerOappReceive(OCCVaultMessage calldata _message) external onlyLedgerOapp {
+        uint8 payloadType = _message.payloadType;
+        require(
+            payloadType == uint8(PayloadDataType.CreateOrderUnstakeRequest) ||
+                payloadType == uint8(PayloadDataType.CancelOrderUnstakeRequest) ||
+                payloadType == uint8(PayloadDataType.WithdrawOrder) ||
+                payloadType == uint8(PayloadDataType.EsOrderUnstakeAndVest) ||
+                payloadType == uint8(PayloadDataType.CancelVestingRequest) ||
+                payloadType == uint8(PayloadDataType.CancelAllVestingRequests) ||
+                payloadType == uint8(PayloadDataType.ClaimVestingRequest) ||
+                payloadType == uint8(PayloadDataType.RedeemValor) ||
+                payloadType == uint8(PayloadDataType.ClaimUsdcRevenue) ||
+                payloadType == uint8(PayloadDataType.UnstakeOrderNow) ||
+                payloadType == uint8(PayloadDataType.ClaimRewardSolana),
+            "LedgerOCCManager: unsupported payload type"
+        );
+
+        // Now we can receive message here only from Solana, so,
+        // we need to convert Solana address to EVM address and store it
+        address sender = getEvmBySolanaAddress(_message.sender);
+
+        // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
+        EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
+            chainedEventId: chainId2Eid[_message.srcChainId] == solanaEid ? ++solanaChainEventId : _message.chainedEventId,
+            srcChainId: _message.srcChainId,
+            token: _message.token,
+            tokenAmount: _message.tokenAmount,
+            sender: sender,
+            payloadType: _message.payloadType,
+            payload: _message.payload
+        });
+
+        ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
     }
 
     /**
@@ -202,6 +367,25 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         IERC20(orderTokenOft).safeTransfer(to, IERC20(orderTokenOft).balanceOf(address(this)));
     }
 
+    /**
+     * @notice convert Solana address to correspondent EVM address
+     * @param solanaAddress the solana address
+     */
+    function getEvmBySolanaAddress(bytes32 solanaAddress) internal returns (address evmAddress) {
+        evmAddress = userSolana2EvmAddress[solanaAddress];
+        if (evmAddress == address(0)) {
+            evmAddress = calculateUserSolana2EvmAddress(solanaAddress);
+            userSolana2EvmAddress[solanaAddress] = evmAddress;
+            userEvm2SolanaAddress[evmAddress] = solanaAddress;
+
+            emit NewSolanaUser(solanaAddress, evmAddress);
+        }
+    }
+
+    function calculateUserSolana2EvmAddress(bytes32 solanaAddress) public pure returns (address evmAddress) {
+        evmAddress = OFTComposeMsgCodec.bytes32ToAddress(keccak256(abi.encode(solanaAddress)));
+    }
+
     /// gap for upgradeable
-    uint256[50] private __gap;
+    uint256[45] private __gap;
 }

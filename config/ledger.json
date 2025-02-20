@@ -1,4 +1,41 @@
 {
+  "solana": {
+    "ledger": {
+      "impl": "0x3f797EA0eE509891dafd90cc2283f240BA560F1f",
+      "proxy": "0x716Af1CEB1033f1630b9e8f251394e2eA8A6EeBC"
+    },
+    "ledger_occ_manager": {
+      "impl": "0x09E010D4A080b239855681031DeeE70cC77CDFD6",
+      "proxy": "0x3C9ED8AA3C7012A83cAd466eDcC0f0CC6dff8cfc"
+    },
+    "ledger_oapp": {
+      "impl": "0x92665c42b221Ad7162c7a762791e81B2BB228303",
+      "proxy": "0xF2BC568E4bD0F7437C77FA982F4b51786086872a"
+    },
+    "ledger_proxy": {
+      "arbsepolia": {
+        "impl": "0x0000000000000000000000000000000000000000",
+        "proxy": "0x0000000000000000000000000000000000000000"
+      },
+      "opsepolia": {
+        "impl": "0x0000000000000000000000000000000000000000",
+        "proxy": "0x0000000000000000000000000000000000000000"
+      },
+      "amoy": {
+        "impl": "0x0000000000000000000000000000000000000000",
+        "proxy": "0x0000000000000000000000000000000000000000"
+      },
+      "basesepolia": {
+        "impl": "0x0000000000000000000000000000000000000000",
+        "proxy": "0x0000000000000000000000000000000000000000"
+      },
+      "fuji": {},
+      "sepolia": {
+        "impl": "0x0000000000000000000000000000000000000000",
+        "proxy": "0x0000000000000000000000000000000000000000"
+      }
+    }
+  },
   "play": {
     "ledger": {
       "impl": "0x0000000000000000000000000000000000000000",
@@ -7,6 +44,10 @@
     "ledger_occ_manager": {
       "impl": "0x6fe4a788452011f2F831e013E4Ae4278b0278F29",
       "proxy": "0xb846DF606b592B9646db03aE2568951651D9D5BC"
+    },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_proxy": {
       "arbsepolia": {
@@ -38,29 +79,36 @@
       "proxy": "0x741a48F39683c345Ff37A86791537154869C77D4"
     },
     "ledger_occ_manager": {
-      "impl": "0x6fe4a788452011f2F831e013E4Ae4278b0278F29",
+      "impl": "0x37Bcd2C6244371dacB4f5C2082e7D9006CD3f4CA",
       "proxy": "0xb846DF606b592B9646db03aE2568951651D9D5BC"
+    },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_proxy": {
       "arbsepolia": {
-        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "impl": "0xeCf1239533e46D00d84b56BeeFDAf97aAEFdC161",
         "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "opsepolia": {
-        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "impl": "0x86ed48F484e356f364c982E3bCaAA82Be47500aA",
         "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "amoy": {
-        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "impl": "0x8061509335317500e5097806d89bE3c73F870e49",
         "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
       "basesepolia": {
-        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "impl": "0x4215B3b2F0ab3710e53E1B5cBDe228F06f2A5eBE",
         "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       },
-      "fuji": {},
+      "fuji": {
+        "impl": "0xA40899FF775D0CCe1690EDD321cfE1ABFdFc94B1",
+        "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
+      },
       "sepolia": {
-        "impl": "0x8E1360BcaecCB4E9f5Ba103bAb4E94B625Ca3036",
+        "impl": "0xc527e6d36B9C93e422B6575897fab509Ff9B1d1c",
         "proxy": "0x0180107E72FB14a22a776913063b8a4081E9dc94"
       }
     }
@@ -73,6 +121,10 @@
     "ledger_occ_manager": {
       "impl": "0x9A8d11F903aCac6b612C20cDA32835eaa7E26bdd",
       "proxy": "0xD14bEE159B4a8E918f0A43EBf2F801eea93BeD53"
+    },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_proxy": {
       "arbsepolia": {
@@ -107,6 +159,10 @@
       "impl": "0xF3a873795EA6F91e9C02fb97dF5cAC0d47411218",
       "proxy": "0x45f3039A9A0eefcC8997e030d9F3cCBb1A7AC6C1"
     },
+    "ledger_oapp": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
+    },
     "ledger_proxy": {
       "arbsepolia": {
         "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
@@ -124,7 +180,10 @@
         "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
         "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
       },
-      "fuji": {},
+      "fuji": {
+        "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
+        "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
+      },
       "sepolia": {
         "impl": "0x8665f36b4ddBbf95f0043584bDaB8081247c474E",
         "proxy": "0x912196EB2583A2f0a18FaD632ee5dB65B8C93EEf"
@@ -137,6 +196,10 @@
       "proxy": "0x0000000000000000000000000000000000000000"
     },
     "ledger_occ_manager": {
+      "impl": "0x0000000000000000000000000000000000000000",
+      "proxy": "0x0000000000000000000000000000000000000000"
+    },
+    "ledger_oapp": {
       "impl": "0x0000000000000000000000000000000000000000",
       "proxy": "0x0000000000000000000000000000000000000000"
     },
