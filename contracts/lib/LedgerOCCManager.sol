@@ -280,6 +280,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         } else {
             address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
             require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
+            require(PayloadDataType(occVaultMessage.payloadType) != PayloadDataType.ClaimRewardSolana, "LedgerOCCManager: unsupported payload type");
         }
 
         // In case of Solana user, we need to convert Solana address to EVM address and store it

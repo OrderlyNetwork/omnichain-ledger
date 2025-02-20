@@ -1,5 +1,7 @@
 # Omnichain Ledger contract
 
+## [Latest changes (Solana support)](#solana-support)
+
 ## Specifications:
 
 https://wootraders.atlassian.net/wiki/spaces/ORDER/pages/566526155/Omnichain+Contract+Interactions
@@ -153,4 +155,63 @@ yarn ledger-revoke-root-updater-role --from 0x2FA47E9a2a9d1b0A13BF84Ff38F7B54617
 - Create distribution
 
 ```shell
-yarn hardhat ledger-create-distribution --network orderlySepolia --distribution-id 1 --token ORDER --root 0x53bc4e0e5fee341a5efadc8dee7f9a3b2473fdf5669d6dc76cd2d1b878bf981d --start-timestamp 1717747711 ```
+yarn hardhat ledger-create-distribution --network orderlySepolia --distribution-id 1 --token ORDER --root 0x53bc4e0e5fee341a5efadc8dee7f9a3b2473fdf5669d6dc76cd2d1b878bf981d --start-timestamp 1717747711
+```
+
+## Solana support
+
+### EVM contracts architecture for Solana support
+
+For the EVM-compatible Vault chains we use OFT lzCompose for delivering messages from Proxy contract on Vault chain to OCCManager on the Orderly chain and back. The OCCManager contract in its turn calls the OmnichainLedger contract to process user requests.
+
+Because of Solana specific and limitations, we have to implement different approach to deliver messages from Proxy contract on Solana to OmnichainLedger contract on Orderly chain. OFT lzCompose is used for delivering only `Stake` request along with $Order tokens transfer. For other request types we use LayerZero Oapp send-receive messages.
+
+For backward messages from Orderly chain to Solana we use OFT lzCompose for delivering most of the messages, but for `ClaimUsdcRevenueBackward` used LayerZero Oapp send-receive messages.
+
+To suppport LayerZero Oapp send-receive mechanism we have created `LedgerOapp` contract, that implements Oapp-spcific interface. This contract is implemented as part of Solana Proxy project in separate repository. In this project `LedgerOapp` contract is presented by ILedgerOapp interface. This interface implements function `ledgerOappSend`, that used for backward messages to Vault Proxy contract on Solana.
+
+For most of the incoming requests, entry point is `ledgerOappReceive` function in OCCManager contract, that is locked to be called by LedgerOzpp contract.
+For `Stake` requests entry point is `lzCompose` function in OmnichainLedger contract.
+For backward messages entry point is `ledgerSendToVault` function in OmnichainLedger contract.
+
+### Payload Types and Message Flow for Solana support
+
+| # | Payload Type | Direction | Transport | Function | Notes |
+|---|-------------|-----------|-----------|-----------|-------|
+| 0 | ClaimReward | Forward | OFT | lzCompose | EVM-specific reward claim, NOT supported for Solana |
+| 1 | Stake | Forward | OFT | lzCompose | Token staking |
+| 2 | CreateOrderUnstakeRequest | Forward | OApp | ledgerOappReceive | Request to unstake ORDER |
+| 3 | CancelOrderUnstakeRequest | Forward | OApp | ledgerOappReceive | Cancel pending unstake |
+| 4 | WithdrawOrder | Forward | OApp | ledgerOappReceive | Withdraw staked ORDER |
+| 5 | EsOrderUnstakeAndVest | Forward | OApp | ledgerOappReceive | Unstake and vest esORDER |
+| 6 | CancelVestingRequest | Forward | OApp | ledgerOappReceive | Cancel specific vesting |
+| 7 | CancelAllVestingRequests | Forward | OApp | ledgerOappReceive | Deprecated - NOT supported anymore |
+| 8 | ClaimVestingRequest | Forward | OApp | ledgerOappReceive | Claim vested tokens |
+| 9 | RedeemValor | Forward | OApp | ledgerOappReceive | Redeem Valor tokens |
+| 10 | ClaimUsdcRevenue | Forward | OApp | ledgerOappReceive | Claim USDC revenue |
+| 11 | ClaimRewardBackward | Backward | OFT | ledgerSendToVault | Reward claim response |
+| 12 | WithdrawOrderBackward | Backward | OFT | ledgerSendToVault | Withdrawal response |
+| 13 | ClaimVestingRequestBackward | Backward | OFT | ledgerSendToVault | Vesting claim response |
+| 14 | ClaimUsdcRevenueBackward | Backward | OApp | ledgerSendToVault | USDC claim response |
+| 15 | UnstakeOrderNow | Forward | OApp | ledgerOappReceive | Immediate unstaking |
+| 16 | ClaimRewardSolana | Forward | OApp | ledgerOappReceive | Solana-specific reward claim. For Solana only |
+
+### Solana address mapping
+
+EVM address consists of 20 bytes, while Solana address consists of 32 bytes. To support Solana users in EVM-based OmnichainLedger contract while avoid crucial changes in it and it's internal storage implementation, we have to map Solana addresses to EVM addresses. This mapping is implemented in the OCCManager contract. There are two mappings actually:
+- userSolana2EvmAddress - mapping from Solana address to EVM address, used to avoid address calculation if user already known
+- userEvm2SolanaAddress - mapping from EVM address to Solana address, used to be able to send messages back to Solana user
+
+Each time when Solana user send request to the OCCManager contract, it checks if user's Solana address is mapped to EVM address. If not, it calculates correspondent EVM-like 20 bytes address for this user and creates new mapping. EVM-like address calculation is implemented in publicly accessible function `calculateUserSolana2EvmAddress`. It use last 20 bytes of keccak256 hash of abi-encoded Solana address. So, anyone can check, which EVM address will be calculated for any Solana address.
+
+### Claim reward Solana specific
+
+It appeared, that there is strong limitation on amount of data, that can be sent from Solana to EVM chain using any of the available methods. For claim reward call, using conventional method of checking Merkle Proof in the OmnichainLedger's MerkleDistributor, we have to send Merkle proof, that is much bigger than available data limit. 
+
+To overcome this limitation, we have implemented Solana-specific claim reward method. It supposed, that user provide Merkle proof along with amount on Solana side to the Proxy contract, that calculates Merkle root from user address, amount and provided proof and sends it to the OmnichainLedger. Merkle root is much smaller, than Merkle proof and satisfy data limitation.
+
+This method requires separate payload type `ClaimRewardSolana`, that is used for Solana-specific reward claim. It also required update for internal processing of the claim reward in the OmnichainLedger contract.
+
+OmnichainLedger contract can trust to the Merkle root, that is used as proof in `ClaimRewardSolana` request, because of the following reasons:
+- it is calculated in the trusted environment (Proxy contract)
+- channel, that it receibed by, locked to LedgerOapp, that paired only with Proxy contract on the Solana side.
