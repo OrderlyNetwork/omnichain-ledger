@@ -32,6 +32,7 @@ import "../../contracts/ProxyLedger.sol";
 import "../../contracts/lib/LedgerOCCManager.sol";
 // md imports
 import "./MerkleHelper.sol";
+import "./TestUtils.sol";
 
 import {Base58} from "../utilities/Base58Helper.sol";
 
@@ -435,17 +436,6 @@ contract LedgerProxyTest is TestHelperOz5 {
         ledgerOCCManager.withdrawTo(address(this));
     }
 
-    // Helper function to convert bytes to bytes32
-    function bytesToBytes32(bytes memory source) internal pure returns (bytes32 result) {
-        if (source.length == 0) {
-            return 0x0;
-        }
-
-        assembly {
-            result := mload(add(source, 32))
-        }
-    }
-
     function test_solana_address_conversion() public view {
         bytes32[] memory solanaAddressesBytes32 = new bytes32[](4);
         solanaAddressesBytes32[0] = 0x0000000000000000000000000000000000000000000000000000000000000000;
@@ -477,7 +467,7 @@ contract LedgerProxyTest is TestHelperOz5 {
             bytes memory decodedBytes = Base58.decodeFromString(solanaAddressesStr[i]);
 
             // Convert the string to bytes32
-            bytes32 solanaAddressBytes32 = bytesToBytes32(decodedBytes);
+            bytes32 solanaAddressBytes32 = TestUtils.bytesToBytes32(decodedBytes);
 
             // Log the results using Foundry's console.log
             console.log("solanaAddressStr: ");
