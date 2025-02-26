@@ -200,7 +200,8 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
                 payloadType: message.payloadType,
                 payload: message.payload
             });
-            ILedgerOapp(ledgerOappAddr).ledgerOappSend(occMessage);
+            MessagingFee memory msgFee = ILedgerOapp(ledgerOappAddr).ledgerOappSendQuote(occMessage);
+            ILedgerOapp(ledgerOappAddr).ledgerOappSend{value: msgFee.nativeFee}(occMessage);
         } else {
             SendParam memory sendParam = buildOCCLedgerMsg(message);
             uint256 fee = estimateCCFeeFromLedgerToVault(sendParam);
