@@ -140,7 +140,6 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         if (dstEid == solanaEid) {
             // For Solana chain we send OFT directly to user, so we need to convert EVM address to Solana address
             // Also skip composeMsg for Solana chain
-            bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(_oftGas, 0);
             bytes32 receiver = userEvm2SolanaAddress[message.receiver];
             require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
 
@@ -149,7 +148,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
                 to: receiver,
                 amountLD: amount,
                 minAmountLD: amount,
-                extraOptions: options,
+                extraOptions: bytes(""),
                 composeMsg: bytes(""),
                 oftCmd: bytes("")
             });
