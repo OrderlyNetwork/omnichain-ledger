@@ -363,3 +363,16 @@ Sensitive values saved to: /proj/orderly/proj/orderly-v2/omnichain-ledger/forge-
 forge verify-contract --rpc-url https://testnet-rpc.orderly.org --verifier blockscout --verifier-url 'https://testnet-explorer.orderly.org/api/' 0x3f797EA0eE509891dafd90cc2283f240BA560F1f contracts/test/OmnichainLedgerTestV1.sol:OmnichainLedgerTestV1
 
 ================================================================================================================================================================================
+
+yarn hardhat occ-manager-deploy-impl --network orderlySepolia
+
+yarn hardhat occ-manager-verify-impl --network orderlySepolia --occ-manager-impl-address 0x5b379B1d70dde77b3ACe0CC61f15544B46d3c8a0
+
+yarn hardhat occ-manager-upgrade-to --network orderlySepolia --occ-manager-proxy-address 0xb846DF606b592B9646db03aE2568951651D9D5BC --occ-manager-impl-address 0x6439D08a9c93Fca0612B1D3AA6e6e83D51D5A29A
+
+================================================================================================================================================================================
+
+yarn hardhat ol-test-deploy-impl --network orderlySepolia
+
+yarn hardhat ol-test-verify-impl --network orderlySepolia --ol-test-impl-address 0x2A0286D46Cd0dD6f06AD32CfEf32A9A78a96fCd3
+
