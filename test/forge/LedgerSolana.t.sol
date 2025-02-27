@@ -14,6 +14,9 @@ import {OFTMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTM
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
+import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+import { EnforcedOptionParam } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OAppOptionsType3.sol";
+
 import {LedgerTest} from "../../contracts/test/LedgerTest.sol";
 import {OmnichainLedgerV1} from "../../contracts/OmnichainLedgerV1.sol";
 import "../../contracts/ProxyLedger.sol";
@@ -106,6 +109,8 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
     bytes32 userASolanaAddressBytes32;
     address userA;
 
+    using OptionsBuilder for bytes;
+
     function setUp() public virtual override {
         super.setUp();
         setUpEndpoints(2, LibraryType.UltraLightNode);
@@ -114,6 +119,20 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         bOFT = OFTMock(_deployOApp(type(OFTMock).creationCode, abi.encode("bOFT", "bOFT", address(endpoints[ledgerEid]), address(this))));
         ledgerOapp = new OappMock();
 
+        uint128 solGas = 200000;
+        uint128 solValue = 3000000;
+
+        bytes memory solOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            solGas,
+            solValue
+        );
+        EnforcedOptionParam[] memory optionParams = new EnforcedOptionParam[](1);
+        optionParams[0] = EnforcedOptionParam({
+            eid: solanaEid,
+            msgType: 1,
+            options: solOptions
+        });
+        bOFT.setEnforcedOptions(optionParams);
         // config and wire the ofts
         address[] memory ofts = new address[](2);
         ofts[0] = address(aOFT);

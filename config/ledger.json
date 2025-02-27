@@ -75,11 +75,11 @@
   },
   "dev": {
     "ledger": {
-      "impl": "0x0000000000000000000000000000000000000000",
-      "proxy": "0x741a48F39683c345Ff37A86791537154869C77D4"
+      "impl": "0x2A0286D46Cd0dD6f06AD32CfEf32A9A78a96fCd3",
+      "proxy": "0xd80de8B312C6bDd033fe9949eD81756509F381bC"
     },
     "ledger_occ_manager": {
-      "impl": "0x37Bcd2C6244371dacB4f5C2082e7D9006CD3f4CA",
+      "impl": "0x6439D08a9c93Fca0612B1D3AA6e6e83D51D5A29A",
       "proxy": "0xb846DF606b592B9646db03aE2568951651D9D5BC"
     },
     "ledger_oapp": {

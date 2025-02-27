@@ -16,6 +16,7 @@ import "./scripts/tasks/ledger_role_management";
 import "./scripts/tasks/ledger_md";
 import "./scripts/tasks/mdl1";
 import "./scripts/tasks/ol_qa_setup";
+import "./scripts/tasks/occ_manager";
 import { getHardhatNetworkConfig, getHardhatApiKey, getHardhatEtherscanConfig } from "orderly-network-config";
 
 task("accounts", "Prints the list of accounts", async (_args, hre) => {
