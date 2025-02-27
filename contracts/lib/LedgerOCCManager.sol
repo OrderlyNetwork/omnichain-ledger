@@ -296,7 +296,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             tokenAmount: occVaultMessage.tokenAmount,
             sender: sender,
             payloadType: occVaultMessage.payloadType,
-            payload: occVaultMessage.payload
+            payload: srcEid == solanaEid ? bytes("") : occVaultMessage.payload   // Remove payload of the compose message from Solana chain
         });
 
         ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
