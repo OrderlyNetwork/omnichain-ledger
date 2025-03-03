@@ -14,8 +14,8 @@ import {OFTMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTM
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 import {TestHelperOz5} from "@layerzerolabs/test-devtools-evm-foundry/contracts/TestHelperOz5.sol";
 
-import { OptionsBuilder } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
-import { EnforcedOptionParam } from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OAppOptionsType3.sol";
+import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+import {EnforcedOptionParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OAppOptionsType3.sol";
 
 import {LedgerTest} from "../../contracts/test/LedgerTest.sol";
 import {OmnichainLedgerV1} from "../../contracts/OmnichainLedgerV1.sol";
@@ -122,16 +122,9 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         uint128 solGas = 200000;
         uint128 solValue = 3000000;
 
-        bytes memory solOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            solGas,
-            solValue
-        );
+        bytes memory solOptions = OptionsBuilder.newOptions().addExecutorLzReceiveOption(solGas, solValue);
         EnforcedOptionParam[] memory optionParams = new EnforcedOptionParam[](1);
-        optionParams[0] = EnforcedOptionParam({
-            eid: solanaEid,
-            msgType: 1,
-            options: solOptions
-        });
+        optionParams[0] = EnforcedOptionParam({eid: solanaEid, msgType: 1, options: solOptions});
         bOFT.setEnforcedOptions(optionParams);
         // config and wire the ofts
         address[] memory ofts = new address[](2);
@@ -292,7 +285,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         (uint256 userStakeOrderBefore, ) = omnichainLedger.getStakingInfo(userA);
 
         // Call lzCompose with Stake payload
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         vm.prank(endpoints[ledgerEid]);
         if (userStakeOrderBefore == 0) {
             vm.expectEmit(true, true, false, true);
@@ -325,7 +318,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         (uint256 userStakeOrderBefore, ) = omnichainLedger.getStakingInfo(userA);
 
         // Mock data for Stake payload
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(ONE_ETH, userASolanaAddressBytes32, PayloadDataType.CreateOrderUnstakeRequest);
 
         vm.prank(address(ledgerOapp));
@@ -350,7 +343,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         (uint256 userPendingUnstakeBefore, ) = omnichainLedger.userPendingUnstake(userA);
 
         // Mock data for Stake payload
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(0, userASolanaAddressBytes32, PayloadDataType.CancelOrderUnstakeRequest);
 
         vm.prank(address(ledgerOapp));
@@ -382,7 +375,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         (uint256 userStakeOrderBefore, ) = omnichainLedger.getStakingInfo(userA);
 
         // Mock data for Stake payload
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(0, userASolanaAddressBytes32, PayloadDataType.WithdrawOrder);
 
         vm.prank(address(ledgerOapp));
@@ -409,7 +402,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         (uint256 userStakeOrderBefore, ) = omnichainLedger.getStakingInfo(userA);
 
         // Mock data for Stake payload
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         uint256 expectedOrderAmountForCollect = (ONE_ETH * UNSTAKE_NOW_COLLECT_PERCENT) / 100;
         uint256 expectedOrderAmountForWithdraw = ONE_ETH - expectedOrderAmountForCollect;
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(ONE_ETH, userASolanaAddressBytes32, PayloadDataType.UnstakeOrderNow);
@@ -446,7 +439,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
             payload: payload
         });
 
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
 
         vm.prank(address(ledgerOapp));
         vm.expectEmit(true, true, true, true);
@@ -474,7 +467,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         });
 
         (, uint256 userStakeEsOrderBefore) = omnichainLedger.getStakingInfo(userA);
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
 
         vm.prank(address(ledgerOapp));
         vm.expectEmit(true, true, true, true);
@@ -494,7 +487,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(ONE_ETH, userASolanaAddressBytes32, PayloadDataType.EsOrderUnstakeAndVest);
 
         (, uint256 userStakeEsOrderBefore) = omnichainLedger.getStakingInfo(userA);
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         uint256 expectedUnlockTimestamp = block.timestamp + omnichainLedger.vestingLockPeriod();
 
         vm.prank(address(ledgerOapp));
@@ -515,7 +508,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
     function test_solana_cancel_vesting_request() public {
         test_solana_esorder_unstake_and_vest();
 
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         uint256 requestId = 0;
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(requestId, userASolanaAddressBytes32, PayloadDataType.CancelVestingRequest);
 
@@ -537,7 +530,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
     function test_solana_claim_vesting_request() public {
         test_solana_esorder_unstake_and_vest();
 
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         uint256 requestId = 0;
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(requestId, userASolanaAddressBytes32, PayloadDataType.ClaimVestingRequest);
 
@@ -562,7 +555,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         test_solana_stake();
 
         vm.warp(block.timestamp + 2 days);
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         uint256 userValorBefore = omnichainLedger.getUserValor(userA);
 
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(userValorBefore, userASolanaAddressBytes32, PayloadDataType.RedeemValor);
@@ -588,7 +581,7 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
 
         OCCVaultMessage memory occVaultMessage = buildOccVaultMessage(0, userASolanaAddressBytes32, PayloadDataType.ClaimUsdcRevenue);
 
-        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId() + 1;
+        uint256 expectedChainedEventId = ledgerOCCManager.solanaChainEventId();
         vm.prank(address(ledgerOapp));
         vm.expectEmit(true, true, true, true);
         emit UsdcRevenueClaimed(expectedChainedEventId, solanaEid, userA, 1 ether);

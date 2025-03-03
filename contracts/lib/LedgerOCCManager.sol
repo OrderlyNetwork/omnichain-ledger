@@ -290,13 +290,13 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
         EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
-            chainedEventId: srcEid == solanaEid ? ++solanaChainEventId : occVaultMessage.chainedEventId,
+            chainedEventId: srcEid == solanaEid ? solanaChainEventId++ : occVaultMessage.chainedEventId,
             srcChainId: occVaultMessage.srcChainId,
             token: occVaultMessage.token,
             tokenAmount: occVaultMessage.tokenAmount,
             sender: sender,
             payloadType: occVaultMessage.payloadType,
-            payload: srcEid == solanaEid ? bytes("") : occVaultMessage.payload   // Remove payload of the compose message from Solana chain
+            payload: srcEid == solanaEid ? bytes("") : occVaultMessage.payload // Remove payload of the compose message from Solana chain
         });
 
         ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
@@ -340,7 +340,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
         EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
-            chainedEventId: chainId2Eid[_message.srcChainId] == solanaEid ? ++solanaChainEventId : _message.chainedEventId,
+            chainedEventId: chainId2Eid[_message.srcChainId] == solanaEid ? solanaChainEventId++ : _message.chainedEventId,
             srcChainId: _message.srcChainId,
             token: _message.token,
             tokenAmount: _message.tokenAmount,
