@@ -189,7 +189,6 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         if (chainId2Eid[message.dstChainId] == solanaEid && message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward)) {
             bytes32 receiver = userEvm2SolanaAddress[message.receiver];
             require(receiver != bytes32(0), "LedgerOCCManager: Solana receiver address not found");
-            require(message.payloadType == uint8(PayloadDataType.ClaimUsdcRevenueBackward), "unsupported payload type");
 
             OCCLedgerMessage memory occMessage = OCCLedgerMessage({
                 dstChainId: message.dstChainId,
