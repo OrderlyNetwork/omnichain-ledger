@@ -10,6 +10,7 @@ import {ILedgerOapp} from "./ILedgerOApp.sol";
 
 // oz imports
 import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
@@ -356,7 +357,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
      * @param to the address to withdraw
      */
     function withdrawTo(address to) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        payable(to).transfer(address(this).balance);
+        Address.sendValue(payable(to), address(this).balance);
     }
 
     /**
