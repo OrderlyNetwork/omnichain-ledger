@@ -388,5 +388,5 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     }
 
     /// gap for upgradeable
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 }

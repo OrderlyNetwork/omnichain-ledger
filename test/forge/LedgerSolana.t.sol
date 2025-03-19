@@ -589,4 +589,23 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
         emit LedgerOappSend();
         ledgerOCCManager.ledgerOappReceive(occVaultMessage);
     }
+
+    function test_storage_layout() public {
+        console.log("ledgerOappAddr: ", ledgerOCCManager.ledgerOappAddr());
+        console.log("solanaEid: ", ledgerOCCManager.solanaEid());
+        for (uint256 i = 75; i < 76; i++) {
+            bytes32 slot = vm.load(address(ledgerOCCManager), bytes32(uint256(i)));
+            console.log("slot: ", i);
+            console.logBytes32(slot);
+        }
+        ledgerOCCManager.setSolanaEid(10);
+        ledgerOCCManager.setLedgerOappAddr(address(omnichainLedger));
+        console.log("ledgerOappAddr: ", ledgerOCCManager.ledgerOappAddr());
+        console.log("solanaEid: ", ledgerOCCManager.solanaEid());
+        for (uint256 i = 75; i < 76; i++) {
+            bytes32 slot = vm.load(address(ledgerOCCManager), bytes32(uint256(i)));
+            console.log("slot: ", i);
+            console.logBytes32(slot);
+        }
+    }
 }
