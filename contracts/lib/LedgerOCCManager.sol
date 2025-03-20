@@ -261,23 +261,23 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
     ) external payable {
         uint32 srcEid = _message.srcEid();
         bytes memory _composeMsgContent = _message.composeMsg();
-        OCCVaultMessage memory occVaultMessage = abi.decode(_composeMsgContent, (OCCVaultMessage));
+        OCCVaultMessage memory occVaultMessage;
 
         if (srcEid == solanaEid) {
-            require(msg.sender == lzEndpoint && _from == orderTokenOft, "LedgerOCCManager: lzCompose sender check failed");
-
             bytes32 remoteSender = _message.composeFrom();
-            require(remoteSender == occVaultMessage.sender, "LedgerOCCManager: composeMsg sender check failed");
-
             uint256 amountLD = _message.amountLD();
-            require(
-                PayloadDataType(occVaultMessage.payloadType) == PayloadDataType.Stake,
-                "LedgerOCCManager: Only Stake payload is supported through Solana OFT channel"
-            );
-            require(amountLD == occVaultMessage.tokenAmount, "LedgerOCCManager: composeMsg stake amount check failed");
-            require(occVaultMessage.token == LedgerToken.ORDER, "LedgerOCCManager: only ORDER token can be staked");
-            require(occVaultMessage.srcChainId == eid2ChainId[srcEid], "LedgerOCCManager: composeMsg srcChainId check failed");
+            
+            // recontruct the Staking message for Solana chain
+            occVaultMessage.chainedEventId = ++solanaChainEventId;
+            occVaultMessage.srcChainId = eid2ChainId[solanaEid];
+            occVaultMessage.token = LedgerToken.ORDER;
+            occVaultMessage.tokenAmount = amountLD;
+            occVaultMessage.sender = remoteSender;
+            occVaultMessage.payloadType = uint8(PayloadDataType.Stake);
+            occVaultMessage.payload = bytes("");
         } else {
+            // decode the message for other chains
+            occVaultMessage = abi.decode(_composeMsgContent, (OCCVaultMessage));
             address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
             require(_authorizeComposeMsgSender(msg.sender, _from, srcEid, remoteSender), "LedgerOCCManager: composeMsg sender check failed");
             require(PayloadDataType(occVaultMessage.payloadType) != PayloadDataType.ClaimRewardSolana, "LedgerOCCManager: unsupported payload type");
@@ -290,13 +290,13 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
 
         // We receive OCCVaultMessage from LZ and need to convert it to EvmVaultMessage for internal ledger use
         EvmVaultMessage memory evmVaultMessage = EvmVaultMessage({
-            chainedEventId: srcEid == solanaEid ? solanaChainEventId++ : occVaultMessage.chainedEventId,
+            chainedEventId: occVaultMessage.chainedEventId,
             srcChainId: occVaultMessage.srcChainId,
             token: occVaultMessage.token,
             tokenAmount: occVaultMessage.tokenAmount,
             sender: sender,
             payloadType: occVaultMessage.payloadType,
-            payload: srcEid == solanaEid ? bytes("") : occVaultMessage.payload // Remove payload of the compose message from Solana chain
+            payload: occVaultMessage.payload 
         });
 
         ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
