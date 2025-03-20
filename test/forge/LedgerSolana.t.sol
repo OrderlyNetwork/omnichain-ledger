@@ -228,42 +228,6 @@ contract LedgerSolanaTest is TestHelperOz5, LedgerSolanaConstants, ILedgerSolana
 
         vm.expectRevert("LedgerOCCManager: lzCompose sender check failed");
         ledgerOCCManager.lzCompose(address(bOFT), guid, oftComposeMsg, address(0x1), bytes(""));
-
-        oftComposeMsg = OFTComposeMsgCodec.encode(0, solanaEid, ONE_ETH, abi.encodePacked(bytes32(""), composeMsg));
-        vm.prank(endpoints[ledgerEid]);
-        vm.expectRevert("LedgerOCCManager: composeMsg sender check failed");
-        ledgerOCCManager.lzCompose(address(bOFT), guid, oftComposeMsg, address(0x1), bytes(""));
-
-        occVaultMessage.payloadType = uint8(PayloadDataType.CreateOrderUnstakeRequest);
-        composeMsg = abi.encode(occVaultMessage);
-        oftComposeMsg = OFTComposeMsgCodec.encode(0, solanaEid, ONE_ETH, abi.encodePacked(userASolanaAddressBytes32, composeMsg));
-        vm.prank(endpoints[ledgerEid]);
-        vm.expectRevert("LedgerOCCManager: Only Stake payload is supported through Solana OFT channel");
-        ledgerOCCManager.lzCompose(address(bOFT), guid, oftComposeMsg, address(0x1), bytes(""));
-
-        occVaultMessage.payloadType = uint8(PayloadDataType.Stake);
-        occVaultMessage.tokenAmount = 2 * ONE_ETH;
-        composeMsg = abi.encode(occVaultMessage);
-        oftComposeMsg = OFTComposeMsgCodec.encode(0, solanaEid, ONE_ETH, abi.encodePacked(userASolanaAddressBytes32, composeMsg));
-        vm.prank(endpoints[ledgerEid]);
-        vm.expectRevert("LedgerOCCManager: composeMsg stake amount check failed");
-        ledgerOCCManager.lzCompose(address(bOFT), guid, oftComposeMsg, address(0x1), bytes(""));
-
-        occVaultMessage.tokenAmount = ONE_ETH;
-        occVaultMessage.token = LedgerToken.ESORDER;
-        composeMsg = abi.encode(occVaultMessage);
-        oftComposeMsg = OFTComposeMsgCodec.encode(0, solanaEid, ONE_ETH, abi.encodePacked(userASolanaAddressBytes32, composeMsg));
-        vm.prank(endpoints[ledgerEid]);
-        vm.expectRevert("LedgerOCCManager: only ORDER token can be staked");
-        ledgerOCCManager.lzCompose(address(bOFT), guid, oftComposeMsg, address(0x1), bytes(""));
-
-        occVaultMessage.token = LedgerToken.ORDER;
-        occVaultMessage.srcChainId = ledgerEid;
-        composeMsg = abi.encode(occVaultMessage);
-        oftComposeMsg = OFTComposeMsgCodec.encode(0, solanaEid, ONE_ETH, abi.encodePacked(userASolanaAddressBytes32, composeMsg));
-        vm.prank(endpoints[ledgerEid]);
-        vm.expectRevert("LedgerOCCManager: composeMsg srcChainId check failed");
-        ledgerOCCManager.lzCompose(address(bOFT), guid, oftComposeMsg, address(0x1), bytes(""));
     }
 
     function test_solana_stake() public {

@@ -266,15 +266,12 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         if (srcEid == solanaEid) {
             require(msg.sender == lzEndpoint && _from == orderTokenOft, "LedgerOCCManager: lzCompose sender check failed");
 
-            bytes32 remoteSender = _message.composeFrom();
-            uint256 amountLD = _message.amountLD();
-            
             // recontruct the Staking message for Solana chain
-            occVaultMessage.chainedEventId = ++solanaChainEventId;
+            occVaultMessage.chainedEventId = solanaChainEventId++;
             occVaultMessage.srcChainId = eid2ChainId[solanaEid];
             occVaultMessage.token = LedgerToken.ORDER;
-            occVaultMessage.tokenAmount = amountLD;
-            occVaultMessage.sender = remoteSender;
+            occVaultMessage.tokenAmount = _message.amountLD();
+            occVaultMessage.sender = _message.composeFrom();
             occVaultMessage.payloadType = uint8(PayloadDataType.Stake);
             occVaultMessage.payload = bytes("");
         } else {
@@ -298,7 +295,7 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
             tokenAmount: occVaultMessage.tokenAmount,
             sender: sender,
             payloadType: occVaultMessage.payloadType,
-            payload: occVaultMessage.payload 
+            payload: occVaultMessage.payload
         });
 
         ILedgerReceiver(ledgerAddr).ledgerRecvFromVault(evmVaultMessage);
