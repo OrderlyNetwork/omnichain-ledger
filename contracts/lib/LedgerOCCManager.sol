@@ -264,6 +264,8 @@ contract LedgerOCCManager is Initializable, LedgerAccessControl, OCCAdapterDatal
         OCCVaultMessage memory occVaultMessage;
 
         if (srcEid == solanaEid) {
+            require(msg.sender == lzEndpoint && _from == orderTokenOft, "LedgerOCCManager: lzCompose sender check failed");
+
             bytes32 remoteSender = _message.composeFrom();
             uint256 amountLD = _message.amountLD();
             
