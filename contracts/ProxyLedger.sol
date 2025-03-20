@@ -222,7 +222,7 @@ contract ProxyLedger is Initializable, VaultOCCManager, UUPSUpgradeable {
         bytes calldata _message,
         address /*executor*/,
         bytes calldata /*_extraData*/
-    ) external payable {
+    ) external payable whenNotPaused {
         uint32 srcEid = _message.srcEid();
         address remoteSender = OFTComposeMsgCodec.bytes32ToAddress(_message.composeFrom());
         require(_authorizeComposeMsgSender(msg.sender, from, srcEid, remoteSender), "OrderlyBox: composeMsg sender check failed");
